@@ -188,8 +188,7 @@ def publish_website() -> None:
 
     # Diese Version ist jetzt die letzte veröffentlichte Version.
     st.session_state.published_html = html
-    st.session_state.html_editor = html
-
+    
 
 def delete_published_website() -> None:
     """Löscht das letzte Vercel-Deployment."""
