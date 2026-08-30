@@ -384,7 +384,6 @@ def publish_website() -> None:
     if not deployment_id or not deployment_url:
         raise ValueError(f"Unvollständige Vercel-Antwort: {deployment}")
 
-    st.session_state.project_name = project_name
     st.session_state.live_url = get_public_url(deployment)
     st.session_state.deployment_url = f"https://{deployment_url}"
     st.session_state.deployment_id = deployment_id
