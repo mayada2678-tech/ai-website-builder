@@ -1,5 +1,7 @@
 import base64
+import re
 from pathlib import Path
+from urllib.parse import urlparse
 
 import requests
 import streamlit as st
@@ -24,6 +26,7 @@ except KeyError:
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
+# Daten bleiben bei Streamlit-Neuladen innerhalb derselben Sitzung erhalten.
 for key, default_value in {
     "generated_html": "",
     "html_editor": "",
@@ -31,41 +34,25 @@ for key, default_value in {
     "published_html": "",
     "saved_design_html": "",
     "saved_design_name": "",
-    "image_name": "",
-    "image_base64": "",
-    "image_mime_type": "",
+    "assets": {},
     "live_url": "",
     "deployment_id": "",
+    "managed_live_url": "",
+    "project_name": "ai-website-builder",
     "delete_confirmation": False,
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default_value
 
-# Wichtig: Der HTML-Editor darf nur vor seiner Erstellung verändert werden.
+# Wichtig: Der Editor-Wert wird aktualisiert, bevor das Textfeld erstellt wird.
 if st.session_state.pending_html:
     st.session_state.generated_html = st.session_state.pending_html
     st.session_state.html_editor = st.session_state.pending_html
     st.session_state.pending_html = ""
 
 
-def create_preview_html(html: str) -> str:
-    """Ersetzt hochgeladene lokale Bilder nur in der Vorschau durch Base64."""
-    if (
-        st.session_state.image_name
-        and st.session_state.image_base64
-        and st.session_state.image_mime_type
-    ):
-        data_url = (
-            f"data:{st.session_state.image_mime_type};base64,"
-            f"{st.session_state.image_base64}"
-        )
-        return html.replace(st.session_state.image_name, data_url)
-
-    return html
-
-
 def clean_html(html: str) -> str:
-    """Entfernt mögliche Markdown-Codeblöcke aus der KI-Antwort."""
+    """Entfernt Markdown-Codeblöcke aus einer KI-Antwort."""
     return (
         html.replace("```html", "")
         .replace("```HTML", "")
@@ -75,91 +62,100 @@ def clean_html(html: str) -> str:
 
 
 def queue_html_update(html: str) -> None:
-    """Plant eine HTML-Aktualisierung für den nächsten Streamlit-Durchlauf."""
+    """Plant eine sichere HTML-Aktualisierung für den nächsten Durchlauf."""
     cleaned_html = clean_html(html)
 
     if not cleaned_html:
         raise ValueError("Die KI hat keinen HTML-Code zurückgegeben.")
 
+    if "<html" not in cleaned_html.lower() and "<!doctype" not in cleaned_html.lower():
+        raise ValueError("Die Antwort enthält keinen vollständigen HTML-Code.")
+
     st.session_state.pending_html = cleaned_html
 
 
-def update_preview() -> None:
-    """Übernimmt den manuell bearbeiteten Code in die Vorschau."""
-    edited_html = st.session_state.html_editor.strip()
+def save_uploaded_image(uploaded_file, section_name: str) -> str:
+    """Speichert ein Bild als Asset und gibt den Dateinamen zurück."""
+    if uploaded_file is None:
+        raise ValueError("Bitte wähle zuerst ein Bild aus.")
 
-    if edited_html:
-        st.session_state.generated_html = edited_html
+    extension = Path(uploaded_file.name).suffix.lower()
+    if extension not in {".png", ".jpg", ".jpeg"}:
+        extension = ".png"
+
+    safe_section_name = re.sub(
+        r"[^a-z0-9]+",
+        "-",
+        section_name.lower(),
+    ).strip("-")
+
+    file_name = f"{safe_section_name}-bild{extension}"
+    image_bytes = uploaded_file.getvalue()
+
+    mime_type = uploaded_file.type
+    if not mime_type:
+        mime_type = "image/png" if extension == ".png" else "image/jpeg"
+
+    st.session_state.assets[file_name] = {
+        "base64": base64.b64encode(image_bytes).decode("utf-8"),
+        "mime_type": mime_type,
+    }
+
+    return file_name
 
 
-def discard_changes() -> None:
-    """Setzt den Entwurf auf die letzte veröffentlichte Version zurück."""
-    if st.session_state.published_html:
-        st.session_state.pending_html = st.session_state.published_html
-    else:
-        st.session_state.pending_html = st.session_state.generated_html
+def create_preview_html(html: str) -> str:
+    """Ersetzt gespeicherte Bilddateien in der lokalen Vorschau durch Base64."""
+    preview_html = html
+
+    for file_name, asset in st.session_state.assets.items():
+        data_url = f"data:{asset['mime_type']};base64,{asset['base64']}"
+        preview_html = preview_html.replace(file_name, data_url)
+
+    return preview_html
 
 
 def ask_ai_for_html(system_instruction: str, user_instruction: str) -> str:
-    """Fordert vollständigen HTML-Code von OpenAI an."""
+    """Fordert von OpenAI vollständigen HTML-Code an."""
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {
-                "role": "system",
-                "content": system_instruction,
-            },
-            {
-                "role": "user",
-                "content": user_instruction,
-            },
+            {"role": "system", "content": system_instruction},
+            {"role": "user", "content": user_instruction},
         ],
-        temperature=0.5,
+        temperature=0.4,
     )
 
     return response.choices[0].message.content or ""
 
 
 def generate_website(user_prompt: str, uploaded_file) -> None:
-    """Erstellt einen neuen, noch nicht veröffentlichten Entwurf."""
+    """Erstellt einen neuen Entwurf, veröffentlicht ihn aber nicht."""
     image_instruction = ""
 
     if uploaded_file is not None:
-        extension = Path(uploaded_file.name).suffix.lower()
-        if extension not in {".png", ".jpg", ".jpeg"}:
-            extension = ".png"
-
-        image_bytes = uploaded_file.getvalue()
-        st.session_state.image_name = f"upload-bild{extension}"
-        st.session_state.image_base64 = base64.b64encode(image_bytes).decode("utf-8")
-        st.session_state.image_mime_type = uploaded_file.type or (
-            "image/png" if extension == ".png" else "image/jpeg"
-        )
+        image_name = save_uploaded_image(uploaded_file, "profil")
 
         image_instruction = f"""
-Ein Bild wurde hochgeladen. Binde es professionell in den Hero- oder
-Über-mich-Bereich ein. Verwende exakt:
+Es gibt ein hochgeladenes Profilbild. Binde es im Hero- oder Über-mich-Bereich ein:
 
-<img src="{st.session_state.image_name}" alt="Profilbild">
+<img src="{image_name}" alt="Profilbild">
 """
-    else:
-        st.session_state.image_name = ""
-        st.session_state.image_base64 = ""
-        st.session_state.image_mime_type = ""
 
     html = ask_ai_for_html(
         system_instruction=f"""
 Du bist ein professioneller Frontend-Entwickler und Webdesigner.
 
-Erstelle eine vollständige, moderne, responsive und hochwertige
-Einzelseiten-Webseite.
+Erstelle eine vollständige, moderne, hochwertige und responsive Single-Page-Website.
 
 Regeln:
-- Nutze valides HTML5.
-- Binde Tailwind CSS über https://cdn.tailwindcss.com ein.
-- Erstelle Navigation, Hero, Über mich, Fähigkeiten, Projekte, Kontakt und Footer.
+- Verwende valides HTML5.
+- Binde Tailwind CSS mit https://cdn.tailwindcss.com ein.
+- Verwende Navigation, Hero-Bereich, Über mich, Fähigkeiten, Projekte,
+  Kontaktbereich und Footer.
+- Nutze ein professionelles, übersichtliches Design.
 - Gib ausschließlich vollständigen HTML-Code zurück.
-- Kein Markdown, keine Backticks und keine Erklärungen.
+- Verwende kein Markdown, keine Backticks und keine Erklärungen.
 - Beginne direkt mit <!doctype html>.
 {image_instruction}
 """,
@@ -170,25 +166,26 @@ Regeln:
 
 
 def modify_current_website(change_request: str) -> None:
-    """Ändert nur den vom Benutzer gewünschten Bereich der aktuellen Website."""
-    current_html = st.session_state.generated_html
+    """Ändert nur die gewünschten Teile des aktuellen HTML-Entwurfs."""
+    current_html = st.session_state.generated_html.strip()
 
-    if not current_html.strip():
-        raise ValueError("Erstelle zuerst einen Website-Entwurf.")
+    if not current_html:
+        raise ValueError("Erstelle oder lade zuerst eine Website.")
 
     html = ask_ai_for_html(
         system_instruction="""
 Du bist ein sorgfältiger Frontend-Entwickler.
 
-Du erhältst vollständigen HTML-Code einer bestehenden Website und eine konkrete
-Änderungsanweisung. Ändere nur die gewünschten Bereiche. Erhalte alle anderen
-Inhalte, Texte, Abschnitte und das allgemeine Design soweit wie möglich.
+Du erhältst den vollständigen HTML-Code einer bestehenden Website.
+Ändere ausschließlich den gewünschten Bereich. Erhalte alle anderen Texte,
+Abschnitte, Bilder und Styles so weit wie möglich.
 
 Regeln:
 - Antworte ausschließlich mit vollständigem HTML5.
-- Kein Markdown, keine Backticks und keine Erklärungen.
 - Beginne direkt mit <!doctype html>.
+- Kein Markdown, keine Backticks und keine Erklärung.
 - Tailwind CSS muss weiterhin eingebunden bleiben.
+- Entferne keine vorhandenen Bilder oder Abschnitte, außer dies wird verlangt.
 """,
         user_instruction=f"""
 AKTUELLER HTML-CODE:
@@ -202,49 +199,84 @@ GEWÜNSCHTE ÄNDERUNG:
     queue_html_update(html)
 
 
-def update_image_for_section(uploaded_file, section_name: str) -> None:
-    """Ersetzt oder ergänzt ein Bild in einem einzigen gewählten Abschnitt."""
-    if uploaded_file is None:
-        raise ValueError("Bitte wähle zuerst ein Bild aus.")
+def update_preview() -> None:
+    """Übernimmt manuelle HTML-Änderungen in die Vorschau."""
+    edited_html = st.session_state.html_editor.strip()
 
-    extension = Path(uploaded_file.name).suffix.lower()
-    if extension not in {".png", ".jpg", ".jpeg"}:
-        extension = ".png"
+    if not edited_html:
+        st.warning("Der HTML-Code darf nicht leer sein.")
+        return
 
-    image_bytes = uploaded_file.getvalue()
-    st.session_state.image_name = f"{section_name.lower()}-bild{extension}"
-    st.session_state.image_base64 = base64.b64encode(image_bytes).decode("utf-8")
-    st.session_state.image_mime_type = uploaded_file.type or (
-        "image/png" if extension == ".png" else "image/jpeg"
+    st.session_state.generated_html = edited_html
+
+
+def discard_changes() -> None:
+    """Setzt den Entwurf auf die letzte veröffentlichte Version zurück."""
+    if st.session_state.published_html:
+        st.session_state.pending_html = st.session_state.published_html
+    else:
+        st.session_state.pending_html = st.session_state.generated_html
+
+
+def get_project_name_from_url(live_url: str) -> str:
+    """Ermittelt einen brauchbaren Vercel-Projektnamen aus dem Live-Link."""
+    hostname = urlparse(live_url).hostname or ""
+    first_part = hostname.split(".")[0].lower()
+
+    project_name = re.sub(r"[^a-z0-9-]", "-", first_part).strip("-")
+    return project_name or "ai-website-builder"
+
+
+def load_published_website(live_url: str) -> None:
+    """Lädt eine veröffentlichte Website über ihren Link in den Editor."""
+    live_url = live_url.strip()
+
+    if not live_url.startswith(("https://", "http://")):
+        live_url = f"https://{live_url}"
+
+    response = requests.get(
+        live_url,
+        headers={"User-Agent": "AI-Website-Builder/1.0"},
+        timeout=30,
     )
 
-    modify_current_website(
-        f"""
-Ändere ausschließlich den Bildbereich im Abschnitt „{section_name}“.
+    if response.status_code != 200:
+        raise ValueError(
+            f"Die Website konnte nicht geladen werden. HTTP {response.status_code}."
+        )
 
-Binde das neu hochgeladene Bild exakt so ein:
-<img src="{st.session_state.image_name}" alt="{section_name} Bild">
+    html = response.text.strip()
 
-Passe Größe, Bildausschnitt, abgerundete Ecken und responsive Darstellung
-professionell an. Alle anderen Abschnitte sollen unverändert bleiben.
-"""
-    )
+    if "<html" not in html.lower() and "<!doctype" not in html.lower():
+        raise ValueError("Der angegebene Link enthält keine vollständige HTML-Website.")
+
+    st.session_state.managed_live_url = live_url
+    st.session_state.live_url = live_url
+    st.session_state.project_name = get_project_name_from_url(live_url)
+    st.session_state.published_html = html
+    st.session_state.pending_html = html
 
 
 def publish_website() -> None:
-    """Veröffentlicht den aktuellen Vorschau-Entwurf auf Vercel."""
+    """Veröffentlicht den aktuell sichtbaren Entwurf auf Vercel."""
     html = st.session_state.generated_html.strip()
 
     if not html:
         raise ValueError("Es gibt keinen Entwurf zum Veröffentlichen.")
 
-    files = [{"file": "index.html", "data": html}]
+    files = [
+        {
+            "file": "index.html",
+            "data": html,
+        }
+    ]
 
-    if st.session_state.image_name and st.session_state.image_base64:
+    # Alle Bilder werden gemeinsam mit index.html veröffentlicht.
+    for file_name, asset in st.session_state.assets.items():
         files.append(
             {
-                "file": st.session_state.image_name,
-                "data": st.session_state.image_base64,
+                "file": file_name,
+                "data": asset["base64"],
                 "encoding": "base64",
             }
         )
@@ -256,7 +288,7 @@ def publish_website() -> None:
             "Content-Type": "application/json",
         },
         json={
-            "name": "ai-website-builder",
+            "name": st.session_state.project_name,
             "target": "production",
             "files": files,
         },
@@ -272,17 +304,23 @@ def publish_website() -> None:
         raise ValueError(f"Vercel-Antwort unvollständig: {deployment}")
 
     st.session_state.live_url = f"https://{deployment['url']}"
+    st.session_state.managed_live_url = st.session_state.live_url
     st.session_state.deployment_id = deployment["id"]
     st.session_state.published_html = html
 
 
 def delete_published_website() -> None:
-    """Löscht das zuletzt erstellte Vercel-Deployment."""
-    if not st.session_state.deployment_id:
-        raise ValueError("Es wurde keine Live-Website gefunden.")
+    """Löscht das letzte Deployment der App."""
+    deployment_id = st.session_state.deployment_id
+
+    if not deployment_id:
+        raise ValueError(
+            "Kein Deployment in dieser Sitzung gefunden. "
+            "Nur Seiten, die in dieser App veröffentlicht wurden, können hier gelöscht werden."
+        )
 
     response = requests.delete(
-        f"https://api.vercel.com/v13/deployments/{st.session_state.deployment_id}",
+        f"https://api.vercel.com/v13/deployments/{deployment_id}",
         headers={"Authorization": f"Bearer {VERCEL_TOKEN}"},
         timeout=60,
     )
@@ -291,6 +329,7 @@ def delete_published_website() -> None:
         raise ValueError(f"HTTP {response.status_code}: {response.text}")
 
     st.session_state.live_url = ""
+    st.session_state.managed_live_url = ""
     st.session_state.deployment_id = ""
     st.session_state.published_html = ""
     st.session_state.delete_confirmation = False
@@ -298,99 +337,154 @@ def delete_published_website() -> None:
 
 st.title("🚀 KI Website Builder")
 st.write(
-    "Erstelle einen Entwurf, bearbeite einzelne Bereiche und prüfe jede "
-    "Änderung in der Vorschau vor der Veröffentlichung."
+    "Erstelle, bearbeite, speichere und veröffentliche Websites. "
+    "Alle Änderungen werden zuerst in einer Vorschau angezeigt."
 )
 st.divider()
 
-start_column, status_column = st.columns([1.4, 1], gap="large")
+create_tab, manage_tab = st.tabs(
+    [
+        "✨ Neue Website erstellen",
+        "⚙️ Veröffentlichte Seiten verwalten",
+    ]
+)
 
-with start_column:
-    st.subheader("1. Neue Website erstellen")
+with create_tab:
+    left_column, right_column = st.columns([1.4, 1], gap="large")
 
-    user_prompt = st.text_area(
-        "Beschreibe die gewünschte Website",
-        placeholder=(
-            "Beispiel: Moderne Portfolio-Webseite für eine Data-Engineering- "
-            "und KI-Spezialistin. Mit Projekten, Kompetenzen und Kontakt."
-        ),
-        height=180,
-    )
+    with left_column:
+        st.subheader("Neue Website erstellen")
 
-    initial_image = st.file_uploader(
-        "Profilbild oder Logo für den ersten Entwurf (optional)",
-        type=["png", "jpg", "jpeg"],
-        key="initial_image",
-    )
-
-    generate_clicked = st.button(
-        "✨ Neuen Entwurf generieren",
-        type="primary",
-        use_container_width=True,
-    )
-
-    if generate_clicked:
-        if not user_prompt.strip():
-            st.warning("Bitte gib zuerst eine Beschreibung ein.")
-        else:
-            with st.status("Entwurf wird erstellt ...", expanded=True) as status:
-                try:
-                    st.write("🧠 Erstelle Texte, Struktur und Design ...")
-                    generate_website(user_prompt, initial_image)
-                    status.update(
-                        label="✅ Entwurf erstellt. Vorschau wird geladen.",
-                        state="complete",
-                        expanded=False,
-                    )
-                    st.rerun()
-                except Exception as error:
-                    status.update(
-                        label="❌ Generierung fehlgeschlagen",
-                        state="error",
-                        expanded=True,
-                    )
-                    st.error(f"**OpenAI-Fehler:** {error}")
-
-with status_column:
-    st.subheader("Status")
-
-    if st.session_state.live_url:
-        st.success("Die Website ist veröffentlicht.")
-        st.markdown(f"### 🔗 [Live-Website öffnen]({st.session_state.live_url})")
-        st.caption(
-            "Änderungen bleiben zunächst nur im Entwurf. "
-            "Die Live-Seite ändert sich erst nach erneutem Veröffentlichen."
+        user_prompt = st.text_area(
+            "Beschreibe die gewünschte Website",
+            placeholder=(
+                "Beispiel: Moderne Portfolio-Webseite für eine Data-Engineering- "
+                "und KI-Spezialistin. Mit Kompetenzen, Projekten und Kontakt."
+            ),
+            height=180,
         )
-    else:
-        st.info("Noch nicht veröffentlicht.")
 
-    if st.session_state.saved_design_html:
-        st.success(f"Gespeichertes Design: {st.session_state.saved_design_name}")
+        initial_image = st.file_uploader(
+            "Profilbild oder Logo für den ersten Entwurf (optional)",
+            type=["png", "jpg", "jpeg"],
+            key="initial_image",
+        )
 
+        if st.button(
+            "✨ Neuen Entwurf generieren",
+            type="primary",
+            use_container_width=True,
+        ):
+            if not user_prompt.strip():
+                st.warning("Bitte gib zuerst eine Beschreibung ein.")
+            else:
+                with st.status("Entwurf wird erstellt ...", expanded=True) as status:
+                    try:
+                        st.write("🧠 Erstelle Texte, Struktur und Design ...")
+                        generate_website(user_prompt, initial_image)
+                        status.update(
+                            label="✅ Entwurf erstellt. Vorschau wird geladen.",
+                            state="complete",
+                            expanded=False,
+                        )
+                        st.rerun()
+                    except Exception as error:
+                        status.update(
+                            label="❌ Generierung fehlgeschlagen",
+                            state="error",
+                            expanded=True,
+                        )
+                        st.error(f"**OpenAI-Fehler:** {error}")
+
+    with right_column:
+        st.subheader("Ablauf")
+        st.info(
+            "1. Website beschreiben\n\n"
+            "2. Entwurf erstellen\n\n"
+            "3. Text, Bilder oder Design einzeln ändern\n\n"
+            "4. Vorschau prüfen\n\n"
+            "5. Erst dann veröffentlichen"
+        )
+
+with manage_tab:
+    st.subheader("Veröffentlichte Seiten verwalten")
+    st.write(
+        "Gib den Live-Link einer bereits veröffentlichten Website ein. "
+        "Danach kannst du sie bearbeiten, um Abschnitte erweitern und erneut veröffentlichen."
+    )
+
+    manage_column, info_column = st.columns([1.4, 1], gap="large")
+
+    with manage_column:
+        manage_url = st.text_input(
+            "Live-Link der Website",
+            placeholder="https://deine-website.vercel.app",
+            key="manage_url_input",
+        )
+
+        if st.button(
+            "⚙️ Veröffentlichte Seite laden und verwalten",
+            type="primary",
+            use_container_width=True,
+        ):
+            if not manage_url.strip():
+                st.warning("Bitte gib zuerst einen Live-Link ein.")
+            else:
+                with st.status("Live-Website wird geladen ...", expanded=True) as status:
+                    try:
+                        st.write("🌐 HTML-Code der Website wird geladen ...")
+                        load_published_website(manage_url)
+                        status.update(
+                            label="✅ Website geladen. Du kannst sie jetzt bearbeiten.",
+                            state="complete",
+                            expanded=False,
+                        )
+                        st.rerun()
+                    except Exception as error:
+                        status.update(
+                            label="❌ Website konnte nicht geladen werden",
+                            state="error",
+                            expanded=True,
+                        )
+                        st.error(f"**Fehler:** {error}")
+
+    with info_column:
+        st.info(
+            "Nach dem Laden kannst du:\n\n"
+            "- Texte und Abschnitte ändern\n"
+            "- neue Seitenbereiche ergänzen\n"
+            "- Bilder je Abschnitt austauschen\n"
+            "- Farben und Layout anpassen\n"
+            "- Änderungen prüfen und veröffentlichen"
+        )
+
+if st.session_state.live_url:
+    st.success("Eine Website ist aktuell geladen oder veröffentlicht.")
+    st.markdown(f"### 🔗 [Live-Website öffnen]({st.session_state.live_url})")
 
 if st.session_state.generated_html:
     st.divider()
-    st.header("2. Website-Bereiche bearbeiten")
+    st.header("Website bearbeiten")
 
     st.info(
-        "Jede Aktion ändert nur den gewünschten Bereich. "
-        "Prüfe anschließend rechts die Vorschau."
+        "Die Live-Seite bleibt unverändert, bis du unten auf "
+        "**„Änderungen veröffentlichen“** klickst."
     )
 
     tool_tabs = st.tabs(
         [
             "📝 Text & Abschnitte",
             "🎨 Layout & Farben",
-            "🖼️ Bild aktualisieren",
+            "🖼️ Bilder verwalten",
             "💾 Design speichern",
         ]
     )
 
     with tool_tabs[0]:
-        st.subheader("Text oder Abschnitt ändern")
+        st.subheader("Text oder Abschnitt bearbeiten")
 
         text_section = st.selectbox(
-            "Welchen Bereich möchtest du ändern?",
+            "Bereich auswählen",
             [
                 "Navigation",
                 "Hero-Bereich",
@@ -405,104 +499,110 @@ if st.session_state.generated_html:
         )
 
         text_change = st.text_area(
-            "Was soll geändert oder hinzugefügt werden?",
+            "Gewünschte Änderung",
             placeholder=(
-                "Beispiel: Ändere nur den Über-mich-Text. "
-                "Füge meinen Namen, meinen Studiengang und drei Sätze "
-                "zu meinen Zielen im Bereich KI ein."
+                "Beispiel: Ergänze im Abschnitt Projekte ein neues Projekt "
+                "mit Titel, Beschreibung, Technologien und einem Button."
             ),
             height=130,
             key="text_change",
         )
 
-        if st.button("📝 Nur diesen Text/Abschnitt aktualisieren", use_container_width=True):
+        if st.button("📝 Nur diesen Bereich aktualisieren", use_container_width=True):
             if not text_change.strip():
-                st.warning("Bitte beschreibe die gewünschte Änderung.")
+                st.warning("Bitte beschreibe zuerst die gewünschte Änderung.")
             else:
-                with st.status("Textbereich wird aktualisiert ...", expanded=True) as status:
+                with st.status("Bereich wird aktualisiert ...", expanded=True) as status:
                     try:
                         modify_current_website(
                             f"Ändere ausschließlich den Abschnitt „{text_section}“: "
                             f"{text_change}"
                         )
                         status.update(
-                            label="✅ Änderung wurde in die Vorschau übernommen.",
+                            label="✅ Änderung wird in der Vorschau angezeigt.",
                             state="complete",
                             expanded=False,
                         )
                         st.rerun()
                     except Exception as error:
-                        status.update(label="❌ Änderung fehlgeschlagen", state="error")
+                        status.update(
+                            label="❌ Änderung fehlgeschlagen",
+                            state="error",
+                        )
                         st.error(f"**OpenAI-Fehler:** {error}")
 
     with tool_tabs[1]:
-        st.subheader("Layout und Farben ändern")
+        st.subheader("Layout und Farben anpassen")
 
         color_style = st.selectbox(
             "Farbstil",
             [
-                "Keine Änderung",
                 "Modernes Blau und Violett",
                 "Minimalistisch Schwarz und Weiß",
                 "Elegant Beige und Gold",
                 "Natürlich Grün und Creme",
                 "Kreativ Pink und Violett",
+                "Dunkles Premium-Design",
                 "Eigene Farben beschreiben",
             ],
+            key="color_style",
         )
 
         layout_style = st.selectbox(
             "Layout-Stil",
             [
                 "Bestehendes Layout beibehalten",
-                "Minimalistisch und viel Weißraum",
+                "Minimalistisch mit viel Weißraum",
                 "Modern mit Karten",
-                "Dunkles Premium-Design",
                 "Kreativ und farbenfroh",
                 "Seriöses Business-Design",
+                "Editorial/Magazin-Stil",
             ],
+            key="layout_style",
         )
 
-        custom_design_change = st.text_input(
-            "Zusätzlicher Designwunsch (optional)",
-            placeholder="Zum Beispiel: Runde Buttons, größere Schrift, weniger Animationen",
+        custom_design = st.text_input(
+            "Zusätzlicher Designwunsch",
+            placeholder="Zum Beispiel: größere Buttons, runde Karten, weniger Animationen",
+            key="custom_design",
         )
 
         if st.button("🎨 Nur Layout und Farben aktualisieren", use_container_width=True):
-            if color_style == "Keine Änderung" and layout_style == "Bestehendes Layout beibehalten":
-                st.warning("Bitte wähle mindestens eine Layout- oder Farbänderung.")
-            else:
-                with st.status("Design wird angepasst ...", expanded=True) as status:
-                    try:
-                        modify_current_website(
-                            f"""
+            with st.status("Design wird angepasst ...", expanded=True) as status:
+                try:
+                    modify_current_website(
+                        f"""
 Ändere ausschließlich Styling, Layout und Farben.
 
 Farbstil: {color_style}
 Layout-Stil: {layout_style}
-Zusätzlicher Wunsch: {custom_design_change or "Keiner"}
+Zusätzlicher Wunsch: {custom_design or "Keiner"}
 
-Die Texte, Bilder, Navigation und Inhaltsstruktur sollen erhalten bleiben.
+Die bestehenden Texte, Abschnitte und Bilder müssen erhalten bleiben.
 """
-                        )
-                        status.update(
-                            label="✅ Design-Änderung in Vorschau übernommen.",
-                            state="complete",
-                            expanded=False,
-                        )
-                        st.rerun()
-                    except Exception as error:
-                        status.update(label="❌ Design-Änderung fehlgeschlagen", state="error")
-                        st.error(f"**OpenAI-Fehler:** {error}")
+                    )
+                    status.update(
+                        label="✅ Design-Änderung wird in der Vorschau angezeigt.",
+                        state="complete",
+                        expanded=False,
+                    )
+                    st.rerun()
+                except Exception as error:
+                    status.update(
+                        label="❌ Design-Änderung fehlgeschlagen",
+                        state="error",
+                    )
+                    st.error(f"**OpenAI-Fehler:** {error}")
 
     with tool_tabs[2]:
-        st.subheader("Bild in einem Abschnitt ändern")
+        st.subheader("Bild für einen Abschnitt aktualisieren")
 
         image_section = st.selectbox(
-            "In welchem Abschnitt soll das Bild angezeigt werden?",
+            "Abschnitt auswählen",
             [
                 "Hero-Bereich",
                 "Über mich",
+                "Fähigkeiten",
                 "Projekte",
                 "Kontakt",
             ],
@@ -519,34 +619,53 @@ Die Texte, Bilder, Navigation und Inhaltsstruktur sollen erhalten bleiben.
             if section_image is None:
                 st.warning("Bitte wähle zuerst ein Bild aus.")
             else:
-                with st.status("Bild wird in den Abschnitt eingefügt ...", expanded=True) as status:
+                with st.status("Bild wird eingefügt ...", expanded=True) as status:
                     try:
-                        update_image_for_section(section_image, image_section)
+                        image_name = save_uploaded_image(section_image, image_section)
+
+                        modify_current_website(
+                            f"""
+Ändere ausschließlich das Bild im Abschnitt „{image_section}“.
+
+Verwende für das neue Bild exakt:
+<img src="{image_name}" alt="{image_section} Bild">
+
+Das Bild soll responsiv sein, einen professionellen Bildausschnitt haben
+und zum bestehenden Layout passen. Alle anderen Bereiche bleiben unverändert.
+"""
+                        )
+
                         status.update(
-                            label="✅ Bild-Änderung in Vorschau übernommen.",
+                            label="✅ Bild-Änderung wird in der Vorschau angezeigt.",
                             state="complete",
                             expanded=False,
                         )
                         st.rerun()
                     except Exception as error:
-                        status.update(label="❌ Bild-Änderung fehlgeschlagen", state="error")
+                        status.update(
+                            label="❌ Bild-Änderung fehlgeschlagen",
+                            state="error",
+                        )
                         st.error(f"**Fehler:** {error}")
 
     with tool_tabs[3]:
-        st.subheader("Design sichern")
+        st.subheader("Design speichern")
 
         design_name = st.text_input(
-            "Name des gespeicherten Designs",
+            "Name des Designs",
             value="Mein Website-Design",
+            key="design_name",
         )
 
         if st.button("💾 Design in dieser Sitzung speichern", use_container_width=True):
             st.session_state.saved_design_html = st.session_state.generated_html
-            st.session_state.saved_design_name = design_name.strip() or "Mein Website-Design"
+            st.session_state.saved_design_name = (
+                design_name.strip() or "Mein Website-Design"
+            )
             st.success("Design wurde gespeichert.")
 
         st.download_button(
-            "⬇️ Design als HTML-Datei herunterladen",
+            "⬇️ HTML-Design herunterladen",
             data=st.session_state.generated_html,
             file_name="mein-website-design.html",
             mime="text/html",
@@ -554,18 +673,20 @@ Die Texte, Bilder, Navigation und Inhaltsstruktur sollen erhalten bleiben.
         )
 
         if st.session_state.saved_design_html:
-            if st.button("↩️ Gespeichertes Design wiederherstellen", use_container_width=True):
+            if st.button(
+                "↩️ Gespeichertes Design wiederherstellen",
+                use_container_width=True,
+            ):
                 st.session_state.pending_html = st.session_state.saved_design_html
-                st.success("Gespeichertes Design wird wiederhergestellt.")
                 st.rerun()
 
     st.divider()
-    st.header("3. HTML bearbeiten und Vorschau")
+    st.header("Vorschau und erweiterte HTML-Bearbeitung")
 
     edit_column, preview_column = st.columns([1, 1], gap="large")
 
     with edit_column:
-        st.subheader("Erweiterte HTML-Bearbeitung")
+        st.subheader("HTML direkt bearbeiten")
 
         st.text_area(
             "HTML-Quellcode",
@@ -578,12 +699,15 @@ Die Texte, Bilder, Navigation und Inhaltsstruktur sollen erhalten bleiben.
         with preview_button:
             st.button(
                 "👁️ Vorschau aktualisieren",
-                on_click=update_preview,
                 use_container_width=True,
+                on_click=update_preview,
             )
 
         with discard_button:
-            if st.button("↩️ Änderungen verwerfen", use_container_width=True):
+            if st.button(
+                "↩️ Änderungen verwerfen",
+                use_container_width=True,
+            ):
                 discard_changes()
                 st.rerun()
 
@@ -597,24 +721,28 @@ Die Texte, Bilder, Navigation und Inhaltsstruktur sollen erhalten bleiben.
         )
 
     st.divider()
-    st.header("4. Veröffentlichung")
+    st.header("Veröffentlichung und Einstellungen")
 
     publish_column, settings_column = st.columns([1, 1], gap="large")
 
     with publish_column:
-        button_text = (
+        publish_text = (
             "🔄 Änderungen veröffentlichen"
             if st.session_state.live_url
             else "🚀 Website veröffentlichen"
         )
 
-        if st.button(button_text, type="primary", use_container_width=True):
-            with st.status("Website wird veröffentlicht ...", expanded=True) as status:
+        if st.button(
+            publish_text,
+            type="primary",
+            use_container_width=True,
+        ):
+            with st.status("Website wird auf Vercel veröffentlicht ...", expanded=True) as status:
                 try:
-                    st.write("🌐 Lade den geprüften Entwurf zu Vercel hoch ...")
+                    st.write("🌐 Aktueller Entwurf wird hochgeladen ...")
                     publish_website()
                     status.update(
-                        label="🎉 Website wurde veröffentlicht.",
+                        label="🎉 Website wurde erfolgreich veröffentlicht.",
                         state="complete",
                         expanded=False,
                     )
@@ -630,10 +758,12 @@ Die Texte, Bilder, Navigation und Inhaltsstruktur sollen erhalten bleiben.
     with settings_column:
         if st.session_state.live_url:
             with st.expander("⚙️ Einstellungen der Live-Website"):
-                st.markdown(f"[Live-Website öffnen]({st.session_state.live_url})")
+                st.markdown(
+                    f"[Live-Website öffnen]({st.session_state.live_url})"
+                )
                 st.warning(
-                    "Das Löschen entfernt das zuletzt veröffentlichte "
-                    "Vercel-Deployment dauerhaft."
+                    "Das Löschen entfernt nur das letzte Deployment, "
+                    "das in dieser Sitzung erstellt wurde."
                 )
 
                 st.checkbox(
@@ -664,4 +794,4 @@ Die Texte, Bilder, Navigation und Inhaltsstruktur sollen erhalten bleiben.
                             )
                             st.error(f"**Vercel-Fehler:** {error}")
         else:
-            st.info("Die Einstellungen erscheinen nach der Veröffentlichung.")
+            st.info("Einstellungen erscheinen nach der Veröffentlichung.")
