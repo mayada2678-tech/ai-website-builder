@@ -37,7 +37,6 @@ DEFAULT_STATE = {
     "html_editor": "",
     "pending_html": "",
     "published_html": "",
-    "saved_design_html": "",
     "assets": {},
     "live_url": "",
     "deployment_id": "",
@@ -50,7 +49,7 @@ for state_key, default_value in DEFAULT_STATE.items():
     if state_key not in st.session_state:
         st.session_state[state_key] = default_value
 
-# Aktualisiert den HTML-Editor sicher beim nächsten Streamlit-Durchlauf.
+# Muss vor dem HTML-Editor ausgeführt werden.
 if st.session_state.pending_html:
     st.session_state.generated_html = st.session_state.pending_html
     st.session_state.html_editor = st.session_state.pending_html
@@ -308,19 +307,19 @@ def load_published_website(live_url: str) -> None:
             f"Die Website konnte nicht geladen werden. HTTP {response.status_code}."
         )
 
-    # Original-HTML exakt übernehmen.
+    # Original-HTML unverändert übernehmen.
     html = require_complete_html(response.text)
 
-    # Alte lokale Bilder dürfen die neu geladene Seite nicht verändern.
+    # Alte lokale Bilder dürfen die neu geladene Seite nicht beeinflussen.
     st.session_state.assets = {}
 
-    # response.url ist der tatsächliche Link nach Weiterleitungen.
+    # Tatsächlich geöffnete URL nach möglichen Weiterleitungen speichern.
     st.session_state.live_url = response.url
     st.session_state.project_name = get_project_name_from_url(response.url)
     st.session_state.published_html = html
     st.session_state.pending_html = html
 
-    # Eine extern geladene Seite darf nicht versehentlich gelöscht werden.
+    # Extern geladene Websites können nicht versehentlich gelöscht werden.
     st.session_state.deployment_id = ""
 
 
@@ -409,7 +408,10 @@ with create_tab:
 
         description = st.text_area(
             "Beschreibung der Website",
-            placeholder="Beispiel: Moderne Website für ein Kosmetikstudio in Berlin mit Leistungen, Preisen, Team und Kontaktformular.",
+            placeholder=(
+                "Beispiel: Moderne Website für ein Kosmetikstudio in Berlin "
+                "mit Leistungen, Preisen, Team und Kontaktformular."
+            ),
             height=160,
         )
 
@@ -426,7 +428,11 @@ with create_tab:
             help="Nachrichten des Kontaktformulars werden an diese Adresse gesendet.",
         )
 
-        if st.button("✨ Website-Entwurf generieren", type="primary", use_container_width=True):
+        if st.button(
+            "✨ Website-Entwurf generieren",
+            type="primary",
+            use_container_width=True,
+        ):
             if not description.strip():
                 st.warning("Bitte beschreibe zuerst die gewünschte Website.")
             elif admin_email.strip() and not is_valid_email(admin_email.strip()):
@@ -436,10 +442,16 @@ with create_tab:
                     try:
                         st.session_state.admin_email = admin_email.strip()
                         generate_website(description, initial_image)
-                        status.update("✅ Entwurf wurde erstellt.", state="complete")
+                        status.update(
+                            label="✅ Entwurf wurde erstellt.",
+                            state="complete",
+                        )
                         st.rerun()
                     except Exception as error:
-                        status.update("❌ Erstellung fehlgeschlagen", state="error")
+                        status.update(
+                            label="❌ Erstellung fehlgeschlagen",
+                            state="error",
+                        )
                         st.error(str(error))
 
     with info_column:
@@ -477,12 +489,15 @@ with manage_tab:
                 try:
                     load_published_website(manage_url)
                     status.update(
-                        "✅ Die Original-Website wurde unverändert geladen.",
+                        label="✅ Die Original-Website wurde unverändert geladen.",
                         state="complete",
                     )
                     st.rerun()
                 except Exception as error:
-                    status.update("❌ Laden fehlgeschlagen", state="error")
+                    status.update(
+                        label="❌ Laden fehlgeschlagen",
+                        state="error",
+                    )
                     st.error(str(error))
 
 if st.session_state.live_url:
@@ -522,7 +537,10 @@ if st.session_state.generated_html:
 
         request = st.text_area(
             "Gewünschte Änderung",
-            placeholder="Beispiel: Füge im Projektbereich ein neues Projekt mit Titel, Beschreibung und Button hinzu.",
+            placeholder=(
+                "Beispiel: Füge im Projektbereich ein neues Projekt mit Titel, "
+                "Beschreibung und Button hinzu."
+            ),
             height=130,
         )
 
@@ -535,10 +553,16 @@ if st.session_state.generated_html:
                         modify_current_website(
                             f"Ändere ausschließlich den Bereich „{section}“: {request}"
                         )
-                        status.update("✅ Vorschau wurde aktualisiert.", state="complete")
+                        status.update(
+                            label="✅ Vorschau wurde aktualisiert.",
+                            state="complete",
+                        )
                         st.rerun()
                     except Exception as error:
-                        status.update("❌ Änderung fehlgeschlagen", state="error")
+                        status.update(
+                            label="❌ Änderung fehlgeschlagen",
+                            state="error",
+                        )
                         st.error(str(error))
 
     with design_tab:
@@ -584,10 +608,16 @@ Zusatzwunsch: {design_request or "Keiner"}
 Texte, Bilder, Kontaktformular und Seitenstruktur müssen erhalten bleiben.
 """
                     )
-                    status.update("✅ Design wurde aktualisiert.", state="complete")
+                    status.update(
+                        label="✅ Design wurde aktualisiert.",
+                        state="complete",
+                    )
                     st.rerun()
                 except Exception as error:
-                    status.update("❌ Design-Änderung fehlgeschlagen", state="error")
+                    status.update(
+                        label="❌ Design-Änderung fehlgeschlagen",
+                        state="error",
+                    )
                     st.error(str(error))
 
     with image_tab:
@@ -620,10 +650,16 @@ Nutze genau dieses Bild:
 Alle anderen Bereiche müssen unverändert bleiben.
 """
                         )
-                        status.update("✅ Bild wurde aktualisiert.", state="complete")
+                        status.update(
+                            label="✅ Bild wurde aktualisiert.",
+                            state="complete",
+                        )
                         st.rerun()
                     except Exception as error:
-                        status.update("❌ Bild-Änderung fehlgeschlagen", state="error")
+                        status.update(
+                            label="❌ Bild-Änderung fehlgeschlagen",
+                            state="error",
+                        )
                         st.error(str(error))
 
     with code_tab:
@@ -674,16 +710,22 @@ Alle anderen Bereiche müssen unverändert bleiben.
         )
 
         if st.button(label, type="primary", use_container_width=True):
-            with st.status("Website wird auf Vercel veröffentlicht ...", expanded=True) as status:
+            with st.status(
+                "Website wird auf Vercel veröffentlicht ...",
+                expanded=True,
+            ) as status:
                 try:
                     publish_website()
                     status.update(
-                        "🎉 Website wurde erfolgreich veröffentlicht.",
+                        label="🎉 Website wurde erfolgreich veröffentlicht.",
                         state="complete",
                     )
                     st.rerun()
                 except Exception as error:
-                    status.update("❌ Veröffentlichung fehlgeschlagen", state="error")
+                    status.update(
+                        label="❌ Veröffentlichung fehlgeschlagen",
+                        state="error",
+                    )
                     st.error(f"Vercel-Fehler: {error}")
 
     with delete_column:
