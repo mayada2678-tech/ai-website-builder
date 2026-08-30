@@ -293,7 +293,9 @@ def load_published_website(live_url: str) -> None:
     st.session_state.assets = {}
     st.session_state.live_url = response.url
     st.session_state.deployment_url = response.url
-    st.session_state.project_name = get_project_name_from_url(response.url)
+
+    # Projektname nicht automatisch aus einer Deployment-URL ableiten.
+    # Der richtige Projektname wird im Feld „Vercel-Projektname“ eingegeben.
     st.session_state.published_html = html
     st.session_state.pending_html = html
 
@@ -314,14 +316,33 @@ def get_public_url(deployment: dict) -> str:
 
     raise ValueError("Vercel hat keine öffentliche Deployment-URL geliefert.")
 
+def delete_published_website() -> None:
+    """Löscht nur das letzte Deployment aus der aktuellen Sitzung."""
+    deployment_id = st.session_state.deployment_id
 
+    if not deployment_id:
+        raise ValueError("Kein Deployment aus dieser Sitzung zum Löschen vorhanden.")
+
+    try:
+        response = requests.delete(
+            f"https://api.vercel.com/v13/deployments/{deployment_id}",
+            headers={"Authorization": f"Bearer {VERCEL_TOKEN}"},
+            timeout=60,
+        )
+    except requests.RequestException as error:
+        raise ValueError(f"Vercel konnte nicht erreicht werden: {error}") from error
+
+    if response.status_code not in (200, 202, 204):
+        raise ValueError(f"Vercel HTTP {response.status_code}: {response.text}")
+
+    st.session_state.live_url = ""
+    st.session_state.deployment_url = ""
+    st.session_state.deployment_id = ""
+    st.session_state.published_html = ""
+
+    
 def publish_website() -> None:
-    """
-    Veröffentlicht den HTML-Entwurf als Production-Deployment bei Vercel.
-
-    Der eingegebene Vercel-Projektname muss exakt dem Projekt im
-    Vercel-Dashboard entsprechen.
-    """
+    """Veröffentlicht den aktuellen HTML-Entwurf auf Vercel."""
     html = require_complete_html(st.session_state.generated_html)
     project_name = safe_project_name(st.session_state.project_name)
 
@@ -384,36 +405,11 @@ def publish_website() -> None:
     if not deployment_id or not deployment_url:
         raise ValueError(f"Unvollständige Vercel-Antwort: {deployment}")
 
+    # project_name hier NICHT verändern: Es gehört zum Streamlit-Textfeld.
     st.session_state.live_url = get_public_url(deployment)
     st.session_state.deployment_url = f"https://{deployment_url}"
     st.session_state.deployment_id = deployment_id
     st.session_state.published_html = html
-
-
-def delete_published_website() -> None:
-    """Löscht nur das letzte Deployment aus der aktuellen Sitzung."""
-    deployment_id = st.session_state.deployment_id
-
-    if not deployment_id:
-        raise ValueError("Kein Deployment aus dieser Sitzung zum Löschen vorhanden.")
-
-    try:
-        response = requests.delete(
-            f"https://api.vercel.com/v13/deployments/{deployment_id}",
-            headers={"Authorization": f"Bearer {VERCEL_TOKEN}"},
-            timeout=60,
-        )
-    except requests.RequestException as error:
-        raise ValueError(f"Vercel konnte nicht erreicht werden: {error}") from error
-
-    if response.status_code not in (200, 202, 204):
-        raise ValueError(f"Vercel HTTP {response.status_code}: {response.text}")
-
-    st.session_state.live_url = ""
-    st.session_state.deployment_url = ""
-    st.session_state.deployment_id = ""
-    st.session_state.published_html = ""
-    st.session_state.delete_confirmation = False
 
 
 st.title("🚀 KI Website Builder")
@@ -422,6 +418,8 @@ st.caption("Website erstellen, bearbeiten, prüfen und veröffentlichen.")
 new_tab, manage_tab = st.tabs(
     ["✨ Neue Website", "⚙️ Veröffentlichte Website laden"]
 )
+
+
 
 with new_tab:
     st.subheader("Neuen Website-Entwurf erstellen")
