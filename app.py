@@ -15,6 +15,7 @@ st.set_page_config(
 )
 
 OPENAI_MODEL = "gpt-4o-mini"
+FORMSPREE_ENDPOINT = "https://formspree.io/f/mnpqnyvk"
 VERCEL_DEPLOYMENTS_URL = (
     "https://api.vercel.com/v13/deployments"
     "?skipAutoDetectionConfirmation=1"
@@ -49,7 +50,7 @@ for key, value in DEFAULT_STATE.items():
     if key not in st.session_state:
         st.session_state[key] = value
 
-# HTML erst vor den Streamlit-Widgets übernehmen.
+# Übernimmt KI- oder HTML-Änderungen vor dem Erstellen der Widgets.
 if st.session_state.pending_html:
     st.session_state.generated_html = st.session_state.pending_html
     st.session_state.html_editor = st.session_state.pending_html
@@ -57,7 +58,7 @@ if st.session_state.pending_html:
 
 
 def clean_html(html: str) -> str:
-    """Entfernt Markdown-Codeblöcke aus KI-Antworten."""
+    """Entfernt Markdown-Codeblöcke aus einer KI-Antwort."""
     return (
         html.replace("```html", "")
         .replace("```HTML", "")
@@ -81,7 +82,7 @@ def require_complete_html(html: str) -> str:
 
 
 def queue_html_update(html: str) -> None:
-    """Übernimmt HTML beim nächsten sicheren Streamlit-Durchlauf."""
+    """Plant ein sicheres HTML-Update für den nächsten Durchlauf."""
     st.session_state.pending_html = require_complete_html(html)
 
 
@@ -92,18 +93,17 @@ def safe_project_name(name: str) -> str:
 
 
 def get_project_name_from_url(live_url: str) -> str:
-    """Erstellt einen Vorschlag für einen Projektnamen aus einer URL."""
+    """Erstellt einen Projektnamen-Vorschlag aus einer URL."""
     hostname = urlparse(live_url).hostname or ""
     return safe_project_name(hostname.split(".")[0])
 
 
 def save_uploaded_image(uploaded_file, section_name: str) -> str:
-    """Speichert ein Bild für Vorschau und Vercel-Deployment."""
+    """Speichert ein Bild als Asset für Vorschau und Vercel-Deployment."""
     if uploaded_file is None:
         raise ValueError("Bitte wähle zuerst ein Bild aus.")
 
     extension = Path(uploaded_file.name).suffix.lower()
-
     if extension not in {".png", ".jpg", ".jpeg", ".webp"}:
         extension = ".png"
 
@@ -131,7 +131,7 @@ def save_uploaded_image(uploaded_file, section_name: str) -> str:
 
 
 def create_preview_html(html: str) -> str:
-    """Ersetzt hochgeladene lokale Bilder in der Vorschau durch Data-URLs."""
+    """Ersetzt lokale Bildnamen in der Vorschau durch eingebettete Data-URLs."""
     preview_html = html
 
     for file_name, asset in st.session_state.assets.items():
@@ -176,10 +176,21 @@ Regeln:
 - Nutze vollständiges HTML5 und beginne mit <!doctype html>.
 - Binde Tailwind CSS mit https://cdn.tailwindcss.com ein.
 - Erstelle Navigation, Hero, Über mich, Leistungen, Projekte, Kontakt und Footer.
-- Die Website muss mobilfreundlich und professionell sein.
-- Erstelle ein Kontaktformular mit Name, E-Mail, Betreff, Nachricht und Button.
+- Die Website muss mobilfreundlich und professionell aussehen.
 - Antworte ausschließlich mit vollständigem HTML.
 - Kein Markdown, keine Backticks und keine Erklärung.
+
+Kontaktformular:
+- Erstelle einen sichtbaren, modernen Kontaktbereich.
+- Das Formular muss EXAKT diesen Formspree-Endpunkt verwenden:
+  <form action="{FORMSPREE_ENDPOINT}" method="POST">
+- Verwende kein JavaScript oder AJAX zum Absenden.
+- Das Formular benötigt sichtbare Labels sowie diese Pflichtfelder:
+  <input id="name" type="text" name="name" required>
+  <input id="email" type="email" name="email" required>
+  <input id="subject" type="text" name="subject" required>
+  <textarea id="message" name="message" required></textarea>
+- Der Button besitzt type="submit" und lautet „Nachricht senden“.
 
 {image_instruction}
 """,
@@ -190,26 +201,33 @@ Regeln:
 
 
 def modify_current_website(change_request: str) -> None:
-    """Ändert nur die gewünschten Bereiche der aktuellen Website."""
+    """Ändert ausschließlich die angeforderten Bereiche der Website."""
     current_html = st.session_state.generated_html.strip()
 
     if not current_html:
         raise ValueError("Erstelle oder lade zuerst eine Website.")
 
     html = ask_ai_for_html(
-        system_instruction="""
+        system_instruction=f"""
 Du bist ein sorgfältiger Frontend-Entwickler.
 
 Bearbeite ausschließlich die angeforderte Änderung in einer bestehenden Website.
 
 Regeln:
 - Antworte nur mit vollständigem HTML5, beginnend mit <!doctype html>.
-- Kein Markdown und keine Erklärung.
+- Kein Markdown, keine Backticks und keine Erklärung.
 - Bestehende Texte, Bilder, Links, Bereiche und Styles bleiben erhalten,
-  wenn ihre Änderung nicht ausdrücklich verlangt wird.
+  sofern ihre Änderung nicht ausdrücklich verlangt wird.
 - Tailwind CSS muss erhalten bleiben.
-- Vorhandene Formular-Endpunkte, action-, method- und name-Attribute
-  dürfen nicht verändert werden, sofern dies nicht ausdrücklich verlangt wird.
+
+Kontaktformular:
+- Ein Kontaktformular muss diesen Formspree-Endpunkt verwenden:
+  <form action="{FORMSPREE_ENDPOINT}" method="POST">
+- Das Formular muss die Felder `name`, `email`, `subject` und `message` haben.
+- Alle Felder besitzen das Attribut `required`.
+- Der Button hat type="submit" und lautet „Nachricht senden“.
+- Verwende keinen anderen Formularanbieter und kein JavaScript/AJAX.
+- Behalte das Design des Kontaktbereichs bei.
 """,
         user_instruction=f"""
 AKTUELLER HTML-CODE:
@@ -224,7 +242,7 @@ GEWÜNSCHTE ÄNDERUNG:
 
 
 def is_vercel_login_page(response: requests.Response) -> bool:
-    """Erkennt geschützte Vercel-Login- und Schutzseiten."""
+    """Erkennt Vercel-Login- und Deployment-Schutzseiten."""
     content = response.text.lower()
     url = response.url.lower()
 
@@ -242,7 +260,7 @@ def is_vercel_login_page(response: requests.Response) -> bool:
 
 
 def load_published_website(live_url: str) -> None:
-    """Lädt die Original-Website unverändert, ohne KI-Bearbeitung."""
+    """Lädt eine öffentliche Website unverändert, ohne KI-Bearbeitung."""
     live_url = live_url.strip()
 
     if not live_url.startswith(("https://", "http://")):
@@ -270,7 +288,6 @@ def load_published_website(live_url: str) -> None:
             f"Die Website konnte nicht geladen werden. HTTP {response.status_code}."
         )
 
-    # HTML wird exakt übernommen, ohne KI-Aufruf.
     html = require_complete_html(response.text)
 
     st.session_state.assets = {}
@@ -280,12 +297,12 @@ def load_published_website(live_url: str) -> None:
     st.session_state.published_html = html
     st.session_state.pending_html = html
 
-    # Externe Seiten können nicht über die App gelöscht werden.
+    # Geladene fremde Seiten dürfen über die App nicht gelöscht werden.
     st.session_state.deployment_id = ""
 
 
 def get_public_url(deployment: dict) -> str:
-    """Ermittelt eine öffentliche URL aus der Vercel-Antwort."""
+    """Ermittelt die öffentliche URL aus einer Vercel-Deployment-Antwort."""
     aliases = deployment.get("alias") or []
     deployment_url = deployment.get("url")
 
@@ -300,10 +317,10 @@ def get_public_url(deployment: dict) -> str:
 
 def publish_website() -> None:
     """
-    Veröffentlicht die aktuelle Website als Production-Deployment.
+    Veröffentlicht den HTML-Entwurf als Production-Deployment bei Vercel.
 
-    Der Vercel-Projektname muss exakt dem Projekt im Vercel-Dashboard entsprechen.
-    Dann übernimmt Vercel das neue Deployment als aktuelle Production-Version.
+    Der eingegebene Vercel-Projektname muss exakt dem Projekt im
+    Vercel-Dashboard entsprechen.
     """
     html = require_complete_html(st.session_state.generated_html)
     project_name = safe_project_name(st.session_state.project_name)
@@ -375,7 +392,7 @@ def publish_website() -> None:
 
 
 def delete_published_website() -> None:
-    """Löscht nur das letzte Deployment dieser Sitzung."""
+    """Löscht nur das letzte Deployment aus der aktuellen Sitzung."""
     deployment_id = st.session_state.deployment_id
 
     if not deployment_id:
@@ -401,7 +418,7 @@ def delete_published_website() -> None:
 
 
 st.title("🚀 KI Website Builder")
-st.caption("Website erstellen, bearbeiten, vorschauen und veröffentlichen.")
+st.caption("Website erstellen, bearbeiten, prüfen und veröffentlichen.")
 
 new_tab, manage_tab = st.tabs(
     ["✨ Neue Website", "⚙️ Veröffentlichte Website laden"]
@@ -451,7 +468,7 @@ with new_tab:
 with manage_tab:
     st.subheader("Öffentliche Website laden")
     st.caption(
-        "Die Original-Website wird geladen, ohne HTML oder Design zu verändern."
+        "Das Original wird geladen, ohne HTML oder Design vor dem Bearbeiten zu ändern."
     )
 
     live_url_input = st.text_input(
@@ -494,7 +511,6 @@ if st.session_state.live_url:
 
     st.caption(f"Live-Link: {st.session_state.live_url}")
 
-# Die Vorschau ist immer sichtbar.
 st.divider()
 st.header("Live-Vorschau")
 
@@ -506,7 +522,7 @@ if st.session_state.generated_html:
     )
 else:
     st.info(
-        "Die Vorschau bleibt hier sichtbar. Erstelle oder lade zuerst eine Website."
+        "Die Vorschau bleibt sichtbar. Erstelle oder lade zuerst eine Website."
     )
 
 if st.session_state.generated_html:
@@ -534,7 +550,10 @@ if st.session_state.generated_html:
 
         change_request = st.text_area(
             "Gewünschte Änderung",
-            placeholder="Beispiel: Ergänze im Kontaktbereich die Formspree-URL.",
+            placeholder=(
+                "Beispiel: Ersetze das Kontaktformular durch das konfigurierte "
+                "Formspree-Formular und behalte das aktuelle Design."
+            ),
             height=130,
         )
 
@@ -577,8 +596,8 @@ if st.session_state.generated_html:
                 with st.status("Design wird angepasst ...", expanded=True) as status:
                     try:
                         modify_current_website(
-                            "Ändere nur Farben, Layout, Abstände und Styling. "
-                            "Texte, Bilder und Struktur bleiben erhalten. "
+                            "Ändere ausschließlich Farben, Layout, Abstände und "
+                            "Styling. Texte, Bilder und Struktur bleiben erhalten. "
                             f"Wunsch: {design_request}"
                         )
                         status.update(
@@ -643,12 +662,14 @@ Alle anderen Inhalte müssen unverändert bleiben.
             key="html_editor",
         )
 
-        if st.button("👁️ Vorschau aus HTML aktualisieren", use_container_width=True):
+        if st.button(
+            "👁️ Vorschau aus HTML aktualisieren",
+            use_container_width=True,
+        ):
             try:
                 st.session_state.generated_html = require_complete_html(
                     st.session_state.html_editor
                 )
-                st.success("Vorschau wurde aktualisiert.")
                 st.rerun()
             except ValueError as error:
                 st.warning(str(error))
@@ -668,8 +689,8 @@ Alle anderen Inhalte müssen unverändert bleiben.
         "Vercel-Projektname",
         key="project_name",
         help=(
-            "Dieser Name muss exakt dem Projektnamen im Vercel-Dashboard "
-            "entsprechen. Dann wird die Production-Version aktualisiert."
+            "Muss exakt dem Namen des Projekts im Vercel-Dashboard entsprechen. "
+            "Dann wird dessen Production-Version aktualisiert."
         ),
     )
 
@@ -720,5 +741,5 @@ Alle anderen Inhalte müssen unverändert bleiben.
                     st.error(f"Löschen fehlgeschlagen: {error}")
         else:
             st.info(
-                "Externe geladene Websites können über diese App nicht gelöscht werden."
+                "Extern geladene Websites können über diese App nicht gelöscht werden."
             )
