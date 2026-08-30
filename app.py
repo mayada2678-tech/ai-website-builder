@@ -145,39 +145,23 @@ def ask_ai_for_html(system_instruction: str, user_instruction: str) -> str:
     )
 
     return response.choices[0].message.content or ""
-
-
 def build_contact_form_instruction() -> str:
-    """Erstellt Anforderungen für das Kontaktformular."""
-    admin_email = st.session_state.admin_email.strip()
+    """Erstellt neutrale Vorgaben für ein Kontaktformular."""
+    return """
+Erstelle oder behalte einen professionellen Kontaktbereich mit einem HTML-Formular.
 
-    if not admin_email:
-        return """
-Erstelle einen Kontaktbereich mit Name, E-Mail, Betreff, Nachricht und Button.
-Alle Eingabefelder benötigen passende name-Attribute.
+Regeln:
+- Bewahre einen bereits vorhandenen externen Formular-Endpunkt unverändert,
+  zum Beispiel Formspree (`https://formspree.io/f/...`) oder FormSubmit.
+- Wenn noch kein Endpunkt existiert, verwende kein erfundenes action-Attribut.
+- Das Formular braucht diese Felder:
+  - name="name"
+  - name="email" und type="email"
+  - name="subject"
+  - name="message" als textarea
+- Alle Felder sind required.
+- Füge einen sichtbaren Submit-Button ein.
 """
-
-    return f"""
-Erstelle einen professionellen Kontaktbereich mit einem funktionierenden Formular.
-
-Das Formular muss genau diese Attribute besitzen:
-<form action="https://formsubmit.co/{admin_email}" method="POST">
-
-Das Formular muss diese versteckten Felder enthalten:
-<input type="hidden" name="_subject" value="Neue Kundenanfrage über die Website">
-<input type="hidden" name="_template" value="table">
-<input type="hidden" name="_captcha" value="false">
-
-Diese Pflichtfelder müssen enthalten sein:
-<input name="name" required>
-<input type="email" name="email" required>
-<input name="subject" required>
-<textarea name="message" required></textarea>
-
-Füge einen sichtbaren Absenden-Button hinzu.
-"""
-
-
 def generate_website(description: str, initial_image) -> None:
     """Erstellt einen neuen Website-Entwurf."""
     image_instruction = ""
