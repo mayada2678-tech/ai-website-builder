@@ -1919,15 +1919,35 @@ if st.session_state.generated_html:
             "#38BDF8",
             key="premium_brand_color",
         )
+        accent_color = st.color_picker(
+            "Akzentfarbe für Highlights und Icons",
+            "#14B8A6",
+            key="premium_accent_color",
+        )
         company_name = st.text_input(
             "Firmenname oder Logo-Text",
             value=str(st.session_state.get("client_company_name", "")),
             key="premium_company_name",
         )
+        company_slogan = st.text_input(
+            "Slogan oder Hauptüberschrift",
+            value=str(st.session_state.get("client_company_slogan", "")),
+            key="premium_company_slogan",
+        )
+        company_description = st.text_area(
+            "Kurzbeschreibung für Über uns",
+            key="premium_company_description",
+            height=100,
+        )
         contact_email = st.text_input(
             "Kontakt-E-Mail-Adresse",
             value=str(st.session_state.get("client_business_email", "")),
             key="premium_contact_email",
+        )
+        contact_phone = st.text_input(
+            "Telefonnummer",
+            value=str(st.session_state.get("client_business_phone", "")),
+            key="premium_contact_phone",
         )
         social_columns = st.columns(2)
         with social_columns[0]:
@@ -1942,6 +1962,13 @@ if st.session_state.generated_html:
                 placeholder="https://linkedin.com/company/ihrunternehmen",
                 key="premium_linkedin_link",
             )
+        chatbot_knowledge = st.text_area(
+            "Chatbot-Wissen",
+            value=str(st.session_state.get("client_chatbot_knowledge", "")),
+            placeholder="Öffnungszeiten, Preise, Angebote, Terminvereinbarung oder häufige Fragen.",
+            key="premium_chatbot_knowledge",
+            height=120,
+        )
 
         if st.button(
             "Basisdaten übernehmen",
@@ -1956,15 +1983,23 @@ if st.session_state.generated_html:
             else:
                 st.session_state.client_company_name = company_name.strip()
                 st.session_state.client_business_email = contact_email.strip()
+                st.session_state.client_company_slogan = company_slogan.strip()
+                st.session_state.client_business_phone = contact_phone.strip()
+                st.session_state.client_chatbot_knowledge = chatbot_knowledge.strip()
                 with st.status("Basisdaten werden übernommen ...", expanded=True) as status:
                     try:
                         modify_current_website(
                             f"""
 Aktualisiere den Markenauftritt: Firmenname „{company_name.strip()}“,
-Kontakt-E-Mail „{contact_email.strip()}“ und Markenfarbe „{brand_color}".
+Slogan „{company_slogan.strip()}“, Kontakt-E-Mail „{contact_email.strip()}“,
+Telefonnummer „{contact_phone.strip()}“, Markenfarbe „{brand_color}" und
+Akzentfarbe „{accent_color}". Aktualisiere den Über-uns-Bereich mit dieser
+Kurzbeschreibung: „{company_description.strip()}“.
 Nutze im Footer nur diese Social-Media-Links: Instagram „{instagram_link.strip()}"
 und LinkedIn „{linkedin_link.strip()}". Entferne einen Social-Link, wenn dafür
-keine gültige URL angegeben wurde. Alle sonstigen Inhalte und Bilder bleiben erhalten.
+keine gültige URL angegeben wurde. Aktualisiere den Website-Chatbot mit diesem Wissen:
+„{chatbot_knowledge.strip()}“. Erfinde keine zusätzlichen Öffnungszeiten, Preise oder
+Angebote. Alle sonstigen Inhalte und Bilder bleiben erhalten.
 """
                         )
                         status.update(label="Basisdaten wurden übernommen.", state="complete")
