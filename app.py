@@ -89,6 +89,7 @@ TEMPLATES = {
     "Automobil und KFZ-Gewerbe": {
         "icon": ":material/directions_car:",
         "description": "Dynamisches Design fuer Autohaeuser, Werkstaetten und Zulieferer.",
+        "sections": "Fahrzeugangebote oder Werkstattservices, Service-Termin, Finanzierung und Leasing, Kundenversprechen, Standort und Kontakt",
         "style_hint": (
             "Nutze scharfkantige Karten, metallische Grautoene, dunkle Akzente "
             "und sportliche rote oder blaue Buttons. Integriere Fahrzeugmodelle "
@@ -98,6 +99,7 @@ TEMPLATES = {
     "GmbH und Corporate Unternehmen": {
         "icon": ":material/business:",
         "description": "Serioeses, vertrauenswuerdiges B2B-Layout fuer Unternehmen.",
+        "sections": "Leistungsportfolio, Branchenkompetenz, Arbeitsweise, Kennzahlen oder Zertifizierungen, Ansprechpartner und Kontakt",
         "style_hint": (
             "Nutze grosszuegigen Freiraum, klare Linien sowie tiefblaue oder "
             "anthrazitfarbene Toene. Integriere Ueber uns, Leistungen, "
@@ -107,6 +109,7 @@ TEMPLATES = {
     "Cafe und Baeckerei": {
         "icon": ":material/bakery_dining:",
         "description": "Warmes, handwerkliches Design fuer Cafes und Baeckereien.",
+        "sections": "Frühstücks- und Speisekarte, handwerkliche Spezialitäten, Tagesangebot, Öffnungszeiten, Standort und Vorbestellung",
         "style_hint": (
             "Nutze weiche Ecken und warme Toene. Integriere eine Speise- oder "
             "Fruehstueckskarte sowie Oeffnungszeiten."
@@ -115,6 +118,7 @@ TEMPLATES = {
     "Restaurant und Gastronomie": {
         "icon": ":material/restaurant:",
         "description": "Elegantes, bildorientiertes Layout mit Fokus auf Reservierungen.",
+        "sections": "Speisekarte mit Preisen, kulinarisches Konzept, besondere Menüs, Reservierung, Öffnungszeiten und Anfahrt",
         "style_hint": (
             "Nutze ein edles dunkles Design in Schwarz und Gold oder Dunkelgruen. "
             "Erstelle eine strukturierte Speisekarte mit Preisen und ein "
@@ -124,6 +128,7 @@ TEMPLATES = {
     "Formale Agentur oder Kanzlei": {
         "icon": ":material/account_balance:",
         "description": "Minimalistisches, hochprofessionelles Design fuer Beratungen und Kanzleien.",
+        "sections": "Beratungsfelder, Vorgehensweise, Expertise und Referenzen, Erstgespräch, Ansprechpartner und Kontakt",
         "style_hint": (
             "Nutze elegante serifenlose Typografie, geometrische Strukturen und "
             "monochrome Farben mit einem edlen Akzent. Der Fokus liegt auf "
@@ -133,6 +138,7 @@ TEMPLATES = {
     "Schule und Bildung": {
         "icon": ":material/school:",
         "description": "Uebersichtliche, einladende Vorlage fuer Schulen, Lernzentren und Bildungseinrichtungen.",
+        "sections": "Bildungsangebote, Aktuelles und Termine, Lernkonzept, Lehrkräfte oder Team, Informationen für Eltern und Kontakt",
         "style_hint": (
             "Nutze eine freundliche, gut lesbare Gestaltung mit klaren Bereichen fuer "
             "Aktuelles, Unterrichtsangebot, Termine, Lehrkraefte und Kontakt. Wichtige "
@@ -142,6 +148,7 @@ TEMPLATES = {
     "Bibliothek": {
         "icon": ":material/local_library:",
         "description": "Ruhige, zugängliche Vorlage fuer Bibliotheken, Medienzentren und Lesecafes.",
+        "sections": "Medienangebot, Neuerscheinungen, Veranstaltungen, Mitgliedschaft und Ausleihe, Öffnungszeiten und Kontakt",
         "style_hint": (
             "Nutze ein ruhiges, lesefreundliches Design mit einer klaren Mediensuche, "
             "Oeffnungszeiten, Veranstaltungen, Mitgliedschaft und Kontakt. Hebe neue "
@@ -151,6 +158,7 @@ TEMPLATES = {
     "Supermarkt und Einzelhandel": {
         "icon": ":material/storefront:",
         "description": "Praktische, kundennahe Vorlage fuer Supermaerkte, Lebensmittelgeschaefte und Einzelhandel.",
+        "sections": "Wochenangebote, Sortiment, Services, Nachhaltigkeit oder Qualität, Öffnungszeiten, Standort und Kontakt",
         "style_hint": (
             "Gestalte einen klaren, aktionsorientierten Auftritt mit Wochenangeboten, "
             "Sortiment, Standort, Oeffnungszeiten und Kontakt. Angebote muessen auf "
@@ -976,6 +984,7 @@ def render_language_selector() -> tuple[dict[str, str], str]:
 
 def render_template_preview(
         template_name: str,
+    sections: str,
         background_color: str,
         accent_color: str,
         border_style: str,
@@ -996,10 +1005,9 @@ def render_template_preview(
                         <p style="max-width:540px; margin:14px 0 20px; line-height:1.5; opacity:.85;">Diese Vorlage wird mit Ihrem Angebot, Ihrer Marke und Ihren Kundendaten personalisiert.</p>
                         <span style="display:inline-block; background:{accent_color}; color:#07111f; padding:10px 14px; border-radius:{radius}; font-weight:bold;">Kontakt aufnehmen</span>
                     </div>
-                    <div style="display:flex; gap:12px; padding:18px 22px 24px; flex-wrap:wrap;">
-                        <div style="flex:1; min-width:140px; padding:14px; border:1px solid rgba(255,255,255,.16); border-radius:{radius};">Leistungen</div>
-                        <div style="flex:1; min-width:140px; padding:14px; border:1px solid rgba(255,255,255,.16); border-radius:{radius};">Ihre Vorteile</div>
-                        <div style="flex:1; min-width:140px; padding:14px; border:1px solid rgba(255,255,255,.16); border-radius:{radius};">Kontakt</div>
+                    <div style="padding:18px 22px 24px;">
+                        <p style="margin:0 0 12px; color:{accent_color}; font-size:13px; font-weight:bold; text-transform:uppercase;">Enthaltene Bereiche</p>
+                        <p style="margin:0; line-height:1.65; opacity:.9;">{sections}</p>
                     </div>
                 </section>
                 """
@@ -1044,6 +1052,7 @@ def render_template_and_design_ui() -> str:
 
     render_template_preview(
         selected_template_name,
+        current_template["sections"],
         background_color,
         accent_color,
         border_style,
@@ -1077,6 +1086,9 @@ DESIGN-VORGABEN:
 - Hintergrundfarbe: {background_color}
 - Akzentfarbe fuer Buttons und Highlights: {accent_color}
 - Stil-Richtung: {current_template['style_hint']}
+- VERBINDLICHE BRANCHENABSCHNITTE: {current_template['sections']}.
+- Jeder dieser Bereiche muss als eigenständiger, vollständig ausgearbeiteter Abschnitt
+    mit passender Überschrift, konkretem Inhalt und sichtbarem Handlungsaufruf vorkommen.
 - Verwende fuer Boxen, Bilder und Buttons die Tailwind-Klasse {radius_class}.
 - Erstelle eine hochwertige, eigenstaendige Markenwebsite. Vermeide Standard-Layouts,
     Lorem Ipsum, erfundene Bewertungen, Stockbild-Links, Platzhalter und sichtbare
