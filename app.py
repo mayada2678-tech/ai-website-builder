@@ -1030,6 +1030,16 @@ def render_saas_preview_and_testing_window() -> None:
             "Test-Modus aktiv: Probiere Navigation, Formulare, Sprachumschalter und "
             "Chatbot direkt in der Vorschau aus."
         )
+        show_chatbot = st.toggle(
+            "Botpress-Chatbot in der Vorschau laden",
+            key="show_botpress_chatbot",
+        )
+        if show_chatbot:
+            chatbot_script = """
+            <script src="https://botpress.cloud"></script>
+            <script src="https://bpcontent.cloud"></script>
+            """
+            st.components.v1.html(chatbot_script, height=0, width=0)
         st.components.v1.html(
             create_preview_html(st.session_state.generated_html),
             height=650,
