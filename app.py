@@ -1,7 +1,6 @@
 import base64
 import hashlib
 import hmac
-import json
 import re
 import secrets
 import sqlite3
@@ -45,10 +44,24 @@ st.markdown(
     [data-testid="stExpander"] {
         border-color: rgba(103, 232, 249, 0.18);
     }
-    [data-testid="stSidebar"] .st-key-toggle_botpress_chatbot > button {
+    .st-key-help_chat_launcher {
+        position: fixed;
+        right: 1.5rem;
+        bottom: 1.5rem;
+        z-index: 1000000;
+    }
+    .st-key-help_chat_launcher > button {
+        min-width: 3.2rem;
+        min-height: 3.2rem;
+        border-radius: 50%;
         border-color: #22d3ee;
         box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.55);
         animation: chatbot-pulse 2.2s ease-out infinite;
+    }
+    [data-testid="stPopoverBody"] {
+        width: min(22rem, calc(100vw - 2rem)) !important;
+        max-width: calc(100vw - 2rem) !important;
+        max-height: min(22rem, calc(100vh - 6rem)) !important;
     }
     @keyframes chatbot-pulse {
         0% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.5); }
@@ -56,7 +69,7 @@ st.markdown(
         100% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0); }
     }
     @media (prefers-reduced-motion: reduce) {
-        [data-testid="stSidebar"] .st-key-toggle_botpress_chatbot > button {
+        .st-key-help_chat_launcher > button {
             animation: none;
         }
     }
@@ -487,6 +500,15 @@ DEFAULT_STATE = {
     "project_name": "ai-website-builder",
     "delete_confirmation": False,
     "show_botpress_chatbot": True,
+    "chat_messages": [
+        {
+            "role": "assistant",
+            "content": (
+                "Herzlich willkommen. Ich unterstütze Sie bei der Erstellung, "
+                "Vorschau und Veröffentlichung Ihrer Website."
+            ),
+        }
+    ],
 }
 
 for key, value in DEFAULT_STATE.items():
@@ -583,34 +605,59 @@ def show_authentication() -> None:
                     st.error(str(error))
 
 
-def render_botpress_chatbot() -> None:
-    """Lädt den konfigurierten Botpress-Chat für angemeldete Nutzer."""
+def get_help_response(prompt: str) -> str:
+    """Gibt eine kurze Hilfeantwort für die wichtigsten Builder-Abläufe zurück."""
+    question = prompt.lower()
+
+    if any(word in question for word in ("veröffent", "veroeffent", "vercel", "domain")):
+        return (
+            "Wählen Sie nach dem Erstellen Ihrer Website den Bereich "
+            "„Veröffentlichung und Liveschaltung“. Dort können Sie einen "
+            "Vercel-Projektnamen festlegen und die Website veröffentlichen."
+        )
+    if any(word in question for word in ("vorschau", "test", "prüf", "pruef")):
+        return (
+            "Im Bereich „Interaktive Live-Vorschau und Testzentrum“ können Sie "
+            "Ihre Website testen und den HTML-Code direkt anpassen."
+        )
+    if any(word in question for word in ("bild", "logo", "foto")):
+        return (
+            "Sie können beim Erstellen der Website ein Logo oder Bild hochladen. "
+            "Weitere Bilder lassen sich später im Bereich „Bilder“ austauschen."
+        )
+    return (
+        "Beschreiben Sie Ihr Unternehmen, wählen Sie Branche und Design und "
+        "erstellen Sie anschließend Ihren Website-Entwurf. Wobei darf ich Ihnen helfen?"
+    )
+
+
+def render_help_chatbot() -> None:
+    """Rendert einen schwebenden Hilfe-Chat mit scrollbarer Nachrichtenhistorie."""
     if not st.session_state.show_botpress_chatbot:
         return
 
-    st.html(
-        """
-        <script>
-        const loadScript = (source, onLoad) => {
-            if (document.querySelector(`script[src="${source}"]`)) return;
-            const script = document.createElement("script");
-            script.src = source;
-            script.defer = true;
-            if (onLoad) script.onload = onLoad;
-            document.body.appendChild(script);
-        };
+    with st.popover(
+        "",
+        icon=":material/forum:",
+        help="Hilfe-Chat öffnen",
+        key="help_chat_launcher",
+        type="primary",
+    ):
+        st.subheader("Hilfe-Chat", anchor=False)
+        with st.container(height=220, border=True, key="help_chat_history"):
+            for message in st.session_state.chat_messages:
+                with st.chat_message(
+                    message["role"], avatar=":material/support_agent:"
+                ):
+                    st.write(message["content"])
 
-        loadScript(
-            "https://cdn.botpress.cloud/webchat/v5.0/inject.js",
-            () => window.botpress.init({
-                botId: "d3902011-5d4a-485b-a257-c6042440f7aa",
-                clientId: "02114f27-223c-4bf8-8e33-fce395ae613e"
-            })
-        );
-        </script>
-        """,
-        unsafe_allow_javascript=True,
-    )
+        prompt = st.chat_input("Schreiben Sie Ihre Frage", key="help_chat_input")
+        if prompt:
+            st.session_state.chat_messages.append({"role": "user", "content": prompt})
+            st.session_state.chat_messages.append(
+                {"role": "assistant", "content": get_help_response(prompt)}
+            )
+            st.rerun()
 
 
 if st.session_state.user_id is None:
@@ -619,7 +666,7 @@ if st.session_state.user_id is None:
 
 current_user_id = int(st.session_state.user_id)
 user_info = get_user_status(current_user_id)
-render_botpress_chatbot()
+render_help_chatbot()
 
 if not user_info["subscribed"] and user_info["balance"] <= 0:
     st.error(t("balance_empty"))
@@ -1367,23 +1414,6 @@ with st.sidebar:
             st.session_state.clear()
             st.rerun()
 
-    st.divider()
-    if st.button(
-        "Chatbot",
-        icon=":material/forum:",
-        key="toggle_botpress_chatbot",
-        width="stretch",
-    ):
-        st.session_state.show_botpress_chatbot = not st.session_state.get(
-            "show_botpress_chatbot", False
-        )
-        st.rerun()
-    if st.session_state.get("show_botpress_chatbot", False):
-        st.badge("Chatbot aktiv", icon=":material/check_circle:", color="blue")
-    else:
-        st.caption("Chatbot inaktiv")
-
-    st.divider()
     st.subheader(t("drafts"))
 
     history_site_name = st.text_input(
