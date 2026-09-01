@@ -726,6 +726,38 @@ def ensure_customer_email(html: str, business_email: str) -> str:
     return html
 
 
+def ensure_multi_page_navigation(html: str) -> str:
+        """Hält Hash-Navigation innerhalb eines mehrseitigen HTML-Entwurfs."""
+        hash_link_pattern = r'(?i)(<a\b[^>]*href=["\']#[^"\']+["\'][^>]*)\s+target=["\'](?:_parent|_top)["\']'
+        html = re.sub(hash_link_pattern, r"\1", html)
+        router_script = """
+<script>
+(() => {
+    const pages = [...document.querySelectorAll('[data-page]')];
+    if (!pages.length) return;
+    const showActivePage = () => {
+        const requestedPage = decodeURIComponent(location.hash.slice(1) || 'start');
+        const activePage = pages.some((page) => page.dataset.page === requestedPage)
+            ? requestedPage
+            : 'start';
+        if (location.hash.slice(1) !== activePage) history.replaceState(null, '', `#${activePage}`);
+        pages.forEach((page) => { page.hidden = page.dataset.page !== activePage; });
+    };
+    document.querySelectorAll('a[href^="#"]').forEach((link) => {
+        link.removeAttribute('target');
+        link.addEventListener('click', (event) => {
+            event.preventDefault();
+            location.hash = link.getAttribute('href');
+        });
+    });
+    addEventListener('hashchange', showActivePage);
+    showActivePage();
+})();
+</script>
+"""
+        return re.sub(r"(?i)</body\s*>", f"{router_script}</body>", html, count=1)
+
+
 def queue_html_update(html: str) -> None:
     """Plant ein sicheres HTML-Update für den nächsten Durchlauf."""
     st.session_state.pending_html = require_complete_html(html)
@@ -814,7 +846,12 @@ def ask_ai_for_html(system_instruction: str, user_instruction: str) -> str:
     return response.choices[0].message.content or ""
 
 
-def generate_website(description: str, image_file) -> None:
+def generate_website(
+    description: str,
+    image_file,
+    image_placement: str = "Hero- und Willkommensbereich",
+    multi_page: bool = False,
+) -> None:
     """Erstellt einen neuen Website-Entwurf."""
     image_instruction = ""
     company_name = str(st.session_state.get("client_company_name", "")).strip()
@@ -831,16 +868,21 @@ def generate_website(description: str, image_file) -> None:
         )
 
     if image_file is not None:
-        image_name = save_uploaded_image(image_file, "profil")
+        image_name = save_uploaded_image(image_file, image_placement)
         image_instruction = f"""
-Nutze dieses Bild professionell im Hero- oder Über-mich-Bereich:
-<img src="{image_name}" alt="Profilbild">
+    Bildplatzierung: {image_placement}.
+    Nutze dieses Bild ausschließlich im Bereich „{image_placement}“ und verwende exakt:
+    <img src="{image_name}" alt="{company_name}">
+    Wenn „Logo“ gewählt wurde, nutze das Bild klein und klar im Kopfbereich sowie optional im Footer.
+    Wenn „Hero- und Willkommensbereich“ gewählt wurde, nutze es groß im ersten sichtbaren Bereich.
+    Wenn „Über-uns-Bereich“ gewählt wurde, nutze es nur bei der Unternehmensvorstellung.
+    Wenn „Projektbereich“ gewählt wurde, nutze es ausschließlich als hervorgehobenes Projektbild.
 """
 
     saas_system_instruction = f"""
 Du bist ein professioneller, internationaler Frontend-Entwickler und Webdesigner
 fuer eine Webbuilder-SaaS-Plattform. Deine Aufgabe ist es, eine massgeschneiderte,
-moderne Einzelseiten-Website exakt anhand der bereitgestellten Kundendaten zu erstellen.
+moderne Website exakt anhand der bereitgestellten Kundendaten zu erstellen.
 
 REGELN FUER DIE GENERIERUNG:
 - Nutze valides HTML5, beginne mit <!doctype html> und binde Tailwind CSS ueber
@@ -849,7 +891,8 @@ REGELN FUER DIE GENERIERUNG:
 - Verwende niemals Beispielnamen, persoenliche Daten oder Platzhalter einer bestimmten
     Person. Alle Inhalte muessen sich ausschliesslich auf das Kundenunternehmen beziehen.
 - Erstelle Navigation, Hero, Leistungen, Ueber uns, ein funktionsfaehiges
-    Kontaktformular und einen mehrspaltigen Footer.
+    Kontaktformular und einen mehrspaltigen Footer. Befolge die im Nutzerauftrag
+    gewählte Seitenstruktur zwingend.
 - Antworte ausschliesslich mit dem vollstaendigen HTML, ohne Markdown oder Erklaerung.
 
 {LANGUAGE_SWITCHER_REQUIREMENTS}
@@ -890,7 +933,10 @@ CHATBOT MIT VOICE:
         user_instruction=description,
     )
 
-    queue_html_update(ensure_customer_email(html, business_email))
+    html = ensure_customer_email(html, business_email)
+    if multi_page:
+        html = ensure_multi_page_navigation(html)
+    queue_html_update(html)
 
 
 def render_client_contact_ui() -> None:
@@ -1189,9 +1235,17 @@ def render_saas_preview_and_testing_window() -> None:
         )
         return
 
+    preview_height = st.slider(
+        "Vorschauhöhe",
+        min_value=400,
+        max_value=1200,
+        value=650,
+        step=50,
+        key="live_preview_height",
+    )
     st.components.v1.html(
         create_preview_html(st.session_state.generated_html),
-        height=650,
+        height=preview_height,
         scrolling=True,
     )
 
@@ -1570,16 +1624,30 @@ with new_tab:
     elif creation_mode == "Bestehenden Entwurf anpassen":
         st.info("Laden Sie einen Entwurf oder erstellen Sie zuerst eine Website. Die Anpassung erfolgt anschließend im Abschnittseditor unter der Vorschau.")
 
-    description = st.text_area(
-        "Unternehmensbeschreibung und besondere Wünsche",
-        placeholder="Beschreiben Sie Angebot, Zielgruppe, Standort und die wichtigsten Inhalte Ihrer Website.",
-        key="creation_description",
-        height=150,
-    )
+    if creation_mode == "Professionelle Vorlage":
+        description = str(st.session_state.get("template_custom_description", ""))
+    else:
+        description = st.text_area(
+            "Unternehmensbeschreibung und besondere Wünsche",
+            placeholder="Beschreiben Sie Angebot, Zielgruppe, Standort und die wichtigsten Inhalte Ihrer Website.",
+            key="creation_description",
+            height=150,
+        )
     initial_image = st.file_uploader(
         "Logo oder Bild hochladen (optional)",
         type=["png", "jpg", "jpeg", "webp"],
         key="initial_image",
+    )
+    image_placement = st.selectbox(
+        "Wo soll dieses Bild erscheinen?",
+        [
+            "Logo",
+            "Hero- und Willkommensbereich",
+            "Über-uns-Bereich",
+            "Projektbereich",
+        ],
+        disabled=initial_image is None,
+        key="image_placement",
     )
 
     st.divider()
@@ -1593,14 +1661,19 @@ with new_tab:
         disabled=creation_mode == "Bestehenden Entwurf anpassen",
     ):
         page_prompt = (
-            "Erstelle eine mehrseitige Informationsarchitektur innerhalb einer einzelnen, deploybaren HTML-Datei. Die Navigation soll eigenständige Ansichten für Start, Leistungen, Über uns und Kontakt verwenden. Jeder Link setzt einen eigenen Hash wie #start oder #kontakt und JavaScript zeigt nur die gewählte Ansicht. Beim Klick auf Kontakt muss eine vollständige Kontaktansicht mit E-Mail-Adresse, Erreichbarkeit und Kontaktformular erscheinen; die Browsernavigation Zurück/Vorwärts muss funktionieren."
+            "Erstelle eine mehrseitige Informationsarchitektur innerhalb einer einzelnen, deploybaren HTML-Datei. Das HTML muss genau vier eigenständige Ansichten besitzen: `data-page=\"start\"`, `data-page=\"leistungen\"`, `data-page=\"ueber-uns\"` und `data-page=\"kontakt\"`. Die Navigation muss Links auf `#start`, `#leistungen`, `#ueber-uns` und `#kontakt` besitzen. Füge JavaScript für `hashchange` und beim initialen Laden hinzu: Es blendet nur die gewählte Ansicht ein und ergänzt bei unbekanntem Hash `#start`. Beim Klick auf Kontakt muss ausschließlich die vollständige Kontaktansicht mit E-Mail-Adresse, Erreichbarkeit und Kontaktformular erscheinen. Die Browsernavigation Zurück/Vorwärts muss die Ansichten korrekt wechseln."
             if page_structure == "Mehrseitige Website"
             else "Erstelle eine klar gegliederte, einseitige Website mit Navigation zu den jeweiligen Inhaltsbereichen."
         )
         prompt = f"{template_prompt}\n{description.strip()}\n\nSEITENSTRUKTUR:\n{page_prompt}"
         with st.status("Website wird erstellt ...", expanded=True) as status:
             try:
-                generate_website(prompt, initial_image)
+                generate_website(
+                    prompt,
+                    initial_image,
+                    image_placement,
+                    multi_page=page_structure == "Mehrseitige Website",
+                )
                 status.update(label="Website wurde erstellt.", state="complete")
                 st.rerun()
             except Exception as error:
