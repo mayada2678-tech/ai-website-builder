@@ -1026,8 +1026,8 @@ def render_saas_preview_and_testing_window() -> None:
         )
         if st.session_state.get("show_botpress_chatbot", False):
             chatbot_script = """
-            <script src="https://botpress.cloud"></script>
-            <script src="https://bpcontent.cloud"></script>
+            <script src="https://cdn.botpress.cloud/webchat/v5.0/inject.js"></script>
+            <script src="https://files.bpcontent.cloud/2026/09/01/08/20260901082744-E50Z8QDZ.js" defer></script>
             """
             st.components.v1.html(chatbot_script, height=0, width=0)
         st.components.v1.html(
