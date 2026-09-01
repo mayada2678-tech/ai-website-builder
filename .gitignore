@@ -4,4 +4,10 @@
 .venv/
 __pycache__/
 *.pyc
+*.db.streamlit/secrets.toml
+**/.streamlit/secrets.toml
+**/secrets.toml
+.venv/
+__pycache__/
+*.pyc
 *.db
