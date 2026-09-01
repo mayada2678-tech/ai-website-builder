@@ -1029,7 +1029,7 @@ def render_saas_preview_and_testing_window() -> None:
             <script src="https://cdn.botpress.cloud/webchat/v5.0/inject.js"></script>
             <script src="https://files.bpcontent.cloud/2026/09/01/08/20260901082744-E50Z8QDZ.js" defer></script>
             """
-            st.components.v1.html(chatbot_script, height=0, width=0)
+            st.components.v1.html(chatbot_script, height=600, scrolling=False)
         st.components.v1.html(
             create_preview_html(st.session_state.generated_html),
             height=650,
