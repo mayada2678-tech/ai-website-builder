@@ -470,6 +470,16 @@ def deduct_tokens(user_id: int, amount: float = 0.05) -> bool:
         return True
 
 
+def refund_tokens(user_id: int, amount: float = 0.05) -> None:
+    """Erstattet Guthaben, wenn die KI-Anfrage nicht ausgeführt werden konnte."""
+    with sqlite3.connect(DATABASE_PATH) as connection:
+        connection.execute(
+            "UPDATE users SET token_balance = token_balance + ? "
+            "WHERE id = ? AND is_subscribed = 0",
+            (amount, user_id),
+        )
+
+
 def activate_premium_demo(user_id: int) -> None:
     """Aktiviert Premium fuer lokale Tests, bis eine Zahlungsintegration vorhanden ist."""
     with sqlite3.connect(DATABASE_PATH) as connection:
@@ -841,15 +851,22 @@ def ask_ai_for_html(system_instruction: str, user_instruction: str) -> str:
             "Ihr KI-Guthaben reicht für diese Anfrage nicht aus."
         )
 
-    response = client.chat.completions.create(
-        model=OPENAI_MODEL,
-        temperature=0.35,
-        timeout=90,
-        messages=[
-            {"role": "system", "content": system_instruction},
-            {"role": "user", "content": user_instruction},
-        ],
-    )
+    try:
+        response = client.chat.completions.create(
+            model=OPENAI_MODEL,
+            temperature=0.35,
+            timeout=90,
+            messages=[
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": user_instruction},
+            ],
+        )
+    except Exception as error:
+        refund_tokens(current_user_id)
+        raise ValueError(
+            "Die KI-Erstellung ist derzeit nicht erreichbar. Ihr Guthaben wurde "
+            "nicht belastet. Bitte versuchen Sie es in wenigen Minuten erneut."
+        ) from error
 
     return response.choices[0].message.content or ""
 
