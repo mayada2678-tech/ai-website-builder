@@ -119,6 +119,15 @@ APP_LANGUAGES = {
     "Italiano": "it",
     "हिन्दी": "hi",
 }
+APP_LANGUAGE_LABELS = {
+    "Deutsch": "Deutsch 🇩🇪",
+    "English": "English 🇬🇧",
+    "Español": "Español 🇪🇸",
+    "Italiano": "Italiano 🇮🇹",
+    "हिन्दी": "Hindi 🇮🇳",
+    "العربية": "العربية 🇦🇪",
+    "کوردی": "Kurdî (Sorani) ☀️",
+}
 TRANSLATIONS = {
     "de": {
         "app_language": "App-Sprache",
@@ -450,12 +459,33 @@ def t(key: str, **values: object) -> str:
 st.selectbox(
     t("app_language"),
     list(APP_LANGUAGES),
-    format_func=lambda name: name,
+    format_func=lambda name: APP_LANGUAGE_LABELS[name],
     key="app_language_name",
     on_change=lambda: st.session_state.update(
         app_language=APP_LANGUAGES[st.session_state.app_language_name]
     ),
 )
+
+if st.session_state.app_language in {"ar", "ku"}:
+    st.markdown(
+        """
+        <style>
+        [data-testid="stAppViewContainer"],
+        [data-testid="stSidebar"],
+        [data-testid="stTextArea"],
+        [data-testid="stMarkdownContainer"] {
+            direction: rtl;
+            text-align: right;
+        }
+        [data-testid="stTextInput"] input,
+        [data-testid="stTextArea"] textarea {
+            direction: rtl;
+            text-align: right;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 # Übernimmt KI- oder HTML-Änderungen vor dem Erstellen der Widgets.
 if st.session_state.pending_html:
