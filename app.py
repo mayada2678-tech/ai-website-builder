@@ -1887,6 +1887,67 @@ if st.session_state.generated_html:
                         st.error(str(error))
 
     with design_tab:
+        st.subheader("Basisdaten und Markenauftritt")
+        brand_color = st.color_picker(
+            "Markenfarbe",
+            "#38BDF8",
+            key="premium_brand_color",
+        )
+        company_name = st.text_input(
+            "Firmenname oder Logo-Text",
+            value=str(st.session_state.get("client_company_name", "")),
+            key="premium_company_name",
+        )
+        contact_email = st.text_input(
+            "Kontakt-E-Mail-Adresse",
+            value=str(st.session_state.get("client_business_email", "")),
+            key="premium_contact_email",
+        )
+        social_columns = st.columns(2)
+        with social_columns[0]:
+            instagram_link = st.text_input(
+                "Instagram-Link",
+                placeholder="https://instagram.com/ihrunternehmen",
+                key="premium_instagram_link",
+            )
+        with social_columns[1]:
+            linkedin_link = st.text_input(
+                "LinkedIn-Link",
+                placeholder="https://linkedin.com/company/ihrunternehmen",
+                key="premium_linkedin_link",
+            )
+
+        if st.button(
+            "Basisdaten übernehmen",
+            icon=":material/save:",
+            key="apply_premium_basics",
+            width="stretch",
+        ):
+            if not company_name.strip() or not re.fullmatch(
+                r"[^@\s]+@[^@\s]+\.[^@\s]+", contact_email.strip()
+            ):
+                st.warning("Geben Sie einen Firmennamen und eine gültige Kontakt-E-Mail-Adresse ein.")
+            else:
+                st.session_state.client_company_name = company_name.strip()
+                st.session_state.client_business_email = contact_email.strip()
+                with st.status("Basisdaten werden übernommen ...", expanded=True) as status:
+                    try:
+                        modify_current_website(
+                            f"""
+Aktualisiere den Markenauftritt: Firmenname „{company_name.strip()}“,
+Kontakt-E-Mail „{contact_email.strip()}“ und Markenfarbe „{brand_color}".
+Nutze im Footer nur diese Social-Media-Links: Instagram „{instagram_link.strip()}"
+und LinkedIn „{linkedin_link.strip()}". Entferne einen Social-Link, wenn dafür
+keine gültige URL angegeben wurde. Alle sonstigen Inhalte und Bilder bleiben erhalten.
+"""
+                        )
+                        status.update(label="Basisdaten wurden übernommen.", state="complete")
+                        st.rerun()
+                    except Exception as error:
+                        status.update(label="Aktualisierung fehlgeschlagen", state="error")
+                        st.error(str(error))
+
+        st.divider()
         design_request = st.text_area(
             "Design-Änderung",
             placeholder=(
@@ -1922,7 +1983,7 @@ if st.session_state.generated_html:
     with image_tab:
         image_section = st.selectbox(
             "Abschnitt für das Bild",
-            ["Hero-Bereich", "Über mich", "Leistungen", "Projekte", "Kontakt"],
+            ["Logo", "Hero-Bereich", "Über mich", "Leistungen", "Projekte", "Kontakt"],
         )
 
         image_file = st.file_uploader(
