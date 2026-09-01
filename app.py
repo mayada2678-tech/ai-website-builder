@@ -1086,9 +1086,10 @@ DESIGN-VORGABEN:
 - Hintergrundfarbe: {background_color}
 - Akzentfarbe fuer Buttons und Highlights: {accent_color}
 - Stil-Richtung: {current_template['style_hint']}
-- VERBINDLICHE BRANCHENABSCHNITTE: {current_template['sections']}.
-- Jeder dieser Bereiche muss als eigenständiger, vollständig ausgearbeiteter Abschnitt
-    mit passender Überschrift, konkretem Inhalt und sichtbarem Handlungsaufruf vorkommen.
+- EMPFOHLENE BRANCHENABSCHNITTE: {current_template['sections']}.
+- Die vom Kunden ausgewählten Abschnitte im Nutzerauftrag sind verbindlich. Entwickle
+    sie als vollständig ausgearbeitete Bereiche mit passenden Überschriften, konkreten
+    Inhalten und sichtbaren Handlungsaufrufen.
 - Verwende fuer Boxen, Bilder und Buttons die Tailwind-Klasse {radius_class}.
 - Erstelle eine hochwertige, eigenstaendige Markenwebsite. Vermeide Standard-Layouts,
     Lorem Ipsum, erfundene Bewertungen, Stockbild-Links, Platzhalter und sichtbare
@@ -1117,6 +1118,64 @@ DESIGN-VORGABEN:
     sichtbarer `mailto:`-Link vorkommt. Antworte erst danach mit dem vollständigen
     HTML-Dokument.
 """
+
+
+def render_section_configuration() -> str:
+    """Erfasst den gewünschten Umfang und die Kerninhalte eines Entwurfs."""
+    st.subheader("Abschnitte und Inhalte")
+    selected_sections = st.multiselect(
+        "Welche Bereiche soll die Website enthalten?",
+        [
+            "Hero und Willkommensbereich",
+            "Über uns",
+            "Leistungen oder Produkte",
+            "Galerie oder Projekte",
+            "Kundenstimmen oder Referenzen",
+            "Kontakt und Erreichbarkeit",
+        ],
+        default=[
+            "Hero und Willkommensbereich",
+            "Über uns",
+            "Leistungen oder Produkte",
+            "Kontakt und Erreichbarkeit",
+        ],
+        key="selected_website_sections",
+    )
+    if not selected_sections:
+        st.warning("Wählen Sie mindestens einen Abschnitt aus.")
+
+    details: list[str] = []
+    if "Hero und Willkommensbereich" in selected_sections:
+        with st.expander("Hero und Willkommensbereich", expanded=True):
+            title = st.text_input("Hauptüberschrift", key="section_hero_title")
+            subtitle = st.text_area("Untertitel oder Slogan", key="section_hero_subtitle")
+            details.append(f"Hero: Titel '{title}', Untertitel '{subtitle}'.")
+    if "Über uns" in selected_sections:
+        with st.expander("Über uns"):
+            about = st.text_area("Text für Über uns", key="section_about_text")
+            details.append(f"Über uns: {about}")
+    if "Leistungen oder Produkte" in selected_sections:
+        with st.expander("Leistungen oder Produkte"):
+            services = st.text_area(
+                "Leistungen oder Produkte, jeweils durch Komma trennen",
+                key="section_services",
+            )
+            details.append(f"Leistungen oder Produkte: {services}")
+    if "Galerie oder Projekte" in selected_sections:
+        with st.expander("Galerie oder Projekte"):
+            projects = st.text_area("Projekt- oder Galeriebeschreibung", key="section_projects")
+            details.append(f"Galerie oder Projekte: {projects}")
+    if "Kundenstimmen oder Referenzen" in selected_sections:
+        with st.expander("Kundenstimmen oder Referenzen"):
+            references = st.text_area("Referenzen oder Vertrauensargumente", key="section_references")
+            details.append(f"Kundenstimmen oder Referenzen: {references}")
+
+    return (
+        "AUSGEWÄHLTE PFLICHTABSCHNITTE:\n- "
+        + "\n- ".join(selected_sections)
+        + "\n\nKUNDENINHALTE FÜR DIE ABSCHNITTE:\n"
+        + "\n".join(details)
+    )
 
 
 def modify_current_website(change_request: str) -> None:
@@ -1636,6 +1695,10 @@ with new_tab:
     elif creation_mode == "Bestehenden Entwurf anpassen":
         st.info("Laden Sie einen Entwurf oder erstellen Sie zuerst eine Website. Die Anpassung erfolgt anschließend im Abschnittseditor unter der Vorschau.")
 
+    section_prompt = ""
+    if creation_mode != "Bestehenden Entwurf anpassen":
+        section_prompt = render_section_configuration()
+
     if creation_mode == "Professionelle Vorlage":
         description = str(st.session_state.get("template_custom_description", ""))
     else:
@@ -1677,7 +1740,11 @@ with new_tab:
             if page_structure == "Mehrseitige Website"
             else "Erstelle eine klar gegliederte, einseitige Website mit Navigation zu den jeweiligen Inhaltsbereichen."
         )
-        prompt = f"{template_prompt}\n{description.strip()}\n\nSEITENSTRUKTUR:\n{page_prompt}"
+        prompt = (
+            f"{template_prompt}\n{section_prompt}\n\n"
+            f"WEITERE KUNDENANFORDERUNGEN:\n{description.strip()}\n\n"
+            f"SEITENSTRUKTUR:\n{page_prompt}"
+        )
         with st.status("Website wird erstellt ...", expanded=True) as status:
             try:
                 generate_website(
