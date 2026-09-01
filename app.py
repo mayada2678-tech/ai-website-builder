@@ -719,6 +719,14 @@ def safe_project_name(name: str) -> str:
     return safe_name[:100] or "ai-website-builder"
 
 
+def create_deployment_project_name() -> str:
+    """Erstellt für jede Veröffentlichung einen neuen Vercel-Projektnamen."""
+    company_name = str(st.session_state.get("client_company_name", "")).strip()
+    template_name = str(st.session_state.get("template_name", "website"))
+    name_prefix = safe_project_name(company_name or template_name)
+    return f"{name_prefix[:88]}-{secrets.token_hex(4)}"
+
+
 def get_project_name_from_url(live_url: str) -> str:
     """Erstellt einen Projektnamen-Vorschlag aus einer URL."""
     hostname = urlparse(live_url).hostname or ""
@@ -778,6 +786,7 @@ def ask_ai_for_html(system_instruction: str, user_instruction: str) -> str:
     response = client.chat.completions.create(
         model=OPENAI_MODEL,
         temperature=0.35,
+        timeout=90,
         messages=[
             {"role": "system", "content": system_instruction},
             {"role": "user", "content": user_instruction},
@@ -798,9 +807,9 @@ def generate_website(description: str, image_file) -> None:
 
     if business_email and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", business_email):
         raise ValueError("Bitte gib eine gueltige geschäftliche E-Mail-Adresse ein.")
-    if not business_email or not company_name or not web3forms_access_key:
+    if not business_email or not company_name:
         raise ValueError(
-            "Bitte gib Unternehmensname, Geschäfts-E-Mail und Web3Forms Access Key ein."
+            "Bitte geben Sie Unternehmensname und geschäftliche E-Mail-Adresse ein."
         )
 
     if image_file is not None:
@@ -833,15 +842,16 @@ GESCHAEFTS- UND KONTAKTDATEN:
 - Verwende den Unternehmensnamen in Navigation, Hero, Seitentitel und Footer.
 - Zeige die Kontakt-E-Mail im Kontaktbereich und Footer an.
 
-KONTAKTFORMULAR - WEB3FORMS:
-- Erstelle einen sichtbaren, modernen Kontaktbereich mit diesem exakten Formularbeginn:
+KONTAKTFORMULAR:
+{f'''- Erstelle einen sichtbaren, modernen Kontaktbereich mit diesem exakten Formularbeginn:
     <form action="https://api.web3forms.com/submit" method="POST" class="mt-8 space-y-4">
     <input type="hidden" name="access_key" value="{web3forms_access_key}">
-    <input type="hidden" name="subject" value="Neue Anfrage fuer {company_name}">
+    <input type="hidden" name="subject" value="Neue Anfrage für {company_name}">
     <input type="hidden" name="to_email" value="{business_email}">
 - Das Formular braucht sichtbare Labels sowie die Pflichtfelder name, email und message.
 - Baue vor dem Absenden per JavaScript ein verstecktes Feld name="redirect" ein und
-    setze dessen value auf window.location.href.
+    setze dessen value auf window.location.href.''' if web3forms_access_key else '''- Erstelle einen sichtbaren Kontaktbereich mit der E-Mail-Adresse {business_email}.
+- Verwende kein externes Formular und keinen Web3Forms Access Key.'''}
 
 CHATBOT MIT VOICE:
 - Integriere unten rechts ein schwebendes, animiertes Chatbot-Widget, das ausschliesslich
@@ -884,7 +894,7 @@ def render_client_contact_ui() -> None:
         st.text_input(
             "Web3Forms Access Key",
             type="password",
-            help="Der Key wird in das Kundenformular eingebunden und in Web3Forms verwaltet.",
+            help="Optional. Mit diesem Schlüssel erhält die generierte Website ein Web3Forms-Kontaktformular.",
             key="client_web3forms_access_key",
         )
 
@@ -1264,7 +1274,8 @@ def delete_published_website() -> None:
 def publish_website() -> None:
     """Veröffentlicht den aktuellen HTML-Entwurf auf Vercel."""
     html = require_complete_html(st.session_state.generated_html)
-    project_name = safe_project_name(st.session_state.project_name)
+    project_name = create_deployment_project_name()
+    st.session_state.project_name = project_name
 
     files = [{"file": "index.html", "data": html}]
 
