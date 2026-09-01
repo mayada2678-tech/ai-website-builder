@@ -928,6 +928,38 @@ def render_language_selector() -> tuple[dict[str, str], str]:
     return SUPPORTED_LANGUAGES[target_language], target_language
 
 
+def render_template_preview(
+        template_name: str,
+        background_color: str,
+        accent_color: str,
+        border_style: str,
+) -> None:
+        """Zeigt eine visuelle Vorschau, bevor Kundendaten benötigt werden."""
+        radius = "0px" if border_style == "sharp" else "18px"
+        st.caption("Vorlagenvorschau")
+        st.html(
+                f"""
+                <section style="background:{background_color}; border:1px solid {accent_color}; border-radius:{radius}; color:#f8fafc; overflow:hidden; font-family:Arial,sans-serif;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:16px 22px; border-bottom:1px solid rgba(255,255,255,.18);">
+                        <strong style="font-size:18px;">{template_name}</strong>
+                        <span style="font-size:13px; opacity:.78;">Start &nbsp; Leistungen &nbsp; Über uns &nbsp; Kontakt</span>
+                    </div>
+                    <div style="padding:38px 22px 30px; background:linear-gradient(135deg, {background_color}, {accent_color}55);">
+                        <p style="margin:0 0 9px; color:{accent_color}; font-size:13px; font-weight:bold; text-transform:uppercase;">Ihre professionelle Website</p>
+                        <h3 style="margin:0; font-size:28px; line-height:1.15;">Klare Inhalte. Starker erster Eindruck.</h3>
+                        <p style="max-width:540px; margin:14px 0 20px; line-height:1.5; opacity:.85;">Diese Vorlage wird mit Ihrem Angebot, Ihrer Marke und Ihren Kundendaten personalisiert.</p>
+                        <span style="display:inline-block; background:{accent_color}; color:#07111f; padding:10px 14px; border-radius:{radius}; font-weight:bold;">Kontakt aufnehmen</span>
+                    </div>
+                    <div style="display:flex; gap:12px; padding:18px 22px 24px; flex-wrap:wrap;">
+                        <div style="flex:1; min-width:140px; padding:14px; border:1px solid rgba(255,255,255,.16); border-radius:{radius};">Leistungen</div>
+                        <div style="flex:1; min-width:140px; padding:14px; border:1px solid rgba(255,255,255,.16); border-radius:{radius};">Ihre Vorteile</div>
+                        <div style="flex:1; min-width:140px; padding:14px; border:1px solid rgba(255,255,255,.16); border-radius:{radius};">Kontakt</div>
+                    </div>
+                </section>
+                """
+        )
+
+
 def render_template_and_design_ui() -> str:
     """Rendert die Branchenvorlagen fuer einen gefuehrten Website-Entwurf."""
     st.subheader(t("template"))
@@ -963,6 +995,13 @@ def render_template_and_design_ui() -> str:
             format_func=lambda option: t(option),
             key="template_border_style",
         )
+
+    render_template_preview(
+        selected_template_name,
+        background_color,
+        accent_color,
+        border_style,
+    )
 
     custom_description = st.text_area(
         t("company_description"),
