@@ -536,16 +536,9 @@ def show_authentication() -> None:
                     st.error(str(error))
 
 
-def play_voice_onboarding(user_email: str) -> None:
-    """Spielt nach dem Login einmal eine kurze sprachbasierte Einfuehrung ab."""
-    client_name = user_email.split("@", maxsplit=1)[0].replace(".", " ").title()
-    onboarding_text = f"""
-Herzlich willkommen bei Ihrem AI Website Builder, {client_name}.
-Wählen Sie zuerst im Kontrollzentrum Ihre Branche aus und passen Sie Farben sowie
-Unternehmensdaten an. Danach erstellen Sie Ihren Entwurf. In der Live-Vorschau können
-Sie Design, Sprache, Kontaktformular und Chatbot testen. Wenn alles passt, können Sie
-mit einem Premium-Konto Ihre Website über Vercel veröffentlichen.
-""".strip()
+def play_voice_onboarding() -> None:
+    """Spricht nach dem Login einmal eine kurze deutsche Begruessung."""
+    onboarding_text = "Herzlich willkommen beim AI Website Builder."
     escaped_text = json.dumps(onboarding_text)
 
     st.html(
@@ -556,8 +549,9 @@ mit einem Premium-Konto Ihre Website über Vercel veröffentlichen.
             window.speechSynthesis.cancel();
             const utterance = new SpeechSynthesisUtterance({escaped_text});
             utterance.lang = 'de-DE';
-            utterance.rate = 0.95;
-            utterance.pitch = 1.05;
+            utterance.rate = 0.82;
+            utterance.pitch = 1;
+            utterance.volume = 1;
             window.speechSynthesis.speak(utterance);
         }}, 1500);
         </script>
@@ -575,7 +569,7 @@ current_user_id = int(st.session_state.user_id)
 user_info = get_user_status(current_user_id)
 
 if not st.session_state.get("voice_onboarding_played", False):
-    play_voice_onboarding(str(st.session_state.user_email))
+    play_voice_onboarding()
     st.session_state.voice_onboarding_played = True
 
 if not user_info["subscribed"] and user_info["balance"] <= 0:
@@ -1030,11 +1024,7 @@ def render_saas_preview_and_testing_window() -> None:
             "Test-Modus aktiv: Probiere Navigation, Formulare, Sprachumschalter und "
             "Chatbot direkt in der Vorschau aus."
         )
-        show_chatbot = st.toggle(
-            "Botpress-Chatbot in der Vorschau laden",
-            key="show_botpress_chatbot",
-        )
-        if show_chatbot:
+        if st.session_state.get("show_botpress_chatbot", False):
             chatbot_script = """
             <script src="https://botpress.cloud"></script>
             <script src="https://bpcontent.cloud"></script>
@@ -1332,6 +1322,22 @@ with st.sidebar:
     if st.button(t("logout"), icon=":material/logout:", width="stretch"):
         st.session_state.clear()
         st.rerun()
+
+    st.divider()
+    if st.button(
+        "Chatbot",
+        icon=":material/smart_toy:",
+        key="toggle_botpress_chatbot",
+        width="stretch",
+    ):
+        st.session_state.show_botpress_chatbot = not st.session_state.get(
+            "show_botpress_chatbot", False
+        )
+        st.rerun()
+    st.caption(
+        "Chatbot aktiv" if st.session_state.get("show_botpress_chatbot", False)
+        else "Chatbot inaktiv"
+    )
 
     st.divider()
     st.subheader(t("drafts"))
