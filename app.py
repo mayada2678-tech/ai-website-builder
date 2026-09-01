@@ -178,46 +178,46 @@ TRANSLATIONS = {
     "de": {
         "app_language": "App-Sprache",
         "auth_title": "AI Website Builder",
-        "auth_subtitle": "Melde dich an, um deine Website zu entwerfen und online zu veroeffentlichen.",
+        "auth_subtitle": "Melden Sie sich an, um Ihre Website zu entwerfen und online zu veröffentlichen.",
         "login": "Anmelden",
         "register": "Konto erstellen",
         "email": "E-Mail-Adresse",
         "password": "Passwort",
         "confirm_password": "Passwort wiederholen",
         "invalid_login": "E-Mail-Adresse oder Passwort ist nicht korrekt.",
-        "password_mismatch": "Die Passwoerter stimmen nicht ueberein.",
-        "account_created": "Konto erstellt. Du kannst dich jetzt anmelden.",
-        "balance_empty": "Dein KI-Guthaben ist aufgebraucht.",
-        "premium_info": "Premium schaltet unbegrenzte Generierungen fuer 20,00 EUR pro Monat frei.",
+        "password_mismatch": "Die Passwörter stimmen nicht überein.",
+        "account_created": "Ihr Konto wurde erstellt. Sie können sich jetzt anmelden.",
+        "balance_empty": "Ihr KI-Guthaben ist aufgebraucht.",
+        "premium_info": "Premium schaltet unbegrenzte Generierungen für 20,00 EUR pro Monat frei.",
         "activate_premium": "Premium im Testmodus aktivieren",
-        "low_balance": "Dein kostenloses Guthaben betraegt noch {balance:.2f} EUR.",
-        "account": "Mein Konto",
+        "low_balance": "Ihr kostenloses Guthaben beträgt noch {balance:.2f} EUR.",
+        "account": "Ihr Konto",
         "premium_active": "Premium-Konto aktiv",
         "balance": "KI-Guthaben: {balance:.2f} EUR",
         "logout": "Abmelden",
-        "drafts": "Meine Entwuerfe",
+        "drafts": "Ihre Entwürfe",
         "draft_name": "Name des Entwurfs",
         "save_draft": "Entwurf speichern",
-        "no_drafts": "Noch keine gespeicherten Entwuerfe.",
+        "no_drafts": "Sie haben noch keine Entwürfe gespeichert.",
         "load": "Laden",
-        "delete": "Loeschen",
+        "delete": "Löschen",
         "main_title": "KI Website Builder",
-        "main_subtitle": "Website erstellen, bearbeiten, pruefen und veroeffentlichen.",
+        "main_subtitle": "Website erstellen, bearbeiten, prüfen und veröffentlichen.",
         "new_website": "Neue Website",
-        "load_published": "Veroeffentlichte Website laden",
+        "load_published": "Veröffentlichte Website laden",
         "template": "Vorlage und Grunddesign",
         "target_language": "Ziel-Sprache der Website",
-        "choose_industry": "Branche waehlen",
+        "choose_industry": "Branche wählen",
         "background_color": "Hintergrund-Grundton",
-        "accent_color": "Akzentfarbe fuer Highlights und Buttons",
+        "accent_color": "Akzentfarbe für Highlights und Buttons",
         "corner_style": "Ecken-Design",
         "rounded": "Abgerundet",
         "sharp": "Scharfkantig",
-        "company_description": "Unternehmensbeschreibung und besondere Wuensche",
+        "company_description": "Unternehmensbeschreibung und besondere Wünsche",
         "generate_template": "Website mit dieser Vorlage generieren",
         "live_preview": "Live-Vorschau",
         "edit_website": "Website bearbeiten",
-        "publish": "Veroeffentlichung",
+        "publish": "Veröffentlichung",
     },
     "en": {
         "app_language": "App language", "auth_title": "AI Website Builder", "auth_subtitle": "Log in to design your website and publish it online.", "login": "Log in", "register": "Create account", "email": "Email address", "password": "Password", "confirm_password": "Confirm password", "invalid_login": "Invalid email address or password.", "password_mismatch": "Passwords do not match.", "account_created": "Account created. You can now log in.", "balance_empty": "Your AI balance has been used up.", "premium_info": "Premium unlocks unlimited generations for EUR 20.00 per month.", "activate_premium": "Activate premium test mode", "low_balance": "Your free balance is {balance:.2f} EUR.", "account": "My account", "premium_active": "Premium account active", "balance": "AI balance: {balance:.2f} EUR", "logout": "Log out", "drafts": "My drafts", "draft_name": "Draft name", "save_draft": "Save draft", "no_drafts": "No saved drafts yet.", "load": "Load", "delete": "Delete", "main_title": "AI Website Builder", "main_subtitle": "Create, edit, review, and publish websites.", "new_website": "New website", "load_published": "Load published website", "template": "Template and base design", "target_language": "Website target language", "choose_industry": "Choose industry", "background_color": "Background color", "accent_color": "Accent color for highlights and buttons", "corner_style": "Corner style", "rounded": "Rounded", "sharp": "Sharp", "company_description": "Business description and special requests", "generate_template": "Generate website with this template", "live_preview": "Live preview", "edit_website": "Edit website", "publish": "Publishing",
@@ -588,11 +588,29 @@ def render_botpress_chatbot() -> None:
     if not st.session_state.show_botpress_chatbot:
         return
 
-    chatbot_script = """
-    <script src="https://cdn.botpress.cloud/webchat/v5.0/inject.js"></script>
-    <script src="https://files.bpcontent.cloud/2026/09/01/08/20260901082744-E50Z8QDZ.js" defer></script>
-    """
-    st.components.v1.html(chatbot_script, height=600, scrolling=False)
+    st.html(
+        """
+        <script>
+        const loadScript = (source, onLoad) => {
+            if (document.querySelector(`script[src="${source}"]`)) return;
+            const script = document.createElement("script");
+            script.src = source;
+            script.defer = true;
+            if (onLoad) script.onload = onLoad;
+            document.body.appendChild(script);
+        };
+
+        loadScript(
+            "https://cdn.botpress.cloud/webchat/v5.0/inject.js",
+            () => window.botpress.init({
+                botId: "d3902011-5d4a-485b-a257-c6042440f7aa",
+                clientId: "02114f27-223c-4bf8-8e33-fce395ae613e"
+            })
+        );
+        </script>
+        """,
+        unsafe_allow_javascript=True,
+    )
 
 
 if st.session_state.user_id is None:
@@ -707,7 +725,7 @@ def ask_ai_for_html(system_instruction: str, user_instruction: str) -> str:
     """Fordert vollständigen HTML-Code von OpenAI an."""
     if not deduct_tokens(current_user_id):
         raise ValueError(
-            "Dein KI-Guthaben reicht fuer diese Anfrage nicht aus."
+            "Ihr KI-Guthaben reicht für diese Anfrage nicht aus."
         )
 
     response = client.chat.completions.create(
@@ -801,18 +819,18 @@ CHATBOT MIT VOICE:
 
 def render_client_contact_ui() -> None:
     """Erfasst die Kontaktdaten, die in jede neue Kundenwebsite einfliessen."""
-    st.subheader("Geschaefts- und Kontaktdaten des Kunden")
+    st.subheader("Geschäfts- und Kontaktdaten des Kunden")
     contact_column, company_column, form_column = st.columns(3)
     with contact_column:
         st.text_input(
-            "E-Mail-Adresse fuer Kundenanfragen",
+            "E-Mail-Adresse für Kundenanfragen",
             placeholder="z. B. info@unternehmen.de",
             key="client_business_email",
         )
     with company_column:
         st.text_input(
             "Offizieller Unternehmensname",
-            placeholder="z. B. Autohaus Mueller GmbH",
+            placeholder="z. B. Autohaus Müller GmbH",
             key="client_company_name",
         )
     with form_column:
@@ -1038,11 +1056,11 @@ def discard_test_editor_changes() -> None:
 
 def render_saas_preview_and_testing_window() -> None:
     """Rendert Vorschau und sicheren HTML-Testeditor fuer den aktuellen Entwurf."""
-    st.header("Interaktives Live-Vorschau und Test-Zentrum")
+    st.header("Interaktive Live-Vorschau und Testzentrum")
 
     if not st.session_state.generated_html:
         st.info(
-            "Waehle eine Branche und ein Farbschema, um eine Live-Vorschau zu starten."
+            "Wähle eine Branche und ein Farbschema, um eine Live-Vorschau zu starten."
         )
         return
 
@@ -1062,7 +1080,7 @@ def render_saas_preview_and_testing_window() -> None:
         )
 
     with editor_tab:
-        st.subheader("HTML-Code feinjustieren")
+        st.subheader("HTML-Code fein abstimmen")
         st.session_state.setdefault(
             "preview_html_editor", st.session_state.generated_html
         )
@@ -1081,7 +1099,7 @@ def render_saas_preview_and_testing_window() -> None:
             ):
                 try:
                     update_preview_from_test_editor()
-                    st.success("Die Aenderungen wurden in die Vorschau uebernommen.")
+                    st.success("Die Änderungen wurden in die Vorschau übernommen.")
                     st.rerun()
                 except ValueError as error:
                     st.error(str(error))
@@ -1269,57 +1287,57 @@ def publish_website() -> None:
 
 def render_domain_and_deployment_ui() -> None:
     """Rendert die Premium-geschuetzte Konfiguration fuer die Vercel-Veröffentlichung."""
-    st.header("URL- und Live-Schaltungs-Zentrum")
+    st.header("Veröffentlichung und Liveschaltung")
 
     if not st.session_state.generated_html:
-        st.info("Erstelle oder lade zuerst eine Website, bevor du sie veroeffentlichst.")
+        st.info("Erstellen oder laden Sie zuerst eine Website, bevor Sie sie veröffentlichen.")
         return
 
     if not user_info["subscribed"]:
         st.warning(
-            "Die Veroeffentlichung im Internet ist ausschliesslich fuer Premium-Konten verfuegbar."
+            "Die Veröffentlichung im Internet ist ausschließlich für Premium-Konten verfügbar."
         )
         return
 
     st.caption(
-        "Die Seite wird auf Vercel veroeffentlicht. Die finale Adresse wird nach "
+        "Die Website wird auf Vercel veröffentlicht. Die finale Adresse wird nach "
         "der erfolgreichen Vercel-Antwort angezeigt."
     )
     domain_type = st.radio(
-        "Adresse waehlen",
+        "Adresse wählen",
         ["Vercel-Projektadresse", "Eigene Domain verbinden"],
         key="domain_type",
     )
 
     if domain_type == "Vercel-Projektadresse":
         requested_name = st.text_input(
-            "Name fuer die Vercel-Projektadresse",
+            "Name für die Vercel-Projektadresse",
             value=st.session_state.project_name,
             placeholder="z. B. autohaus-mueller",
             key="deployment_project_name",
-            help="Vercel vergibt die endgueltige .vercel.app-Adresse beim Deployment.",
+            help="Vercel vergibt die endgültige .vercel.app-Adresse beim Deployment.",
         )
         if requested_name:
             st.caption(
                 f"Projektname: {safe_project_name(requested_name)}. "
-                "Die genaue Live-URL wird von Vercel bestaetigt."
+                "Die genaue Live-URL wird von Vercel bestätigt."
             )
 
         if st.button(
-            "Jetzt auf Vercel veroeffentlichen",
+            "Jetzt auf Vercel veröffentlichen",
             icon=":material/rocket_launch:",
             type="primary",
             key="publish_from_domain_center",
             width="stretch",
         ):
             st.session_state.project_name = safe_project_name(requested_name or "")
-            with st.status("Vercel veroeffentlicht die Website ...", expanded=True) as status:
+            with st.status("Vercel veröffentlicht die Website ...", expanded=True) as status:
                 try:
                     publish_website()
-                    status.update(label="Website wurde veroeffentlicht.", state="complete")
+                    status.update(label="Die Website wurde veröffentlicht.", state="complete")
                     st.rerun()
                 except ValueError as error:
-                    status.update(label="Veroeffentlichung fehlgeschlagen", state="error")
+                    status.update(label="Veröffentlichung fehlgeschlagen", state="error")
                     st.error(str(error))
     else:
         custom_domain = st.text_input(
@@ -1329,9 +1347,9 @@ def render_domain_and_deployment_ui() -> None:
         )
         if custom_domain:
             st.info(
-                "Die Domain muss vor der Verknuepfung gekauft sein. Fuer die automatische "
-                "Anbindung werden eine verifizierte Domain, passende DNS-Eintraege und eine "
-                "serverseitige Vercel-Domain-API-Integration benoetigt."
+                "Die Domain muss vor der Verknüpfung gekauft sein. Für die automatische "
+                "Anbindung benötigen Sie eine verifizierte Domain, passende DNS-Einträge und eine "
+                "serverseitige Vercel-Domain-API-Integration."
             )
 
 
@@ -1385,7 +1403,7 @@ with st.sidebar:
             create_preview_html(st.session_state.generated_html),
             st.session_state.live_url,
         )
-        st.success("Entwurf wurde gespeichert.")
+        st.success("Ihr Entwurf wurde gespeichert.")
         st.rerun()
 
     saved_websites = get_websites(st.session_state.user_id)
@@ -1459,13 +1477,13 @@ with new_tab:
         use_container_width=True,
     ):
         if not description.strip():
-            st.warning("Bitte beschreibe die gewünschte Website.")
+            st.warning("Bitte beschreiben Sie die gewünschte Website.")
         else:
             with st.status("Website wird erstellt ...", expanded=True) as status:
                 try:
                     generate_website(description, initial_image)
                     status.update(
-                        label="✅ Entwurf wurde erstellt.",
+                        label="✅ Ihr Entwurf wurde erstellt.",
                         state="complete",
                     )
                     st.rerun()
@@ -1479,12 +1497,12 @@ with new_tab:
 with manage_tab:
     st.subheader("Öffentliche Website laden")
     st.caption(
-        "Das Original wird geladen, ohne HTML oder Design vor dem Bearbeiten zu ändern."
+        "Die Original-Website wird geladen, ohne HTML oder Design vor der Bearbeitung zu ändern."
     )
 
     live_url_input = st.text_input(
         "Öffentlicher Live-Link",
-        placeholder="https://deine-website.vercel.app",
+        placeholder="https://ihre-website.vercel.app",
         key="manage_live_url",
     )
 
@@ -1494,7 +1512,7 @@ with manage_tab:
         use_container_width=True,
     ):
         if not live_url_input.strip():
-            st.warning("Bitte gib einen Live-Link ein.")
+            st.warning("Bitte geben Sie einen Live-Link ein.")
         else:
             with st.status("Website wird geladen ...", expanded=True) as status:
                 try:
