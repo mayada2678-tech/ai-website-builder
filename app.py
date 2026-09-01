@@ -440,6 +440,7 @@ DEFAULT_STATE = {
     "deployment_id": "",
     "project_name": "ai-website-builder",
     "delete_confirmation": False,
+    "show_botpress_chatbot": True,
 }
 
 for key, value in DEFAULT_STATE.items():
@@ -536,29 +537,16 @@ def show_authentication() -> None:
                     st.error(str(error))
 
 
-def play_voice_onboarding() -> None:
-    """Spricht nach dem Login einmal eine kurze deutsche Begruessung."""
-    onboarding_text = "Herzlich willkommen beim AI Website Builder."
-    escaped_text = json.dumps(onboarding_text)
+def render_botpress_chatbot() -> None:
+    """Lädt den konfigurierten Botpress-Chat für angemeldete Nutzer."""
+    if not st.session_state.show_botpress_chatbot:
+        return
 
-    st.html(
-        f"""
-        <script>
-        setTimeout(() => {{
-            if (!('speechSynthesis' in window)) return;
-            window.speechSynthesis.cancel();
-            const utterance = new SpeechSynthesisUtterance({escaped_text});
-            utterance.lang = 'de-DE';
-            utterance.rate = 0.82;
-            utterance.pitch = 1;
-            utterance.volume = 1;
-            window.speechSynthesis.speak(utterance);
-        }}, 1500);
-        </script>
-        """,
-        unsafe_allow_javascript=True,
-        width="content",
-    )
+    chatbot_script = """
+    <script src="https://cdn.botpress.cloud/webchat/v5.0/inject.js"></script>
+    <script src="https://files.bpcontent.cloud/2026/09/01/08/20260901082744-E50Z8QDZ.js" defer></script>
+    """
+    st.components.v1.html(chatbot_script, height=600, scrolling=False)
 
 
 if st.session_state.user_id is None:
@@ -567,10 +555,7 @@ if st.session_state.user_id is None:
 
 current_user_id = int(st.session_state.user_id)
 user_info = get_user_status(current_user_id)
-
-if not st.session_state.get("voice_onboarding_played", False):
-    play_voice_onboarding()
-    st.session_state.voice_onboarding_played = True
+render_botpress_chatbot()
 
 if not user_info["subscribed"] and user_info["balance"] <= 0:
     st.error(t("balance_empty"))
@@ -1024,12 +1009,6 @@ def render_saas_preview_and_testing_window() -> None:
             "Test-Modus aktiv: Probiere Navigation, Formulare, Sprachumschalter und "
             "Chatbot direkt in der Vorschau aus."
         )
-        if st.session_state.get("show_botpress_chatbot", False):
-            chatbot_script = """
-            <script src="https://cdn.botpress.cloud/webchat/v5.0/inject.js"></script>
-            <script src="https://files.bpcontent.cloud/2026/09/01/08/20260901082744-E50Z8QDZ.js" defer></script>
-            """
-            st.components.v1.html(chatbot_script, height=600, scrolling=False)
         st.components.v1.html(
             create_preview_html(st.session_state.generated_html),
             height=650,
