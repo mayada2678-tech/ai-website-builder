@@ -1033,25 +1033,41 @@ def render_template_preview(
         border_style: str,
 ) -> None:
         """Zeigt eine visuelle Vorschau, bevor Kundendaten benötigt werden."""
-        radius = "0px" if border_style == "sharp" else "18px"
-        st.caption("Vorlagenvorschau")
+        radius = "0px" if border_style == "sharp" else "14px"
+        st.caption("Vorlagenvorschau - Bildplätze und Abstände sind im Entwurf vorgemerkt.")
         st.html(
                 f"""
-                <section style="background:{background_color}; border:1px solid {accent_color}; border-radius:{radius}; color:#f8fafc; overflow:hidden; font-family:Arial,sans-serif;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; padding:16px 22px; border-bottom:1px solid rgba(255,255,255,.18);">
-                        <strong style="font-size:18px;">{template_name}</strong>
-                        <span style="font-size:13px; opacity:.78;">Start &nbsp; Leistungen &nbsp; Über uns &nbsp; Kontakt</span>
+                <section style="background:{background_color};border:1px solid rgba(255,255,255,.16);border-radius:{radius};color:#f8fafc;overflow:hidden;font-family:Georgia,serif;">
+                    <header style="display:flex;justify-content:space-between;align-items:center;padding:18px 28px;border-bottom:1px solid rgba(255,255,255,.14);font-family:ui-sans-serif,sans-serif;">
+                        <strong style="font-size:17px;letter-spacing:0;">{template_name}</strong>
+                        <span style="font-size:12px;opacity:.8;">Start &nbsp;&nbsp; Leistungen &nbsp;&nbsp; Über uns &nbsp;&nbsp; Kontakt</span>
+                    </header>
+                    <div style="display:grid;grid-template-columns:minmax(0,1.1fr) minmax(220px,.9fr);gap:34px;padding:48px 28px 42px;align-items:center;">
+                        <div>
+                            <p style="margin:0 0 12px;color:{accent_color};font:700 11px ui-sans-serif,sans-serif;letter-spacing:0;text-transform:uppercase;">Professionelle Markenwebsite</p>
+                            <h3 style="margin:0;font-size:34px;line-height:1.1;">Eine Vorlage mit klarer Struktur und Raum für Ihre Inhalte.</h3>
+                            <p style="margin:18px 0 24px;max-width:500px;font:15px/1.65 ui-sans-serif,sans-serif;opacity:.82;">Sie ersetzen anschließend nur Unternehmensdaten, Texte und Bilder. Die Gestaltung, Abstände und Inhaltsbereiche bleiben professionell geordnet.</p>
+                            <span style="display:inline-block;background:{accent_color};color:#08111e;padding:11px 16px;border-radius:{radius};font:700 13px ui-sans-serif,sans-serif;">Ihr Angebot entdecken</span>
+                        </div>
+                        <div style="min-height:220px;border:1px dashed {accent_color};border-radius:{radius};display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.05);font:700 12px ui-sans-serif,sans-serif;color:{accent_color};text-align:center;padding:18px;">BILDPLATZ<br><span style="color:#f8fafc;opacity:.75;font-weight:400;">Hero oder Willkommensbereich</span></div>
                     </div>
-                    <div style="padding:38px 22px 30px; background:linear-gradient(135deg, {background_color}, {accent_color}55);">
-                        <p style="margin:0 0 9px; color:{accent_color}; font-size:13px; font-weight:bold; text-transform:uppercase;">Ihre professionelle Website</p>
-                        <h3 style="margin:0; font-size:28px; line-height:1.15;">Klare Inhalte. Starker erster Eindruck.</h3>
-                        <p style="max-width:540px; margin:14px 0 20px; line-height:1.5; opacity:.85;">Diese Vorlage wird mit Ihrem Angebot, Ihrer Marke und Ihren Kundendaten personalisiert.</p>
-                        <span style="display:inline-block; background:{accent_color}; color:#07111f; padding:10px 14px; border-radius:{radius}; font-weight:bold;">Kontakt aufnehmen</span>
+                    <div style="padding:0 28px 42px;">
+                        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;font:13px ui-sans-serif,sans-serif;">
+                            <div style="padding:16px;border-top:2px solid {accent_color};background:rgba(255,255,255,.05);">01<br><strong>Klare Leistungen</strong></div>
+                            <div style="padding:16px;border-top:2px solid {accent_color};background:rgba(255,255,255,.05);">02<br><strong>Vertrauen schaffen</strong></div>
+                            <div style="padding:16px;border-top:2px solid {accent_color};background:rgba(255,255,255,.05);">03<br><strong>Kontakt erleichtern</strong></div>
+                        </div>
                     </div>
-                    <div style="padding:18px 22px 24px;">
-                        <p style="margin:0 0 12px; color:{accent_color}; font-size:13px; font-weight:bold; text-transform:uppercase;">Enthaltene Bereiche</p>
-                        <p style="margin:0; line-height:1.65; opacity:.9;">{sections}</p>
+                    <div style="padding:42px 28px;background:rgba(255,255,255,.045);">
+                        <p style="margin:0 0 10px;color:{accent_color};font:700 11px ui-sans-serif,sans-serif;text-transform:uppercase;">Leistungen und Vorteile</p>
+                        <h4 style="margin:0 0 18px;font-size:25px;">Inhalte, die für Ihre Branche vorbereitet sind.</h4>
+                        <p style="margin:0;max-width:760px;font:14px/1.65 ui-sans-serif,sans-serif;opacity:.84;">{sections}</p>
                     </div>
+                    <div style="display:grid;grid-template-columns:1.35fr .65fr;gap:16px;padding:42px 28px;">
+                        <div style="min-height:150px;border:1px dashed rgba(255,255,255,.42);border-radius:{radius};display:flex;align-items:center;justify-content:center;font:700 12px ui-sans-serif,sans-serif;opacity:.82;">BILDPLATZ: Projekt, Team oder Galerie</div>
+                        <div style="padding:22px;background:{accent_color};color:#08111e;border-radius:{radius};font-family:ui-sans-serif,sans-serif;"><strong>Kontaktbereich</strong><p style="margin:10px 0 0;font-size:13px;line-height:1.5;">E-Mail, Telefonnummer, Öffnungszeiten und Kontaktformular.</p></div>
+                    </div>
+                    <footer style="padding:20px 28px;border-top:1px solid rgba(255,255,255,.14);font:12px ui-sans-serif,sans-serif;opacity:.75;">Impressum &nbsp;&nbsp; Datenschutz &nbsp;&nbsp; Social Media</footer>
                 </section>
                 """
         )
