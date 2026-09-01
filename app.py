@@ -1773,8 +1773,12 @@ with new_tab:
                 status.update(label="Website wurde erstellt.", state="complete")
                 st.rerun()
             except Exception as error:
-                status.update(label="Erstellung fehlgeschlagen", state="error")
-                st.error(str(error))
+                error_message = str(error) or "Unbekannter Fehler bei der Erstellung."
+                status.update(
+                    label=f"Erstellung fehlgeschlagen: {error_message}",
+                    state="error",
+                )
+                st.error(error_message)
 
 with manage_tab:
     st.subheader("Öffentliche Website laden")
