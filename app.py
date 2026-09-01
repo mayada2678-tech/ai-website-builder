@@ -708,6 +708,24 @@ def require_complete_html(html: str) -> str:
     return html
 
 
+def ensure_customer_email(html: str, business_email: str) -> str:
+    """Stellt sicher, dass der Entwurf die konfigurierte Kontaktadresse verwendet."""
+    email_pattern = r"(?i)(mailto:)?[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}"
+
+    html = re.sub(
+        email_pattern,
+        lambda match: f"mailto:{business_email}" if match.group(1) else business_email,
+        html,
+    )
+    if f"mailto:{business_email}" not in html.lower():
+        contact_link = (
+            f'<p><a href="mailto:{business_email}">{business_email}</a></p>'
+        )
+        html = re.sub(r"(?i)</body\s*>", f"{contact_link}</body>", html, count=1)
+
+    return html
+
+
 def queue_html_update(html: str) -> None:
     """Plant ein sicheres HTML-Update für den nächsten Durchlauf."""
     st.session_state.pending_html = require_complete_html(html)
@@ -851,6 +869,7 @@ KONTAKTFORMULAR:
 - Das Formular braucht sichtbare Labels sowie die Pflichtfelder name, email und message.
 - Baue vor dem Absenden per JavaScript ein verstecktes Feld name="redirect" ein und
     setze dessen value auf window.location.href.''' if web3forms_access_key else '''- Erstelle einen sichtbaren Kontaktbereich mit der E-Mail-Adresse {business_email}.
+    setze dessen value auf window.location.href.''' if web3forms_access_key else f'''- Erstelle einen sichtbaren Kontaktbereich mit der E-Mail-Adresse {business_email}.
 - Verwende kein externes Formular und keinen Web3Forms Access Key.'''}
 
 CHATBOT MIT VOICE:
@@ -871,7 +890,7 @@ CHATBOT MIT VOICE:
         user_instruction=description,
     )
 
-    queue_html_update(html)
+    queue_html_update(ensure_customer_email(html, business_email))
 
 
 def render_client_contact_ui() -> None:
@@ -909,7 +928,7 @@ def render_language_selector() -> tuple[dict[str, str], str]:
     return SUPPORTED_LANGUAGES[target_language], target_language
 
 
-def render_template_and_design_ui() -> None:
+def render_template_and_design_ui() -> str:
     """Rendert die Branchenvorlagen fuer einen gefuehrten Website-Entwurf."""
     st.subheader(t("template"))
     selected_language, language_name = render_language_selector()
@@ -955,20 +974,13 @@ def render_template_and_design_ui() -> None:
         height=130,
     )
 
-    if st.button(
-        t("generate_template"),
-        icon=":material/rocket_launch:",
-        type="primary",
-        key="generate_template_website",
-        width="stretch",
-    ):
-        radius_class = "rounded-none" if border_style == "sharp" else "rounded-2xl"
-        description = str(custom_description or "").strip()
-        dir_attribute = (
-            f'dir="{selected_language["dir"]}" '
-            f'lang="{selected_language["code"]}"'
-        )
-        template_prompt = f"""
+    radius_class = "rounded-none" if border_style == "sharp" else "rounded-2xl"
+    description = str(custom_description or "").strip()
+    dir_attribute = (
+        f'dir="{selected_language["dir"]}" '
+        f'lang="{selected_language["code"]}"'
+    )
+    return f"""
 Erstelle eine professionelle Website fuer die Branche: {selected_template_name}.
 Kundenbeschreibung: {description or 'Ein professioneller Auftritt fuer diese Branche.'}
 
@@ -981,16 +993,33 @@ DESIGN-VORGABEN:
 - Akzentfarbe fuer Buttons und Highlights: {accent_color}
 - Stil-Richtung: {current_template['style_hint']}
 - Verwende fuer Boxen, Bilder und Buttons die Tailwind-Klasse {radius_class}.
-- Bereite im Footer rechtliche Links fuer Impressum und Datenschutz vor.
+- Erstelle eine hochwertige, eigenstaendige Markenwebsite. Vermeide Standard-Layouts,
+    Lorem Ipsum, erfundene Bewertungen, Stockbild-Links, Platzhalter und sichtbare
+    technische Hinweise.
+- Beginne mit einer klaren, responsiven Kopfzeile mit Logo-Text, Navigation und einem
+    primären Handlungsaufruf. Ergänze einen aussagekräftigen Hero-Bereich mit konkreter
+    Nutzenbotschaft, zwei Handlungsaufrufen und einer passenden visuellen Komposition.
+- Baue danach mindestens drei klar unterscheidbare Inhaltsbereiche aus: Kernleistungen,
+    einen vertrauensbildenden Bereich mit Arbeitsweise oder Kennzahlen sowie einen
+    branchenspezifischen Bereich mit konkretem Nutzen für Besucher.
+- Nutze eine eindeutige visuelle Hierarchie mit großzügigen Abständen, kontrastreicher
+    Typografie, zugänglichen Fokuszuständen und gut lesbaren Textgrößen. Die Website muss
+    auf Mobilgeräten, Tablets und großen Bildschirmen ohne Überlappungen funktionieren.
+- Verwende nur hochwertige CSS-Details: dezente Übergänge, konsistente Schatten und
+    gezielte Akzentflächen. Verzichte auf überladene Animationen, Farbverläufe als Ersatz
+    für Inhalte und unruhige Dekoration.
+- Ergänze eine finale Kontaktsektion mit der Kunden-E-Mail-Adresse, Öffnungszeiten oder
+    sinnvoller Erreichbarkeit sowie einen vollständigen Footer mit Impressum und Datenschutz.
+- Erzeuge vollständiges, semantisches und valides HTML. Alle Navigationseinträge und
+    Handlungsaufrufe müssen auf vorhandene Seitenbereiche oder sinnvolle Ziel-Links zeigen.
+- ABNAHMEKRITERIEN: Liefere mindestens diese Abschnitte mit passenden IDs: `#hero`,
+    `#services`, `#about`, `#highlights`, `#contact` und `#footer`. Erstelle mindestens
+    drei konkrete Leistungen und drei branchenspezifische Vorteile. Jeder Abschnitt braucht
+    eine eigene Überschrift, aussagekräftige Texte und eine professionelle Gestaltung.
+- Prüfe vor der Antwort, dass die Kunden-E-Mail-Adresse im Kontaktbereich und Footer als
+    sichtbarer `mailto:`-Link vorkommt. Antworte erst danach mit dem vollständigen
+    HTML-Dokument.
 """
-        with st.status("Branchen-Website wird erstellt ...", expanded=True) as status:
-            try:
-                generate_website(template_prompt, image_file=None)
-                status.update(label="Website wurde erstellt.", state="complete")
-                st.rerun()
-            except Exception as error:
-                status.update(label="Erstellung fehlgeschlagen", state="error")
-                st.error(str(error))
 
 
 def modify_current_website(change_request: str) -> None:
@@ -1112,31 +1141,22 @@ def discard_test_editor_changes() -> None:
 
 
 def render_saas_preview_and_testing_window() -> None:
-    """Rendert Vorschau und sicheren HTML-Testeditor fuer den aktuellen Entwurf."""
-    st.header("Interaktive Live-Vorschau und Testzentrum")
+    """Rendert die direkte Vorschau und optionale HTML-Feinbearbeitung."""
+    st.header("Live-Vorschau")
 
     if not st.session_state.generated_html:
         st.info(
-            "Wähle eine Branche und ein Farbschema, um eine Live-Vorschau zu starten."
+            "Erstellen oder laden Sie zuerst eine Website. Ihre Vorschau erscheint anschließend hier."
         )
         return
 
-    preview_tab, editor_tab = st.tabs(
-        ["Website testen", "Text und Details direkt anpassen"]
+    st.components.v1.html(
+        create_preview_html(st.session_state.generated_html),
+        height=650,
+        scrolling=True,
     )
 
-    with preview_tab:
-        st.info(
-            "Test-Modus aktiv: Probiere Navigation, Formulare, Sprachumschalter und "
-            "Chatbot direkt in der Vorschau aus."
-        )
-        st.components.v1.html(
-            create_preview_html(st.session_state.generated_html),
-            height=650,
-            scrolling=True,
-        )
-
-    with editor_tab:
+    with st.expander("HTML-Code und Details direkt anpassen", icon=":material/code:"):
         st.subheader("HTML-Code fein abstimmen")
         st.session_state.setdefault(
             "preview_html_editor", st.session_state.generated_html
@@ -1491,49 +1511,62 @@ new_tab, manage_tab = st.tabs(
 
 
 with new_tab:
-    render_client_contact_ui()
-    st.divider()
-    render_template_and_design_ui()
-    st.divider()
-    st.subheader("Neuen Website-Entwurf erstellen")
-
-    description = st.text_area(
-        "Beschreibung der Website",
-        placeholder=(
-            "Beispiel: Moderne Website für ein Kosmetikstudio in Berlin "
-            "mit Leistungen, Preisen, Team, Galerie und Kontaktformular."
-        ),
-        height=170,
+    st.subheader("Website planen")
+    creation_mode = st.segmented_control(
+        "Wie möchten Sie starten?",
+        ["Professionelle Vorlage", "Freier Entwurf", "Bestehenden Entwurf anpassen"],
+        default="Professionelle Vorlage",
+        key="creation_mode",
+    )
+    page_structure = st.segmented_control(
+        "Seitenstruktur",
+        ["Eine übersichtliche Seite", "Mehrseitige Website"],
+        default="Eine übersichtliche Seite",
+        key="page_structure",
     )
 
+    template_prompt = ""
+    if creation_mode == "Professionelle Vorlage":
+        template_prompt = render_template_and_design_ui()
+    elif creation_mode == "Bestehenden Entwurf anpassen":
+        st.info("Laden Sie einen Entwurf oder erstellen Sie zuerst eine Website. Die Anpassung erfolgt anschließend im Abschnittseditor unter der Vorschau.")
+
+    description = st.text_area(
+        "Unternehmensbeschreibung und besondere Wünsche",
+        placeholder="Beschreiben Sie Angebot, Zielgruppe, Standort und die wichtigsten Inhalte Ihrer Website.",
+        key="creation_description",
+        height=150,
+    )
     initial_image = st.file_uploader(
         "Logo oder Bild hochladen (optional)",
         type=["png", "jpg", "jpeg", "webp"],
         key="initial_image",
     )
 
+    st.divider()
+    render_client_contact_ui()
     if st.button(
-        "✨ Website-Entwurf generieren",
+        "Website erstellen",
+        icon=":material/rocket_launch:",
         type="primary",
-        use_container_width=True,
+        key="create_website",
+        width="stretch",
+        disabled=creation_mode == "Bestehenden Entwurf anpassen",
     ):
-        if not description.strip():
-            st.warning("Bitte beschreiben Sie die gewünschte Website.")
-        else:
-            with st.status("Website wird erstellt ...", expanded=True) as status:
-                try:
-                    generate_website(description, initial_image)
-                    status.update(
-                        label="✅ Ihr Entwurf wurde erstellt.",
-                        state="complete",
-                    )
-                    st.rerun()
-                except Exception as error:
-                    status.update(
-                        label="❌ Erstellung fehlgeschlagen",
-                        state="error",
-                    )
-                    st.error(str(error))
+        page_prompt = (
+            "Erstelle eine mehrseitige Informationsarchitektur innerhalb einer einzelnen, deploybaren HTML-Datei. Die Navigation soll eigenständige Ansichten für Start, Leistungen, Über uns und Kontakt verwenden. Jeder Link setzt einen eigenen Hash wie #start oder #kontakt und JavaScript zeigt nur die gewählte Ansicht. Beim Klick auf Kontakt muss eine vollständige Kontaktansicht mit E-Mail-Adresse, Erreichbarkeit und Kontaktformular erscheinen; die Browsernavigation Zurück/Vorwärts muss funktionieren."
+            if page_structure == "Mehrseitige Website"
+            else "Erstelle eine klar gegliederte, einseitige Website mit Navigation zu den jeweiligen Inhaltsbereichen."
+        )
+        prompt = f"{template_prompt}\n{description.strip()}\n\nSEITENSTRUKTUR:\n{page_prompt}"
+        with st.status("Website wird erstellt ...", expanded=True) as status:
+            try:
+                generate_website(prompt, initial_image)
+                status.update(label="Website wurde erstellt.", state="complete")
+                st.rerun()
+            except Exception as error:
+                status.update(label="Erstellung fehlgeschlagen", state="error")
+                st.error(str(error))
 
 with manage_tab:
     st.subheader("Öffentliche Website laden")
