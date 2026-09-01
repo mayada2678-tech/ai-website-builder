@@ -881,6 +881,9 @@ def generate_website(
     image_instruction = ""
     company_name = str(st.session_state.get("client_company_name", "")).strip()
     business_email = str(st.session_state.get("client_business_email", "")).strip()
+    company_slogan = str(st.session_state.get("client_company_slogan", "")).strip()
+    business_phone = str(st.session_state.get("client_business_phone", "")).strip()
+    chatbot_knowledge = str(st.session_state.get("client_chatbot_knowledge", "")).strip()
     web3forms_access_key = str(
         st.session_state.get("client_web3forms_access_key", "")
     ).strip()
@@ -925,8 +928,11 @@ REGELN FUER DIE GENERIERUNG:
 GESCHAEFTS- UND KONTAKTDATEN:
 - Offizieller Unternehmensname: {company_name}
 - Geschaeftliche Kontakt-E-Mail: {business_email}
+- Slogan oder Hauptbotschaft: {company_slogan or 'Entwickle eine passende Hauptbotschaft.'}
+- Telefonnummer: {business_phone or 'Nicht angegeben; erfinde keine Telefonnummer.'}
 - Verwende den Unternehmensnamen in Navigation, Hero, Seitentitel und Footer.
 - Zeige die Kontakt-E-Mail im Kontaktbereich und Footer an.
+- Verwende den Slogan im Hero-Bereich. Zeige die Telefonnummer nur an, wenn sie angegeben wurde.
 
 KONTAKTFORMULAR:
 {f'''- Erstelle einen sichtbaren, modernen Kontaktbereich mit diesem exakten Formularbeginn:
@@ -945,6 +951,8 @@ CHATBOT MIT VOICE:
     fuer {company_name} geschrieben ist und keine Daten anderer Personen enthaelt.
 - Verwende ein JavaScript-Array mit hilfreichen, branchenspezifischen Antworten basierend
     auf Branche und Kundenbeschreibung.
+- Berücksichtige dieses vom Kunden bereitgestellte Chatbot-Wissen in den Antworten:
+    {chatbot_knowledge or 'Keine zusätzlichen Angaben; erfinde keine Öffnungszeiten, Preise oder Angebote.'}
 - Bei Fragen nach Kontakt oder E-Mail verweist der Bot auf {business_email}; bei einer
     nichtdeutschen Website verwende die entsprechende Uebersetzung.
 - Lies Bot-Antworten mit window.speechSynthesis in der passenden Sprache vor. Entferne
@@ -967,7 +975,7 @@ CHATBOT MIT VOICE:
 def render_client_contact_ui() -> None:
     """Erfasst die Kontaktdaten, die in jede neue Kundenwebsite einfliessen."""
     st.subheader("Geschäfts- und Kontaktdaten des Kunden")
-    contact_column, company_column, form_column = st.columns(3)
+    contact_column, company_column = st.columns(2)
     with contact_column:
         st.text_input(
             "E-Mail-Adresse für Kundenanfragen",
@@ -980,13 +988,31 @@ def render_client_contact_ui() -> None:
             placeholder="z. B. Autohaus Müller GmbH",
             key="client_company_name",
         )
+    st.text_input(
+        "Slogan oder Hauptüberschrift (optional)",
+        placeholder="z. B. Ihr Partner für Qualität und Vertrauen",
+        key="client_company_slogan",
+    )
+    contact_details_column, form_column = st.columns(2)
+    with contact_details_column:
+        st.text_input(
+            "Telefonnummer (optional)",
+            placeholder="z. B. +49 30 123456",
+            key="client_business_phone",
+        )
     with form_column:
         st.text_input(
-            "Web3Forms Access Key",
+            "Web3Forms Access Key (optional)",
             type="password",
-            help="Optional. Mit diesem Schlüssel erhält die generierte Website ein Web3Forms-Kontaktformular.",
+            help="Mit diesem Schlüssel erhält die generierte Website ein Web3Forms-Kontaktformular.",
             key="client_web3forms_access_key",
         )
+    st.text_area(
+        "Chatbot-Wissen (optional)",
+        placeholder="Zum Beispiel: Öffnungszeiten, Preise, Angebote, Terminvereinbarung oder häufige Fragen.",
+        key="client_chatbot_knowledge",
+        height=110,
+    )
 
 
 def render_language_selector() -> tuple[dict[str, str], str]:
