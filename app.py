@@ -15,8 +15,54 @@ from openai import OpenAI
 
 st.set_page_config(
     page_title="AI Website Builder",
-    page_icon="🚀",
+    page_icon=":material/auto_awesome:",
     layout="wide",
+)
+
+
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background: radial-gradient(circle at 88% 4%, rgba(34, 211, 238, 0.12), transparent 23%), #111827;
+    }
+    [data-testid="stHeader"] {
+        background: transparent;
+    }
+    [data-testid="stSidebar"] {
+        border-right: 1px solid rgba(103, 232, 249, 0.16);
+    }
+    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+        gap: 0.7rem;
+    }
+    .stButton > button {
+        min-height: 2.65rem;
+        font-weight: 600;
+    }
+    [data-testid="stTabs"] [role="tab"] {
+        font-weight: 600;
+    }
+    [data-testid="stExpander"] {
+        border-color: rgba(103, 232, 249, 0.18);
+    }
+    [data-testid="stSidebar"] .st-key-toggle_botpress_chatbot > button {
+        border-color: #22d3ee;
+        box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.55);
+        animation: chatbot-pulse 2.2s ease-out infinite;
+    }
+    @keyframes chatbot-pulse {
+        0% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.5); }
+        70% { box-shadow: 0 0 0 10px rgba(34, 211, 238, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        [data-testid="stSidebar"] .st-key-toggle_botpress_chatbot > button {
+            animation: none;
+        }
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
 )
 
 OPENAI_MODEL = "gpt-4o-mini"
@@ -1290,22 +1336,23 @@ def render_domain_and_deployment_ui() -> None:
 
 
 with st.sidebar:
-    st.subheader(t("account"))
-    st.caption(st.session_state.user_email)
+    with st.container(border=True):
+        st.subheader(t("account"))
+        st.caption(st.session_state.user_email)
 
-    if user_info["subscribed"]:
-        st.success(t("premium_active"))
-    else:
-        st.caption(t("balance", balance=user_info["balance"]))
+        if user_info["subscribed"]:
+            st.badge(t("premium_active"), icon=":material/workspace_premium:", color="green")
+        else:
+            st.caption(t("balance", balance=user_info["balance"]))
 
-    if st.button(t("logout"), icon=":material/logout:", width="stretch"):
-        st.session_state.clear()
-        st.rerun()
+        if st.button(t("logout"), icon=":material/logout:", width="stretch"):
+            st.session_state.clear()
+            st.rerun()
 
     st.divider()
     if st.button(
         "Chatbot",
-        icon=":material/smart_toy:",
+        icon=":material/forum:",
         key="toggle_botpress_chatbot",
         width="stretch",
     ):
@@ -1313,10 +1360,10 @@ with st.sidebar:
             "show_botpress_chatbot", False
         )
         st.rerun()
-    st.caption(
-        "Chatbot aktiv" if st.session_state.get("show_botpress_chatbot", False)
-        else "Chatbot inaktiv"
-    )
+    if st.session_state.get("show_botpress_chatbot", False):
+        st.badge("Chatbot aktiv", icon=":material/check_circle:", color="blue")
+    else:
+        st.caption("Chatbot inaktiv")
 
     st.divider()
     st.subheader(t("drafts"))
