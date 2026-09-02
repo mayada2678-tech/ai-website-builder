@@ -1635,6 +1635,24 @@ def load_published_website(live_url: str) -> None:
     st.session_state.deployment_id = ""
 
 
+def load_uploaded_html_template(uploaded_file) -> None:
+    """Übernimmt eine lokale HTML-Vorlage als bearbeitbaren Entwurf."""
+    if uploaded_file is None:
+        raise ValueError("Bitte wählen Sie eine HTML-Datei aus.")
+
+    try:
+        html = uploaded_file.getvalue().decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise ValueError("Die Vorlage muss als UTF-8 codierte HTML-Datei vorliegen.") from error
+
+    st.session_state.assets = {}
+    st.session_state.live_url = ""
+    st.session_state.deployment_url = ""
+    st.session_state.deployment_id = ""
+    st.session_state.project_name = safe_project_name(Path(uploaded_file.name).stem)
+    st.session_state.pending_html = require_complete_html(html)
+
+
 def get_public_url(deployment: dict) -> str:
     """Ermittelt die öffentliche URL aus einer Vercel-Deployment-Antwort."""
     aliases = deployment.get("alias") or []
@@ -1918,75 +1936,130 @@ with new_tab:
     if creation_mode == "Professionelle Vorlage":
         template_prompt = render_template_and_design_ui()
     elif creation_mode == "Bestehenden Entwurf anpassen":
-        st.info("Laden Sie einen Entwurf oder erstellen Sie zuerst eine Website. Die Anpassung erfolgt anschließend im Abschnittseditor unter der Vorschau.")
+        st.info(
+            "Importieren Sie eine eigene HTML-Vorlage oder eine öffentlich erreichbare Website. "
+            "Danach stehen Vorschau und alle Bearbeitungswerkzeuge zur Verfügung.",
+            icon=":material/edit_document:",
+        )
+        upload_column, website_column = st.columns(2, gap="large")
+        with upload_column:
+            st.subheader("Eigene Vorlage hochladen", anchor=False)
+            uploaded_template = st.file_uploader(
+                "HTML-Vorlage",
+                type=["html", "htm"],
+                key="existing_template_upload",
+                help="Laden Sie eine vollständige HTML-Datei hoch, die Sie für Ihren Kunden anpassen möchten.",
+            )
+            if st.button(
+                "Vorlage zur Bearbeitung öffnen",
+                icon=":material/upload_file:",
+                key="load_uploaded_template",
+                width="stretch",
+            ):
+                try:
+                    load_uploaded_html_template(uploaded_template)
+                    st.success("Die Vorlage wurde geladen und kann jetzt bearbeitet werden.")
+                    st.rerun()
+                except ValueError as error:
+                    st.error(str(error))
+
+        with website_column:
+            st.subheader("Vorlage aus dem Internet laden", anchor=False)
+            template_url = st.text_input(
+                "Öffentliche Website-Adresse",
+                placeholder="https://www.beispiel.de",
+                key="existing_template_url",
+                help="Die Seite muss öffentlich erreichbar sein und darf keinen Login erfordern.",
+            )
+            if st.button(
+                "Website zur Bearbeitung laden",
+                icon=":material/language:",
+                key="load_existing_template_url",
+                width="stretch",
+            ):
+                if not template_url.strip():
+                    st.warning("Bitte geben Sie eine öffentliche Website-Adresse ein.")
+                else:
+                    with st.status("Website wird als Vorlage geladen ...", expanded=True) as status:
+                        try:
+                            load_published_website(template_url)
+                            st.session_state.project_name = get_project_name_from_url(template_url)
+                            status.update(
+                                label="Website wurde geladen und kann bearbeitet werden.",
+                                state="complete",
+                            )
+                            st.rerun()
+                        except ValueError as error:
+                            status.update(label="Vorlage konnte nicht geladen werden.", state="error")
+                            st.error(str(error))
 
     section_prompt = ""
     if creation_mode != "Bestehenden Entwurf anpassen":
         section_prompt = render_section_configuration()
 
-    if creation_mode == "Professionelle Vorlage":
-        description = str(st.session_state.get("template_custom_description", ""))
-    else:
-        description = st.text_area(
-            "Unternehmensbeschreibung und besondere Wünsche",
-            placeholder="Beschreiben Sie Angebot, Zielgruppe, Standort und die wichtigsten Inhalte Ihrer Website.",
-            key="creation_description",
-            height=150,
+    if creation_mode != "Bestehenden Entwurf anpassen":
+        if creation_mode == "Professionelle Vorlage":
+            description = str(st.session_state.get("template_custom_description", ""))
+        else:
+            description = st.text_area(
+                "Unternehmensbeschreibung und besondere Wünsche",
+                placeholder="Beschreiben Sie Angebot, Zielgruppe, Standort und die wichtigsten Inhalte Ihrer Website.",
+                key="creation_description",
+                height=150,
+            )
+        initial_image = st.file_uploader(
+            "Logo oder Bild hochladen (optional)",
+            type=["png", "jpg", "jpeg", "webp"],
+            key="initial_image",
         )
-    initial_image = st.file_uploader(
-        "Logo oder Bild hochladen (optional)",
-        type=["png", "jpg", "jpeg", "webp"],
-        key="initial_image",
-    )
-    image_placement = st.selectbox(
-        "Wo soll dieses Bild erscheinen?",
-        [
-            "Logo",
-            "Hero- und Willkommensbereich",
-            "Über-uns-Bereich",
-            "Projektbereich",
-        ],
-        disabled=initial_image is None,
-        key="image_placement",
-    )
+        image_placement = st.selectbox(
+            "Wo soll dieses Bild erscheinen?",
+            [
+                "Logo",
+                "Hero- und Willkommensbereich",
+                "Über-uns-Bereich",
+                "Projektbereich",
+            ],
+            disabled=initial_image is None,
+            key="image_placement",
+        )
 
-    st.divider()
-    render_client_contact_ui()
-    if st.button(
-        "Website erstellen",
-        icon=":material/rocket_launch:",
-        type="primary",
-        key="create_website",
-        width="stretch",
-        disabled=creation_mode == "Bestehenden Entwurf anpassen",
-    ):
-        page_prompt = (
-            "Erstelle eine mehrseitige Informationsarchitektur innerhalb einer einzelnen, deploybaren HTML-Datei. Das HTML muss genau vier eigenständige Ansichten besitzen: `data-page=\"start\"`, `data-page=\"leistungen\"`, `data-page=\"ueber-uns\"` und `data-page=\"kontakt\"`. Die Navigation muss Links auf `#start`, `#leistungen`, `#ueber-uns` und `#kontakt` besitzen. Füge JavaScript für `hashchange` und beim initialen Laden hinzu: Es blendet nur die gewählte Ansicht ein und ergänzt bei unbekanntem Hash `#start`. Beim Klick auf Kontakt muss ausschließlich die vollständige Kontaktansicht mit E-Mail-Adresse, Erreichbarkeit und Kontaktformular erscheinen. Die Browsernavigation Zurück/Vorwärts muss die Ansichten korrekt wechseln."
-            if page_structure == "Mehrseitige Website"
-            else "Erstelle eine klar gegliederte, einseitige Website mit Navigation zu den jeweiligen Inhaltsbereichen."
-        )
-        prompt = (
-            f"{template_prompt}\n{section_prompt}\n\n"
-            f"WEITERE KUNDENANFORDERUNGEN:\n{description.strip()}\n\n"
-            f"SEITENSTRUKTUR:\n{page_prompt}"
-        )
-        with st.status("Website wird erstellt ...", expanded=True) as status:
-            try:
-                generate_website(
-                    prompt,
-                    initial_image,
-                    image_placement,
-                    multi_page=page_structure == "Mehrseitige Website",
-                )
-                status.update(label="Website wurde erstellt.", state="complete")
-                st.rerun()
-            except Exception as error:
-                error_message = str(error) or "Unbekannter Fehler bei der Erstellung."
-                status.update(
-                    label=f"Erstellung fehlgeschlagen: {error_message}",
-                    state="error",
-                )
-                st.error(error_message)
+        st.divider()
+        render_client_contact_ui()
+        if st.button(
+            "Website erstellen",
+            icon=":material/rocket_launch:",
+            type="primary",
+            key="create_website",
+            width="stretch",
+        ):
+            page_prompt = (
+                "Erstelle eine mehrseitige Informationsarchitektur innerhalb einer einzelnen, deploybaren HTML-Datei. Das HTML muss genau vier eigenständige Ansichten besitzen: `data-page=\"start\"`, `data-page=\"leistungen\"`, `data-page=\"ueber-uns\"` und `data-page=\"kontakt\"`. Die Navigation muss Links auf `#start`, `#leistungen`, `#ueber-uns` und `#kontakt` besitzen. Füge JavaScript für `hashchange` und beim initialen Laden hinzu: Es blendet nur die gewählte Ansicht ein und ergänzt bei unbekanntem Hash `#start`. Beim Klick auf Kontakt muss ausschließlich die vollständige Kontaktansicht mit E-Mail-Adresse, Erreichbarkeit und Kontaktformular erscheinen. Die Browsernavigation Zurück/Vorwärts muss die Ansichten korrekt wechseln."
+                if page_structure == "Mehrseitige Website"
+                else "Erstelle eine klar gegliederte, einseitige Website mit Navigation zu den jeweiligen Inhaltsbereichen."
+            )
+            prompt = (
+                f"{template_prompt}\n{section_prompt}\n\n"
+                f"WEITERE KUNDENANFORDERUNGEN:\n{description.strip()}\n\n"
+                f"SEITENSTRUKTUR:\n{page_prompt}"
+            )
+            with st.status("Website wird erstellt ...", expanded=True) as status:
+                try:
+                    generate_website(
+                        prompt,
+                        initial_image,
+                        image_placement,
+                        multi_page=page_structure == "Mehrseitige Website",
+                    )
+                    status.update(label="Website wurde erstellt.", state="complete")
+                    st.rerun()
+                except Exception as error:
+                    error_message = str(error) or "Unbekannter Fehler bei der Erstellung."
+                    status.update(
+                        label=f"Erstellung fehlgeschlagen: {error_message}",
+                        state="error",
+                    )
+                    st.error(error_message)
 
 with manage_tab:
     st.subheader("Öffentliche Website laden")
