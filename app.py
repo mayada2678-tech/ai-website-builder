@@ -39,9 +39,37 @@ st.markdown(
     .stButton > button {
         min-height: 2.65rem;
         font-weight: 600;
+        border-radius: 0.4rem;
+        transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
+    }
+    .stButton > button:not(:disabled):hover {
+        border-color: #67e8f9;
+        transform: translateY(-1px);
+    }
+    .stButton > button:focus-visible,
+    [data-testid="stTextInput"] input:focus-visible,
+    [data-testid="stTextArea"] textarea:focus-visible {
+        outline: 2px solid #22d3ee;
+        outline-offset: 2px;
+    }
+    [data-testid="stTextInput"] input,
+    [data-testid="stSelectbox"] [data-baseweb="select"] > div {
+        min-height: 2.65rem;
+    }
+    [data-testid="stTextArea"] textarea {
+        line-height: 1.5;
     }
     [data-testid="stTabs"] [role="tab"] {
         font-weight: 600;
+        min-height: 2.65rem;
+        padding-inline: 1rem;
+    }
+    [data-testid="stTabs"] [role="tablist"] {
+        gap: 0.3rem;
+        border-bottom-color: rgba(103, 232, 249, 0.16);
+    }
+    [data-testid="stHorizontalBlock"] {
+        gap: 1rem;
     }
     [data-testid="stExpander"] {
         border-color: rgba(103, 232, 249, 0.18);
