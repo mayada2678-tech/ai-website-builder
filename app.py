@@ -2104,6 +2104,7 @@ def render_template_preview(
         background_color: str,
         accent_color: str,
         border_style: str,
+    component_key: str = "clickable_template_editor",
 ) -> None:
     """Zeigt die Vorlage mit allen aktuell eingegebenen Kundendaten."""
     radius = "0px" if border_style == "sharp" else "14px"
@@ -2134,7 +2135,7 @@ def render_template_preview(
 
     def save_clickable_template_changes() -> None:
         """Übernimmt eine im Klickeditor abgeschlossene Textänderung."""
-        component_state = st.session_state.get("clickable_template_editor")
+        component_state = st.session_state.get(component_key)
         changes = getattr(component_state, "saved", None)
         if not isinstance(changes, dict):
             return
@@ -2149,13 +2150,13 @@ def render_template_preview(
 
     def show_template_page() -> None:
         """Übernimmt den Navigationsklick aus der interaktiven Vorlagenvorschau."""
-        component_state = st.session_state.get("clickable_template_editor")
+        component_state = st.session_state.get(component_key)
         page = getattr(component_state, "navigated", None)
         if page in {"start", "leistungen", "angebote", "projekte", "ueber_uns", "kontakt"}:
             st.session_state.template_preview_page = page
 
     CLICKABLE_TEMPLATE_EDITOR(
-        key="clickable_template_editor",
+        key=component_key,
         data={
             "companyName": str(st.session_state.get("client_company_name", "")).strip() or template_name,
             "heading": str(st.session_state.get("template_hero_heading", "")).strip()
@@ -2195,6 +2196,23 @@ def render_template_preview(
         on_saved_change=save_clickable_template_changes,
         on_navigated_change=show_template_page,
     )
+
+
+@st.dialog("Live-Vorschau des Entwurfs", width="large")
+def show_full_draft_preview() -> None:
+    """Öffnet die vollständige, testbare Kundenvorschau vor der Veröffentlichung."""
+    template_name = str(st.session_state.get("template_name", "Professionelle Vorlage"))
+    template = TEMPLATES.get(template_name, {})
+    background_name = str(st.session_state.get("template_background_preset", "Weiß"))
+    render_template_preview(
+        template_name,
+        str(st.session_state.get("template_sections_text", template.get("sections", ""))),
+        BACKGROUND_PRESET_COLORS.get(background_name, "#FFFFFF"),
+        str(st.session_state.get("template_accent_color", "#38BDF8")),
+        str(st.session_state.get("template_border_style", "rounded")),
+        component_key="full_draft_template_preview",
+    )
+    st.caption("Prüfen Sie Inhalte, Navigation, Kontaktangaben und Chatbot. Änderungen werden als Entwurf übernommen.")
 
 
 def render_template_and_design_ui() -> str:
@@ -2948,6 +2966,15 @@ def render_domain_and_deployment_ui() -> None:
     if not st.session_state.generated_html:
         st.info("Erstellen oder laden Sie zuerst eine Website, bevor Sie sie veröffentlichen.")
         return
+
+    if st.session_state.get("creation_mode") == "Professionelle Vorlage":
+        if st.button(
+            "Live-Vorschau des Entwurfs öffnen",
+            icon=":material/visibility:",
+            key="open_full_draft_preview",
+            width="stretch",
+        ):
+            show_full_draft_preview()
 
     if not user_info["subscribed"]:
         st.warning(
