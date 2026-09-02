@@ -857,7 +857,7 @@ def require_complete_html(html: str) -> str:
     if not html:
         raise ValueError("Es wurde kein HTML-Code gefunden.")
 
-    if "<html" not in html_lower and "<!doctype" not in html_lower:
+    if not re.search(r"<html\b", html_lower):
         raise ValueError("Der Inhalt enthält keine vollständige HTML-Website.")
 
     return html
@@ -865,6 +865,7 @@ def require_complete_html(html: str) -> str:
 
 def ensure_customer_email(html: str, business_email: str) -> str:
     """Stellt sicher, dass der Entwurf die konfigurierte Kontaktadresse verwendet."""
+    business_email = business_email.strip().lower()
     email_pattern = r"(?i)(mailto:)?[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}"
 
     html = re.sub(
@@ -934,7 +935,10 @@ def create_deployment_project_name() -> str:
 
 def get_project_name_from_url(live_url: str) -> str:
     """Erstellt einen Projektnamen-Vorschlag aus einer URL."""
-    hostname = urlparse(live_url).hostname or ""
+    normalized_url = live_url.strip()
+    if not normalized_url.startswith(("https://", "http://")):
+        normalized_url = f"https://{normalized_url}"
+    hostname = urlparse(normalized_url).hostname or ""
     return safe_project_name(hostname.split(".")[0])
 
 
@@ -1701,7 +1705,12 @@ def delete_published_website() -> None:
 def publish_website() -> None:
     """Veröffentlicht den aktuellen HTML-Entwurf auf Vercel."""
     html = require_complete_html(st.session_state.generated_html)
-    project_name = create_deployment_project_name()
+    requested_project_name = str(st.session_state.project_name).strip()
+    project_name = (
+        safe_project_name(requested_project_name)
+        if requested_project_name
+        else create_deployment_project_name()
+    )
     st.session_state.project_name = project_name
 
     files = [{"file": "index.html", "data": html}]
@@ -2083,7 +2092,7 @@ with manage_tab:
     if st.button(
         "⚙️ Original-Website laden",
         type="primary",
-        use_container_width=True,
+        width="stretch",
     ):
         if not live_url_input.strip():
             st.warning("Bitte geben Sie einen Live-Link ein.")
@@ -2109,7 +2118,7 @@ if st.session_state.live_url:
     st.link_button(
         "🔗 Geänderte Website öffnen",
         st.session_state.live_url,
-        use_container_width=True,
+        width="stretch",
     )
 
     st.caption(f"Live-Link: {st.session_state.live_url}")
@@ -2387,7 +2396,7 @@ Alle anderen Inhalte müssen unverändert bleiben.
             data=st.session_state.generated_html,
             file_name="website.html",
             mime="text/html",
-            use_container_width=True,
+            width="stretch",
         )
 
     st.divider()
