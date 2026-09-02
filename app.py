@@ -47,6 +47,12 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
         .template-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 34px; }
         .template-card { min-height: 210px; padding: 22px; border-top: 3px solid var(--accent); background: var(--surface); font-family: ui-sans-serif, sans-serif; }
         .template-card p { color: var(--muted); }
+        .template-chatbot { position: fixed; right: 22px; bottom: 22px; z-index: 10; font-family: ui-sans-serif, sans-serif; }
+        .template-chatbot-toggle { width: 48px; height: 48px; border: 0; border-radius: 50%; background: var(--accent); color: var(--accent-text); cursor: pointer; font: 700 20px ui-sans-serif, sans-serif; box-shadow: 0 10px 28px rgba(15, 23, 42, .24); }
+        .template-chatbot-panel { display: none; width: min(300px, calc(100vw - 44px)); margin: 0 0 10px auto; padding: 18px; background: var(--background); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 16px 38px rgba(15, 23, 42, .22); }
+        .template-chatbot-panel.is-open { display: block; }
+        .template-chatbot-panel h2 { margin: 0; font-size: 16px; }
+        .template-chatbot-panel p { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
         @media (max-width: 700px) { .template-header { align-items: flex-start; flex-direction: column; } .template-nav { justify-content: flex-start; } .template-hero, .template-cards { grid-template-columns: 1fr; } }
         """,
         js="""
@@ -134,6 +140,15 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
             });
             const footer = create('footer', 'template-hint', data.footerText);
             shell.append(header, hero, templateSections, footer, create('p', 'template-hint', 'Änderungen werden sofort in dieser Entwurfsvorschau angezeigt.'));
+            const chatbot = create('aside', 'template-chatbot');
+            const chatbotPanel = create('section', 'template-chatbot-panel');
+            chatbotPanel.append(create('h2', '', `${data.companyName} Assistent`), create('p', '', data.chatbotKnowledge || `Willkommen. Wie können wir Ihnen bei ${data.companyName} helfen?`));
+            const chatbotToggle = create('button', 'template-chatbot-toggle', '?');
+            chatbotToggle.type = 'button';
+            chatbotToggle.setAttribute('aria-label', 'Chatbot öffnen');
+            chatbotToggle.onclick = () => chatbotPanel.classList.toggle('is-open');
+            chatbot.append(chatbotPanel, chatbotToggle);
+            shell.append(chatbot);
             root.append(shell);
         }
         """,
@@ -1712,6 +1727,7 @@ def build_customized_template_html(
     button_text: str = "Ihr Angebot entdecken",
     footer_text: str = "",
     multi_page: bool = True,
+    chatbot_knowledge: str = "",
 ) -> str:
     """Übernimmt die ausgewählte Vorlage lokal und füllt sie mit Kundendaten."""
     company_name = escape(company_name.strip())
@@ -1722,6 +1738,10 @@ def build_customized_template_html(
     footer_text = escape(
         footer_text.strip()
         or f"{company_name} | {business_email} | Impressum | Datenschutz"
+    )
+    chatbot_knowledge = escape(
+        chatbot_knowledge.strip()
+        or f"Willkommen bei {company_name}. Wie können wir Ihnen helfen?"
     )
     phone = escape(phone.strip())
     radius = "0" if border_style == "sharp" else "10px"
@@ -1751,12 +1771,12 @@ def build_customized_template_html(
 <section class="band"><div class="container" id="leistungen"><span class="eyebrow">Leistungen und Vorteile</span><h2>Kompetent. Persönlich. Verlässlich.</h2><div class="cards"><article class="card"><strong>01</strong><h3>Klare Leistungen</h3><p>Passende Lösungen mit nachvollziehbarer Beratung.</p></article><article class="card"><strong>02</strong><h3>Vertrauen schaffen</h3><p>Qualität, Transparenz und ein verbindlicher Service.</p></article><article class="card"><strong>03</strong><h3>Kontakt erleichtern</h3><p>Schnell und direkt zu Ihrer persönlichen Anfrage.</p></article></div></div></section>
 <section class="container" id="ueber-uns"><span class="eyebrow">Über uns</span><h2>Ein Auftritt, der zu Ihrem Unternehmen passt.</h2><p>{description}</p></section>
 <section class="band"><div class="container contact" id="kontakt"><div><span class="eyebrow">Kontakt</span><h2>Wir freuen uns auf Ihre Anfrage.</h2><p><a href="mailto:{business_email}">{business_email}</a></p>{phone_html}</div><div class="card"><h3>Persönlich beraten lassen</h3><p>Schreiben Sie uns direkt. Wir melden uns zeitnah bei Ihnen.</p><a class="button" href="mailto:{business_email}">E-Mail schreiben</a></div></div></section></main>
-<footer>{footer_text}</footer></body></html>"""
+<footer>{footer_text}</footer><aside class="customer-chatbot"><button type="button" aria-expanded="false">?</button><section hidden><strong>{company_name} Assistent</strong><p>{chatbot_knowledge}</p></section></aside><script>const chatbot=document.querySelector('.customer-chatbot'),toggle=chatbot.querySelector('button'),panel=chatbot.querySelector('section');toggle.onclick=()=>{{panel.hidden=!panel.hidden;toggle.setAttribute('aria-expanded',String(!panel.hidden));}};</script></body></html>"""
 
 
 def build_customized_template_styles() -> str:
     """Liefert das gemeinsame Design für alle statischen Vorlagen-Seiten."""
-    return """* { box-sizing: border-box; } body { margin: 0; background: var(--background); color: var(--text); font: 16px/1.55 Arial, sans-serif; } header, footer { padding: 20px max(5vw, 24px); border-bottom: 1px solid color-mix(in srgb, var(--text) 18%, transparent); } header, nav { display: flex; gap: 18px; flex-wrap: wrap; justify-content: space-between; align-items: center; } nav a, .button { color: inherit; text-decoration: none; } main, .container { max-width: 1120px; margin: auto; padding: 70px 24px; } .hero, .contact { display: grid; grid-template-columns: 1.1fr .9fr; gap: 40px; align-items: center; } .eyebrow { color: var(--accent); font-size: 13px; font-weight: 700; text-transform: uppercase; } h1 { font-family: Georgia, serif; font-size: clamp(2.4rem, 5vw, 4.4rem); line-height: 1.05; margin: 14px 0; } p { color: var(--muted); } .button { display: inline-block; margin-top: 18px; padding: 13px 19px; border-radius: var(--radius); background: var(--accent); color: #111827; font-weight: 700; } .hero-image, .image-placeholder { width: 100%; min-height: 310px; object-fit: cover; border-radius: var(--radius); border: 1px dashed var(--accent); display: grid; place-items: center; color: var(--accent); padding: 20px; } .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 45px; } .card { border-top: 3px solid var(--accent); background: color-mix(in srgb, var(--text) 6%, transparent); padding: 24px; margin-top: 32px; } .band { background: color-mix(in srgb, var(--text) 6%, transparent); } @media (max-width: 700px) { header, .hero, .contact { display: block; } nav { margin-top: 12px; } .hero-image, .image-placeholder { margin-top: 26px; min-height: 220px; } .cards { grid-template-columns: 1fr; } }"""
+    return """* { box-sizing: border-box; } body { margin: 0; background: var(--background); color: var(--text); font: 16px/1.55 Arial, sans-serif; } header, footer { padding: 20px max(5vw, 24px); border-bottom: 1px solid color-mix(in srgb, var(--text) 18%, transparent); } header, nav { display: flex; gap: 18px; flex-wrap: wrap; justify-content: space-between; align-items: center; } nav a, .button { color: inherit; text-decoration: none; } main, .container { max-width: 1120px; margin: auto; padding: 70px 24px; } .hero, .contact { display: grid; grid-template-columns: 1.1fr .9fr; gap: 40px; align-items: center; } .eyebrow { color: var(--accent); font-size: 13px; font-weight: 700; text-transform: uppercase; } h1 { font-family: Georgia, serif; font-size: clamp(2.4rem, 5vw, 4.4rem); line-height: 1.05; margin: 14px 0; } p { color: var(--muted); } .button { display: inline-block; margin-top: 18px; padding: 13px 19px; border-radius: var(--radius); background: var(--accent); color: #111827; font-weight: 700; } .hero-image, .image-placeholder { width: 100%; min-height: 310px; object-fit: cover; border-radius: var(--radius); border: 1px dashed var(--accent); display: grid; place-items: center; color: var(--accent); padding: 20px; } .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 45px; } .card { border-top: 3px solid var(--accent); background: color-mix(in srgb, var(--text) 6%, transparent); padding: 24px; margin-top: 32px; } .band { background: color-mix(in srgb, var(--text) 6%, transparent); } .customer-chatbot { position: fixed; right: 24px; bottom: 24px; z-index: 10; } .customer-chatbot button { width: 52px; height: 52px; border: 0; border-radius: 50%; background: var(--accent); color: #111827; cursor: pointer; font-weight: 700; font-size: 20px; } .customer-chatbot section { width: min(300px, calc(100vw - 48px)); margin-bottom: 10px; padding: 18px; border: 1px solid color-mix(in srgb, var(--text) 18%, transparent); border-radius: var(--radius); background: var(--background); box-shadow: 0 16px 38px rgba(15, 23, 42, .22); } @media (max-width: 700px) { header, .hero, .contact { display: block; } nav { margin-top: 12px; } .hero-image, .image-placeholder { margin-top: 26px; min-height: 220px; } .cards { grid-template-columns: 1fr; } }"""
 
 
 def build_customized_template_pages(
@@ -2078,6 +2098,7 @@ def render_template_preview(
             ],
             "footerText": str(st.session_state.get("template_footer_text", "")).strip()
             or f"{company_name} | {business_email} | Impressum | Datenschutz",
+            "chatbotKnowledge": str(st.session_state.get("client_chatbot_knowledge", "")).strip(),
             "multiPage": st.session_state.get("page_structure") == "Mehrseitige Website",
             "businessEmail": str(st.session_state.get("client_business_email", "")).strip()
             or "Ihre Kontakt-E-Mail",
@@ -3317,6 +3338,7 @@ with new_tab:
                         str(st.session_state.get("template_button_text", "")),
                         str(st.session_state.get("template_footer_text", "")),
                         page_structure == "Mehrseitige Website",
+                        str(st.session_state.get("client_chatbot_knowledge", "")),
                     )
                     queue_html_update(html)
                     if page_structure == "Mehrseitige Website":
