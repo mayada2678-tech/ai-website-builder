@@ -2550,6 +2550,9 @@ def discard_test_editor_changes() -> None:
 
 def render_saas_preview_and_testing_window() -> None:
     """Rendert die direkte Vorschau und optionale HTML-Feinbearbeitung."""
+    if st.session_state.get("creation_mode") == "Professionelle Vorlage":
+        return
+
     st.header("Live-Vorschau")
 
     if not st.session_state.generated_html:
