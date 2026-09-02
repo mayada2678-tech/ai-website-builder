@@ -124,7 +124,13 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
             const image = data.imageDataUrl ? create('img', 'template-image') : create('div', 'template-placeholder', 'BILDPLATZ: Hero oder Willkommensbereich');
             if (data.imageDataUrl) { image.src = data.imageDataUrl; image.alt = data.companyName; }
             hero.append(copy, image);
-            shell.append(header, hero, create('p', 'template-hint', 'Klicken Sie auf Überschrift, Beschreibung oder Button und schreiben Sie direkt in die Vorlage. Gespeichert wird beim Verlassen des Textfelds.'));
+            const templateSections = create('section', 'template-cards');
+            data.templateSections.forEach((section, index) => {
+                const card = create('article', 'template-card');
+                card.append(create('p', 'template-eyebrow', String(index + 1).padStart(2, '0')), create('h2', '', section), create('p', '', data.description));
+                templateSections.append(card);
+            });
+            shell.append(header, hero, templateSections, create('p', 'template-hint', 'Klicken Sie auf Überschrift, Beschreibung oder Button und schreiben Sie direkt in die Vorlage. Gespeichert wird beim Verlassen des Textfelds.'));
             root.append(shell);
         }
         """,
@@ -2058,6 +2064,11 @@ def render_template_preview(
             or "Sie ersetzen Unternehmensdaten, Texte und Bilder direkt in dieser Vorlage. Die Gestaltung, Abstände und Inhaltsbereiche bleiben professionell geordnet.",
             "buttonText": str(st.session_state.get("template_button_text", "")).strip()
             or "Ihr Angebot entdecken",
+            "templateSections": [
+                item.strip()
+                for item in sections.split(",")
+                if item.strip()
+            ],
             "businessEmail": str(st.session_state.get("client_business_email", "")).strip()
             or "Ihre Kontakt-E-Mail",
             "page": str(st.session_state.get("template_preview_page", "start")),
@@ -2092,6 +2103,10 @@ def render_template_and_design_ui() -> str:
         )
         current_template = TEMPLATES[selected_template_name]
         st.info(current_template["description"])
+
+    if st.session_state.get("template_preview_template") != selected_template_name:
+        st.session_state.template_preview_template = selected_template_name
+        st.session_state.template_preview_page = "start"
 
     with design_column:
         background_presets = st.segmented_control(
