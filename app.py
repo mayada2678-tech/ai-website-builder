@@ -641,12 +641,312 @@ def t(key: str, **values: object) -> str:
     return text.format(**values)
 
 
+HELP_CHAT_TEXTS = {
+    "de": {
+        "title": "Hilfe-Chat", "input": "Schreiben Sie Ihre Frage",
+        "greeting": "Herzlich willkommen. Ich unterstütze Sie bei der Erstellung, Vorschau und Veröffentlichung Ihrer Website.",
+        "publish": "Wählen Sie nach dem Erstellen Ihrer Website den Bereich „Veröffentlichung und Liveschaltung“. Dort können Sie einen Vercel-Projektnamen festlegen und die Website veröffentlichen.",
+        "preview": "In der Live-Vorschau können Sie Ihre Website prüfen und den HTML-Code direkt anpassen.",
+        "image": "Sie können beim Erstellen ein Logo oder Bild hochladen. Weitere Bilder lassen sich später im Bereich „Bilder“ austauschen.",
+        "default": "Beschreiben Sie Ihr Unternehmen, wählen Sie Branche und Design und erstellen Sie anschließend Ihren Website-Entwurf. Wobei darf ich Ihnen helfen?",
+    },
+    "en": {
+        "title": "Help chat", "input": "Write your question",
+        "greeting": "Welcome. I can help you create, preview, and publish your website.",
+        "publish": "After creating your website, open Publishing and go live. There you can choose a Vercel project name and publish the website.",
+        "preview": "Use the live preview to review your website and adjust its HTML directly.",
+        "image": "You can upload a logo or image while creating the website. Replace additional images later in the Images section.",
+        "default": "Describe your business, choose an industry and design, then create your website draft. How can I help?",
+    },
+    "es": {
+        "title": "Chat de ayuda", "input": "Escribe tu pregunta",
+        "greeting": "Bienvenido. Te ayudo a crear, revisar y publicar tu sitio web.",
+        "publish": "Después de crear tu sitio, abre la sección de publicación. Allí puedes elegir un nombre de proyecto de Vercel y publicar el sitio.",
+        "preview": "Usa la vista previa en vivo para revisar tu sitio y ajustar el HTML directamente.",
+        "image": "Puedes subir un logo o imagen al crear el sitio. Cambia más imágenes después en la sección Imágenes.",
+        "default": "Describe tu empresa, elige un sector y diseño y crea tu borrador. ¿Cómo puedo ayudarte?",
+    },
+    "it": {
+        "title": "Chat di assistenza", "input": "Scrivi la tua domanda",
+        "greeting": "Benvenuto. Ti aiuto a creare, visualizzare e pubblicare il tuo sito web.",
+        "publish": "Dopo aver creato il sito, apri la sezione Pubblicazione. Qui puoi scegliere il nome di un progetto Vercel e pubblicare il sito.",
+        "preview": "Usa l'anteprima dal vivo per controllare il sito e modificare direttamente l'HTML.",
+        "image": "Puoi caricare un logo o un'immagine durante la creazione. Sostituisci altre immagini nella sezione Immagini.",
+        "default": "Descrivi la tua azienda, scegli settore e design e crea la bozza del sito. Come posso aiutarti?",
+    },
+    "ar": {
+        "title": "دردشة المساعدة", "input": "اكتب سؤالك",
+        "greeting": "مرحباً. أساعدك في إنشاء موقعك ومعاينته ونشره.",
+        "publish": "بعد إنشاء موقعك، افتح قسم النشر. هناك يمكنك اختيار اسم مشروع Vercel ونشر الموقع.",
+        "preview": "استخدم المعاينة المباشرة لمراجعة موقعك وتعديل HTML مباشرة.",
+        "image": "يمكنك رفع شعار أو صورة أثناء إنشاء الموقع، وتغيير الصور الأخرى لاحقاً في قسم الصور.",
+        "default": "صف شركتك واختر المجال والتصميم ثم أنشئ مسودة موقعك. كيف يمكنني مساعدتك؟",
+    },
+    "ku": {
+        "title": "چاتی یارمەتی", "input": "پرسیارەکەت بنووسە",
+        "greeting": "بەخێربێیت. یارمەتیت دەدەم وێبگەکەت دروست بکەیت، پشکنینی بکەیت و بڵاوی بکەیتەوە.",
+        "publish": "دوای دروستکردنی وێبگەکەت، بەشی بڵاوکردنەوە بکەرەوە. لەوێ دەتوانیت ناوی پڕۆژەی Vercel هەڵبژێریت و بڵاوی بکەیتەوە.",
+        "preview": "پیشاندانی ڕاستەوخۆ بەکاربهێنە بۆ پشکنینی وێبگەکەت و دەستکاریکردنی HTML.",
+        "image": "دەتوانیت لە کاتی دروستکردندا لۆگۆ یان وێنە باربکەیت و وێنەکانی تر لە بەشی وێنەکان بگۆڕیت.",
+        "default": "کۆمپانیاکەت باس بکە، بوار و دیزاین هەڵبژێرە و ڕەشنووسی وێبگەکەت دروست بکە. چۆن یارمەتیت بدەم؟",
+    },
+    "hi": {
+        "title": "सहायता चैट", "input": "अपना प्रश्न लिखें",
+        "greeting": "स्वागत है। मैं आपकी वेबसाइट बनाने, देखने और प्रकाशित करने में सहायता कर सकता हूं।",
+        "publish": "वेबसाइट बनाने के बाद प्रकाशन अनुभाग खोलें। वहां आप Vercel प्रोजेक्ट नाम चुनकर वेबसाइट प्रकाशित कर सकते हैं।",
+        "preview": "अपनी वेबसाइट जांचने और HTML बदलने के लिए लाइव प्रीव्यू का उपयोग करें।",
+        "image": "वेबसाइट बनाते समय आप लोगो या चित्र अपलोड कर सकते हैं। अतिरिक्त चित्र बाद में Images अनुभाग में बदलें।",
+        "default": "अपने व्यवसाय का वर्णन करें, उद्योग और डिज़ाइन चुनें, फिर वेबसाइट ड्राफ्ट बनाएं। मैं कैसे मदद कर सकता हूं?",
+    },
+}
+
+
+def get_help_chat_texts() -> dict[str, str]:
+    """Liefert Texte für den Hilfe-Chat in der global gewählten Sprache."""
+    return HELP_CHAT_TEXTS.get(str(st.session_state.app_language), HELP_CHAT_TEXTS["de"])
+
+
+HELP_CHAT_ACTIONS = {
+    "de": {"plan": "Website planen", "next": "Nächsten Schritt prüfen", "improve": "Prompt verbessern", "preview": "Vorschau prüfen", "publish": "Veröffentlichen", "clear": "Verlauf leeren", "empty": "Noch kein Entwurf geladen", "ready": "Entwurf ist zur Bearbeitung bereit"},
+    "en": {"plan": "Plan website", "next": "Check next step", "improve": "Improve prompt", "preview": "Review preview", "publish": "Publish", "clear": "Clear history", "empty": "No draft loaded yet", "ready": "Draft is ready to edit"},
+    "es": {"plan": "Planificar sitio", "next": "Ver siguiente paso", "improve": "Mejorar indicación", "preview": "Revisar vista previa", "publish": "Publicar", "clear": "Borrar historial", "empty": "Aún no hay borrador cargado", "ready": "El borrador está listo para editar"},
+    "it": {"plan": "Pianifica sito", "next": "Controlla il prossimo passo", "improve": "Migliora richiesta", "preview": "Controlla anteprima", "publish": "Pubblica", "clear": "Cancella cronologia", "empty": "Nessuna bozza caricata", "ready": "La bozza è pronta per la modifica"},
+    "ar": {"plan": "خطط للموقع", "next": "تحقق من الخطوة التالية", "improve": "حسّن الطلب", "preview": "راجع المعاينة", "publish": "انشر", "clear": "مسح السجل", "empty": "لا توجد مسودة محمّلة بعد", "ready": "المسودة جاهزة للتعديل"},
+    "ku": {"plan": "وێبگە پلان بکە", "next": "هەنگاوی داهاتوو پشکنە", "improve": "داواکارییەکە باشتر بکە", "preview": "پیشاندان پشکنە", "publish": "بڵاوی بکەوە", "clear": "مێژوو بسڕەوە", "empty": "هێشتا هیچ ڕەشنووسێک بار نەکراوە", "ready": "ڕەشنووسەکە ئامادەی دەستکاریکردنە"},
+    "hi": {"plan": "वेबसाइट की योजना", "next": "अगला चरण जांचें", "improve": "प्रॉम्प्ट सुधारें", "preview": "प्रीव्यू जांचें", "publish": "प्रकाशित करें", "clear": "इतिहास साफ़ करें", "empty": "अभी कोई ड्राफ्ट लोड नहीं है", "ready": "ड्राफ्ट संपादन के लिए तैयार है"},
+}
+
+
+def get_help_chat_actions() -> dict[str, str]:
+    """Liefert sprachabhängige Schnellaktionen für den Hilfe-Chat."""
+    return HELP_CHAT_ACTIONS.get(
+        str(st.session_state.app_language), HELP_CHAT_ACTIONS["de"]
+    )
+
+
+def get_customer_guidance() -> str:
+    """Ermittelt den nächsten sinnvollen Schritt aus den vorhandenen Kundendaten."""
+    company_name = str(st.session_state.get("client_company_name", "")).strip()
+    business_email = str(st.session_state.get("client_business_email", "")).strip()
+    has_draft = bool(st.session_state.get("generated_html"))
+    language = str(st.session_state.app_language)
+
+    if language == "de":
+        if not company_name:
+            return "Nächster Schritt: Geben Sie den offiziellen Unternehmensnamen des Kunden ein. Danach kann die Vorlage auf die Marke ausgerichtet werden."
+        if not business_email:
+            return f"Für {company_name}: Hinterlegen Sie als Nächstes die geschäftliche Kontakt-E-Mail. Sie wird im Kontaktbereich und Footer verwendet."
+        if not has_draft:
+            return f"Die Kundendaten für {company_name} sind bereit. Wählen Sie Vorlage, Abschnitte und Design und erstellen Sie anschließend den ersten Entwurf."
+        return f"Der Entwurf für {company_name} ist bereit. Prüfen Sie Vorschau, Inhalte und Bilder, bevor Sie die Website veröffentlichen."
+
+    if language == "en":
+        if not company_name:
+            return "Next step: Add the customer's official company name so the template can be aligned with the brand."
+        if not business_email:
+            return f"For {company_name}: add the business contact email next. It will be used in the contact section and footer."
+        if not has_draft:
+            return f"Customer data for {company_name} is ready. Choose a template, sections, and design, then create the first draft."
+        return f"The draft for {company_name} is ready. Review preview, content, and images before publishing."
+
+    return get_help_chat_texts()["default"]
+
+
+def get_help_chat_greeting() -> str:
+    """Begrüßt den Kunden mit dem zum Entwurf passenden nächsten Schritt."""
+    language = str(st.session_state.app_language)
+    company_name = str(st.session_state.get("client_company_name", "")).strip()
+    if language == "en":
+        name = f" for {company_name}" if company_name else ""
+        return (
+            f"Hello{name}. I am your website assistant. Ask me about planning, content, "
+            "design, templates, previews, errors, or publishing. I can also improve your prompt. "
+            f"{get_customer_guidance()}"
+        )
+    name = f", {company_name}" if company_name else ""
+    return (
+        f"Hallo{name}. Ich bin Ihr Website-Assistent. Fragen Sie mich zu Planung, Inhalten, "
+        "Design, Vorlagen, Vorschau, Fehlern oder Veröffentlichung. Ich verbessere auch Ihren Prompt. "
+        f"{get_customer_guidance()}"
+    )
+
+
+def correct_customer_text(text: str) -> str:
+    """Korrigiert häufige Schreibfehler ohne Inhalte an einen Dienst zu übertragen."""
+    corrections = {
+        "webseite": "Website",
+        "webseiten": "Websites",
+        "profesionell": "professionell",
+        "profesionelle": "professionelle",
+        "profesioneller": "professioneller",
+        "proffessionell": "professionell",
+        "proffessionelle": "professionelle",
+        "proffessioneller": "professioneller",
+        "erstellund": "Erstellung",
+        "erstellenung": "Erstellung",
+        "vorlageen": "Vorlagen",
+        "kunden": "Kunden",
+        "mögllichkeit": "Möglichkeit",
+        "möchde": "möchte",
+        "können sie": "Können Sie",
+    }
+    corrected = text.strip()
+    for incorrect, replacement in corrections.items():
+        corrected = re.sub(
+            rf"\b{re.escape(incorrect)}\b",
+            replacement,
+            corrected,
+            flags=re.IGNORECASE,
+        )
+    if corrected and corrected[0].islower():
+        corrected = corrected[0].upper() + corrected[1:]
+    if corrected and corrected[-1] not in ".!?":
+        corrected += "."
+    return corrected
+
+
+def get_project_coach_response(prompt: str) -> str:
+    """Gibt lokale, datensparsame Hilfe zu Planung, Entwurf und Textqualität."""
+    question = prompt.strip()
+    normalized_question = question.lower()
+    language = str(st.session_state.app_language)
+    company_name = str(st.session_state.get("client_company_name", "")).strip()
+    current_description = str(
+        st.session_state.get("template_custom_description", "")
+    ).strip()
+
+    correction_match = re.search(
+        r"(?:korrigier(?:e|en)?|schreibfehler|rechtschreibung|correct|spelling)\s*[:\-]\s*(.+)",
+        question,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if correction_match:
+        corrected_text = correct_customer_text(correction_match.group(1))
+        if language == "en":
+            return f"Corrected version:\n\n{corrected_text}"
+        return f"Korrigierte Fassung:\n\n{corrected_text}"
+
+    if prompt == "__improve_customer_prompt__":
+        source = current_description or company_name or "das Unternehmen"
+        if language == "en":
+            return (
+                "Professional prompt:\n\n"
+                f"Create a high-quality, trustworthy website for {source}. "
+                "Clarify the target audience, explain the main services with concrete benefits, "
+                "use a consistent brand style, include proof of trust, and end each key section "
+                "with a clear contact or enquiry call to action. Keep the structure accessible, "
+                "mobile-first, and easy to scan."
+            )
+        return (
+            "Professioneller Prompt:\n\n"
+            f"Erstelle eine hochwertige, vertrauenswürdige Website für {source}. "
+            "Definiere die Zielgruppe, erkläre die wichtigsten Leistungen mit konkretem Nutzen, "
+            "verwende einen einheitlichen Markenstil, zeige Vertrauenselemente und beende jeden "
+            "wichtigen Bereich mit einer klaren Kontakt- oder Anfrageaufforderung. Die Struktur "
+            "soll barrierearm, mobil optimiert und schnell erfassbar sein."
+        )
+
+    if any(word in normalized_question for word in (
+        "plan", "planung", "struktur", "zielgruppe", "entwurf", "draft", "layout",
+        "design", "sektion", "section", "seiten", "page", "konzept",
+    )):
+        if language == "en":
+            return (
+                "Start with a concise plan: define the main goal and target audience, choose the "
+                "most suitable template, then use this order: hero with a clear offer, benefits or "
+                "services, trust signals, portfolio or testimonials, and contact. Keep one primary "
+                "call to action throughout the draft."
+            )
+        return (
+            "Beginnen Sie mit einem klaren Plan: Hauptziel und Zielgruppe festlegen, passende "
+            "Vorlage wählen und dann diese Reihenfolge verwenden: Einstieg mit klarem Angebot, "
+            "Leistungen oder Vorteile, Vertrauenselemente, Referenzen oder Bewertungen und Kontakt. "
+            "Verwenden Sie im gesamten Entwurf eine eindeutige Hauptaktion."
+        )
+
+    response_topics = (
+        (
+            ("vorlage", "template", "muster"),
+            "Wählen Sie zuerst die Vorlage, die Branche und Zielgruppe am besten abbildet. Prüfen Sie sie in der Vorschau und passen Sie danach Farben, Abschnitte und Inhalte an. Eigene HTML-Vorlagen oder öffentliche Websites können Sie im Modus „Bestehende Vorlage bearbeiten“ laden.",
+            "Choose the template that best matches the business and audience first. Review it in the preview, then adjust colors, sections, and content. You can load your own HTML template or a public website in Edit existing template.",
+        ),
+        (
+            ("farbe", "farb", "background", "hintergrund", "weiß", "weiss", "color"),
+            "Wählen Sie eine Hintergrundvorlage und eine Akzentfarbe, die zur Marke passt. Bei Weiß und hellen Farben verwendet die Vorschau automatisch dunklen Text für gute Lesbarkeit. Prüfen Sie anschließend Kontraste und Buttons in der Vorschau.",
+            "Choose a background preset and an accent color that match the brand. With white and light colors, the preview uses dark text automatically for readability. Then review contrast and buttons in the preview.",
+        ),
+        (
+            ("inhalt", "texte", "überschrift", "ueberschrift", "menü", "menu", "footer", "content"),
+            "Bearbeiten Sie Überschriften, Leistungen und Kontaktangaben im Bereich „Inhalte“. Formulieren Sie aus Sicht der Zielgruppe: klarer Nutzen, konkrete Leistung und eine eindeutige nächste Aktion wie „Angebot anfragen“ oder „Termin buchen“.",
+            "Edit headings, services, and contact details in Contents. Write from the audience's perspective: a clear benefit, a concrete service, and one clear next action such as Request a quote or Book an appointment.",
+        ),
+        (
+            ("mehrseit", "mehr seite", "unterseite", "navigation", "multi-page", "multiple pages"),
+            "Wählen Sie bei der Seitenstruktur eine mehrseitige Website. Die Navigation wird im fertigen Einzel-HTML als interne Seitenansicht umgesetzt. Prüfen Sie danach in der Vorschau, ob alle Menüeinträge zu den gewünschten Bereichen führen.",
+            "Choose a multi-page structure under page structure. Navigation is implemented as internal views in the final single HTML file. Then verify in the preview that each menu item leads to the intended area.",
+        ),
+        (
+            ("kontakt", "formular", "email", "e-mail", "anfrage", "form"),
+            "Tragen Sie die geschäftliche Kontakt-E-Mail ein, bevor Sie den Entwurf erstellen. Sie wird im Kontaktbereich und Footer verwendet. Für echte Formularsendungen brauchen Sie zusätzlich einen konfigurierten Formularanbieter; ohne diesen zeigt die Website die Kontakt-E-Mail deutlich an.",
+            "Add the business contact email before creating the draft. It is used in the contact section and footer. For real form submissions, configure a form provider; without one, the website clearly displays the contact email.",
+        ),
+        (
+            ("fehler", "funktioniert nicht", "fehlgeschlagen", "problem", "error", "broken", "failed"),
+            "Beschreiben Sie bitte, bei welchem Schritt der Fehler erscheint und kopieren Sie die genaue Fehlermeldung hier hinein. Prüfen Sie vorher: Pflichtfelder sind ausgefüllt, die E-Mail ist gültig, der HTML-Entwurf ist vollständig und bei der Veröffentlichung ist das Premium-Konto aktiv.",
+            "Tell me which step shows the error and paste the exact error message here. First check that required fields are filled, the email is valid, the HTML draft is complete, and the Premium account is active for publishing.",
+        ),
+    )
+    for keywords, german_response, english_response in response_topics:
+        if any(keyword in normalized_question for keyword in keywords):
+            return english_response if language == "en" else german_response
+
+    if any(word in normalized_question for word in (
+        "prompt", "besser", "verbess", "profession", "text", "schreib", "fehler",
+        "korrig", "rechtschreib", "grammar", "spelling", "correct", "improve",
+    )):
+        if language == "en":
+            return (
+                "For a stronger professional prompt, name the business, audience, offer, desired "
+                "tone, required sections, and the action visitors should take. I can improve the "
+                "current website description with the “Improve prompt” action. For text corrections, "
+                "send the exact sentence or paragraph here and I will provide a clean version."
+            )
+        return (
+            "Für einen stärkeren professionellen Prompt nennen Sie Unternehmen, Zielgruppe, Angebot, "
+            "gewünschten Ton, benötigte Abschnitte und die gewünschte Aktion der Besucher. Mit "
+            "„Prompt verbessern“ formuliere ich die aktuelle Website-Beschreibung professioneller. "
+            "Für Schreibkorrekturen senden Sie den genauen Satz oder Absatz hier; ich liefere eine "
+            "saubere Fassung."
+        )
+
+    return ""
+
+
+def reset_help_chat_for_language() -> None:
+    """Beginnt den Hilfe-Chat mit einer passenden Begrüßung in der neuen Sprache."""
+    st.session_state.chat_messages = [
+        {"role": "assistant", "content": get_help_chat_greeting()}
+    ]
+    st.session_state.chat_language = st.session_state.app_language
+
+
+def add_help_chat_response(prompt: str, display_prompt: str | None = None) -> None:
+    """Speichert eine Nutzerfrage und die passende Hilfeantwort im Verlauf."""
+    st.session_state.chat_messages.append(
+        {"role": "user", "content": display_prompt or prompt}
+    )
+    st.session_state.chat_messages.append(
+        {"role": "assistant", "content": get_help_response(prompt)}
+    )
+
+
 def apply_app_language() -> None:
     """Übernimmt die Sprachwahl des Kunden für den nächsten App-Durchlauf."""
     st.session_state.app_language = APP_LANGUAGES[st.session_state.app_language_name]
     st.session_state.target_language = TARGET_LANGUAGE_BY_APP_CODE[
         st.session_state.app_language
     ]
+    reset_help_chat_for_language()
 
 
 def apply_design_use_case() -> None:
@@ -788,27 +1088,20 @@ def show_authentication() -> None:
 def get_help_response(prompt: str) -> str:
     """Gibt eine kurze Hilfeantwort für die wichtigsten Builder-Abläufe zurück."""
     question = prompt.lower()
+    texts = get_help_chat_texts()
 
-    if any(word in question for word in ("veröffent", "veroeffent", "vercel", "domain")):
-        return (
-            "Wählen Sie nach dem Erstellen Ihrer Website den Bereich "
-            "„Veröffentlichung und Liveschaltung“. Dort können Sie einen "
-            "Vercel-Projektnamen festlegen und die Website veröffentlichen."
-        )
-    if any(word in question for word in ("vorschau", "test", "prüf", "pruef")):
-        return (
-            "Im Bereich „Interaktive Live-Vorschau und Testzentrum“ können Sie "
-            "Ihre Website testen und den HTML-Code direkt anpassen."
-        )
-    if any(word in question for word in ("bild", "logo", "foto")):
-        return (
-            "Sie können beim Erstellen der Website ein Logo oder Bild hochladen. "
-            "Weitere Bilder lassen sich später im Bereich „Bilder“ austauschen."
-        )
-    return (
-        "Beschreiben Sie Ihr Unternehmen, wählen Sie Branche und Design und "
-        "erstellen Sie anschließend Ihren Website-Entwurf. Wobei darf ich Ihnen helfen?"
-    )
+    if prompt == "__next_customer_step__":
+        return get_customer_guidance()
+    coach_response = get_project_coach_response(prompt)
+    if coach_response:
+        return coach_response
+    if any(word in question for word in ("veröffent", "veroeffent", "publish", "publicar", "pubblic", "vercel", "domain", "نشر", "بڵاو", "प्रकाश")):
+        return texts["publish"]
+    if any(word in question for word in ("vorschau", "test", "prüf", "pruef", "preview", "vista", "anteprima", "معاين", "پیشاندان", "प्रीव्यू")):
+        return texts["preview"]
+    if any(word in question for word in ("bild", "logo", "foto", "image", "imagen", "immagine", "صورة", "وێنە", "चित्र")):
+        return texts["image"]
+    return texts["default"]
 
 
 def render_help_chatbot() -> None:
@@ -816,27 +1109,76 @@ def render_help_chatbot() -> None:
     if not st.session_state.show_botpress_chatbot:
         return
 
+    if st.session_state.get("chat_language") != st.session_state.app_language:
+        reset_help_chat_for_language()
+
+    texts = get_help_chat_texts()
+    actions = get_help_chat_actions()
+
     with st.popover(
         "",
         icon=":material/forum:",
-        help="Hilfe-Chat öffnen",
+        help=texts["title"],
         key="help_chat_launcher",
         type="primary",
     ):
-        st.subheader("Hilfe-Chat", anchor=False)
-        with st.container(height=220, border=True, key="help_chat_history"):
+        header_column, clear_column = st.columns((4, 1), vertical_alignment="center")
+        with header_column:
+            st.subheader(texts["title"], anchor=False)
+            st.caption(actions["ready"] if st.session_state.generated_html else actions["empty"])
+        with clear_column:
+            if st.button(
+                "",
+                icon=":material/delete_sweep:",
+                help=actions["clear"],
+                key="clear_help_chat",
+            ):
+                reset_help_chat_for_language()
+                st.rerun()
+
+        primary_columns = st.columns(2)
+        for column, action_name, action_prompt in (
+            (primary_columns[0], "next", "__next_customer_step__"),
+            (primary_columns[1], "improve", "__improve_customer_prompt__"),
+        ):
+            with column:
+                if st.button(
+                    actions[action_name],
+                    key=f"help_chat_action_{action_name}",
+                    width="stretch",
+                ):
+                    add_help_chat_response(action_prompt, actions[action_name])
+                    st.rerun()
+
+        action_columns = st.columns(3)
+        action_prompts = {
+            "plan": "I need help planning my website.",
+            "preview": "How do I review the website preview?",
+            "publish": "How do I publish my website on Vercel?",
+        }
+        for column, action_name in zip(action_columns, action_prompts):
+            with column:
+                if st.button(
+                    actions[action_name],
+                    key=f"help_chat_action_{action_name}",
+                    width="stretch",
+                ):
+                    add_help_chat_response(
+                        action_prompts[action_name],
+                        actions[action_name],
+                    )
+                    st.rerun()
+
+        with st.container(height=280, border=True, key="help_chat_history"):
             for message in st.session_state.chat_messages:
                 with st.chat_message(
                     message["role"], avatar=":material/support_agent:"
                 ):
                     st.write(message["content"])
 
-        prompt = st.chat_input("Schreiben Sie Ihre Frage", key="help_chat_input")
+        prompt = st.chat_input(texts["input"], key="help_chat_input")
         if prompt:
-            st.session_state.chat_messages.append({"role": "user", "content": prompt})
-            st.session_state.chat_messages.append(
-                {"role": "assistant", "content": get_help_response(prompt)}
-            )
+            add_help_chat_response(prompt)
             st.rerun()
 
 
