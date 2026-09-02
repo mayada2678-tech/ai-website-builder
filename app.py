@@ -241,6 +241,12 @@ DESIGN_USE_CASES = {
         "description": "Professionelles Informations- und Reporting-Portal mit Kennzahlen, klaren Datenbereichen und Kontakt.",
     },
 }
+BACKGROUND_PRESET_COLORS = {
+    "Dunkel": "#111827",
+    "Weiß": "#FFFFFF",
+    "Hellgrau": "#F3F4F6",
+    "Hellblau": "#EFF6FF",
+}
 SUPPORTED_LANGUAGES = {
     "Deutsch": {"code": "de", "dir": "ltr"},
     "English": {"code": "en", "dir": "ltr"},
@@ -630,14 +636,17 @@ def apply_design_use_case() -> None:
     st.session_state.page_structure = use_case["page_structure"]
     st.session_state.selected_website_sections = use_case["sections"]
     st.session_state.template_custom_description = use_case["description"]
-    preset_names = {
-        "#111827": "Dunkel",
-        "#FFFFFF": "Weiß",
-        "#F3F4F6": "Hellgrau",
-        "#EFF6FF": "Hellblau",
-    }
-    st.session_state.template_background_preset = preset_names[use_case["background"]]
-    st.session_state.applied_background_preset = preset_names[use_case["background"]]
+    st.session_state.template_background_preset = next(
+        name
+        for name, color in BACKGROUND_PRESET_COLORS.items()
+        if color == use_case["background"]
+    )
+
+
+def apply_background_preset() -> None:
+    """Übernimmt eine Hintergrundvorlage vor dem Rendern des Color-Pickers."""
+    preset_name = st.session_state.template_background_preset
+    st.session_state.template_background_color = BACKGROUND_PRESET_COLORS[preset_name]
 
 
 st.selectbox(
@@ -1164,6 +1173,11 @@ def is_light_color(color: str) -> bool:
     return luminance >= 165
 
 
+def contrast_text_color(background_color: str) -> str:
+    """Liefert eine gut lesbare Textfarbe für eine farbige Fläche."""
+    return "#111827" if is_light_color(background_color) else "#FFFFFF"
+
+
 def render_template_preview(
         template_name: str,
     sections: str,
@@ -1178,6 +1192,7 @@ def render_template_preview(
         muted_text_color = "#374151" if light_background else "#cbd5e1"
         surface_color = "rgba(17,24,39,.06)" if light_background else "rgba(255,255,255,.05)"
         border_color = "rgba(17,24,39,.18)" if light_background else "rgba(255,255,255,.16)"
+        accent_text_color = contrast_text_color(accent_color)
         st.caption("Vorlagenvorschau - Bildplätze und Abstände sind im Entwurf vorgemerkt.")
         st.html(
                 f"""
@@ -1191,7 +1206,7 @@ def render_template_preview(
                             <p style="margin:0 0 12px;color:{accent_color};font:700 11px ui-sans-serif,sans-serif;letter-spacing:0;text-transform:uppercase;">Professionelle Markenwebsite</p>
                             <h3 style="margin:0;font-size:34px;line-height:1.1;">Eine Vorlage mit klarer Struktur und Raum für Ihre Inhalte.</h3>
                               <p style="margin:18px 0 24px;max-width:500px;font:15px/1.65 ui-sans-serif,sans-serif;color:{muted_text_color};">Sie ersetzen anschließend nur Unternehmensdaten, Texte und Bilder. Die Gestaltung, Abstände und Inhaltsbereiche bleiben professionell geordnet.</p>
-                            <span style="display:inline-block;background:{accent_color};color:#08111e;padding:11px 16px;border-radius:{radius};font:700 13px ui-sans-serif,sans-serif;">Ihr Angebot entdecken</span>
+                            <span style="display:inline-block;background:{accent_color};color:{accent_text_color};padding:11px 16px;border-radius:{radius};font:700 13px ui-sans-serif,sans-serif;">Ihr Angebot entdecken</span>
                         </div>
                         <div style="min-height:220px;border:1px dashed {accent_color};border-radius:{radius};display:flex;align-items:center;justify-content:center;background:{surface_color};font:700 12px ui-sans-serif,sans-serif;color:{accent_color};text-align:center;padding:18px;">BILDPLATZ<br><span style="color:{muted_text_color};font-weight:400;">Hero oder Willkommensbereich</span></div>
                     </div>
@@ -1209,7 +1224,7 @@ def render_template_preview(
                     </div>
                     <div style="display:grid;grid-template-columns:1.35fr .65fr;gap:16px;padding:42px 28px;">
                         <div style="min-height:150px;border:1px dashed {border_color};border-radius:{radius};display:flex;align-items:center;justify-content:center;font:700 12px ui-sans-serif,sans-serif;color:{muted_text_color};">BILDPLATZ: Projekt, Team oder Galerie</div>
-                        <div style="padding:22px;background:{accent_color};color:#08111e;border-radius:{radius};font-family:ui-sans-serif,sans-serif;"><strong>Kontaktbereich</strong><p style="margin:10px 0 0;font-size:13px;line-height:1.5;">E-Mail, Telefonnummer, Öffnungszeiten und Kontaktformular.</p></div>
+                        <div style="padding:22px;background:{accent_color};color:{accent_text_color};border-radius:{radius};font-family:ui-sans-serif,sans-serif;"><strong>Kontaktbereich</strong><p style="margin:10px 0 0;font-size:13px;line-height:1.5;">E-Mail, Telefonnummer, Öffnungszeiten und Kontaktformular.</p></div>
                     </div>
                       <footer style="padding:20px 28px;border-top:1px solid {border_color};font:12px ui-sans-serif,sans-serif;color:{muted_text_color};">Impressum &nbsp;&nbsp; Datenschutz &nbsp;&nbsp; Social Media</footer>
                 </section>
@@ -1237,22 +1252,14 @@ def render_template_and_design_ui() -> str:
     with design_column:
         background_presets = st.segmented_control(
             "Hintergrund-Vorlage",
-            ["Dunkel", "Weiß", "Hellgrau", "Hellblau"],
+            list(BACKGROUND_PRESET_COLORS),
             default="Dunkel",
             key="template_background_preset",
+            on_change=apply_background_preset,
         )
-        preset_colors = {
-            "Dunkel": "#111827",
-            "Weiß": "#FFFFFF",
-            "Hellgrau": "#F3F4F6",
-            "Hellblau": "#EFF6FF",
-        }
-        if st.session_state.get("applied_background_preset") != background_presets:
-            st.session_state.template_background_color = preset_colors[background_presets]
-            st.session_state.applied_background_preset = background_presets
         background_color = st.color_picker(
             t("background_color"),
-            preset_colors[background_presets],
+            BACKGROUND_PRESET_COLORS[background_presets],
             key="template_background_color",
         )
         accent_color = st.color_picker(
