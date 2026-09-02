@@ -29,6 +29,8 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
         .template-header, .template-nav { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
         .template-header { justify-content: space-between; padding: 18px 28px; border-bottom: 1px solid var(--border); font-family: ui-sans-serif, sans-serif; }
         .template-nav { font-size: 12px; opacity: .8; }
+        .template-nav button { border: 0; padding: 0; background: transparent; color: inherit; cursor: pointer; font: inherit; }
+        .template-nav button:hover, .template-nav button:focus-visible { color: var(--accent); }
         .template-hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(220px, .9fr); gap: 34px; padding: 48px 28px 42px; align-items: center; }
         .template-eyebrow { color: var(--accent); font: 700 11px ui-sans-serif, sans-serif; text-transform: uppercase; }
         .template-heading { margin: 12px 0 0; font-size: 34px; line-height: 1.1; }
@@ -39,7 +41,12 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
         [contenteditable="true"] { cursor: text; outline: 1px dashed transparent; outline-offset: 4px; }
         [contenteditable="true"]:hover, [contenteditable="true"]:focus { outline-color: var(--accent); }
         .template-hint { margin: 0; padding: 12px 28px; background: var(--surface); color: var(--muted); font: 12px ui-sans-serif, sans-serif; }
-        @media (max-width: 700px) { .template-hero { grid-template-columns: 1fr; } }
+        .template-page { padding: 58px 28px; }
+        .template-page h1 { margin: 12px 0; font-size: 38px; line-height: 1.1; }
+        .template-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 34px; }
+        .template-card { min-height: 210px; padding: 22px; border-top: 3px solid var(--accent); background: var(--surface); font-family: ui-sans-serif, sans-serif; }
+        .template-card p { color: var(--muted); }
+        @media (max-width: 700px) { .template-hero, .template-cards { grid-template-columns: 1fr; } }
         """,
         js="""
         export default function(component) {
@@ -64,8 +71,30 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
             shell.style.setProperty('--radius', data.radius);
             const header = create('header', 'template-header');
             const company = create('strong', '', data.companyName);
-            const nav = create('nav', 'template-nav', 'Start   Leistungen   Angebote   Kontakt');
+            const nav = create('nav', 'template-nav');
+            [['start', 'Start'], ['leistungen', 'Leistungen'], ['angebote', 'Angebote'], ['kontakt', 'Kontakt']].forEach(([page, label]) => {
+                const link = create('button', '', label);
+                link.type = 'button';
+                link.onclick = () => setTriggerValue('navigated', page);
+                nav.append(link);
+            });
             header.append(company, nav);
+            if (data.page === 'leistungen') {
+                const page = create('main', 'template-page');
+                page.append(create('p', 'template-eyebrow', 'Leistungen'));
+                page.append(create('h1', '', 'Leistungen für Ihren Erfolg.'));
+                page.append(create('p', 'template-description', data.description));
+                const cards = create('section', 'template-cards');
+                [['01', 'Individuelle Beratung', 'Wir analysieren Ihren Bedarf und entwickeln eine passende Lösung.'], ['02', 'Verlässliche Umsetzung', 'Klare Abläufe, hohe Qualität und ein verbindlicher Ansprechpartner.'], ['03', 'Nachhaltiger Service', 'Auch nach dem Projekt bleiben wir persönlich für Sie erreichbar.']].forEach(([number, title, text]) => {
+                    const card = create('article', 'template-card');
+                    card.append(create('p', 'template-eyebrow', number), create('h2', '', title), create('p', '', text));
+                    cards.append(card);
+                });
+                page.append(cards);
+                shell.append(header, page, create('p', 'template-hint', 'Dies ist die eigenständige Leistungsseite. Bei der Veröffentlichung wird sie als leistungs.html bereitgestellt.'));
+                root.append(shell);
+                return;
+            }
             const hero = create('div', 'template-hero');
             const copy = create('div', '');
             copy.append(create('p', 'template-eyebrow', 'Professionelle Markenwebsite'));
@@ -802,6 +831,7 @@ DEFAULT_STATE = {
     "published_html": "",
     "assets": {},
     "site_pages": {},
+    "template_preview_page": "start",
     "live_url": "",
     "deployment_url": "",
     "deployment_id": "",
@@ -1673,7 +1703,7 @@ p {{ color:var(--muted); }} .button {{ display:inline-block; margin-top:12px; pa
 .band {{ background:color-mix(in srgb, var(--text) 6%, transparent); }} .contact {{ display:grid; grid-template-columns:1fr 1fr; gap:30px; }} footer {{ padding:28px max(5vw,24px); border-top:1px solid color-mix(in srgb, var(--text) 18%, transparent); color:var(--muted); }}
 @media(max-width:700px) {{ header,.hero,.contact {{ display:block; }} nav {{ margin-top:12px; }} .hero-image,.image-placeholder {{ margin-top:26px; min-height:220px; }} .cards {{ grid-template-columns:1fr; }} }}
 </style></head>
-<body><header><strong>{company_name}</strong><nav><a href="index.html#leistungen">Leistungen</a><a href="angebote.html">Angebote</a><a href="index.html#ueber-uns">Über uns</a><a href="kontakt.html">Kontakt</a></nav></header>
+<body><header><strong>{company_name}</strong><nav><a href="leistungen.html">Leistungen</a><a href="angebote.html">Angebote</a><a href="index.html#ueber-uns">Über uns</a><a href="kontakt.html">Kontakt</a></nav></header>
 <main><section class="container hero" id="hero"><div><span class="eyebrow">{escape(template_name)}</span><h1>{slogan}</h1><p>{description}</p><a class="button" href="#kontakt">{button_text}</a></div>{image_html}</section>
 <section class="band"><div class="container" id="leistungen"><span class="eyebrow">Leistungen und Vorteile</span><h2>Kompetent. Persönlich. Verlässlich.</h2><div class="cards"><article class="card"><strong>01</strong><h3>Klare Leistungen</h3><p>Passende Lösungen mit nachvollziehbarer Beratung.</p></article><article class="card"><strong>02</strong><h3>Vertrauen schaffen</h3><p>Qualität, Transparenz und ein verbindlicher Service.</p></article><article class="card"><strong>03</strong><h3>Kontakt erleichtern</h3><p>Schnell und direkt zu Ihrer persönlichen Anfrage.</p></article></div></div></section>
 <section class="container" id="ueber-uns"><span class="eyebrow">Über uns</span><h2>Ein Auftritt, der zu Ihrem Unternehmen passt.</h2><p>{description}</p></section>
@@ -1692,9 +1722,11 @@ def build_customized_template_pages(
     text_color = contrast_text_color(background_color)
     muted_color = "#334155" if is_light_color(background_color) else "#cbd5e1"
     head = f"""<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{company_name}</title><style>body{{margin:0;background:{background_color};color:{text_color};font:16px/1.55 Arial,sans-serif}}header,footer{{padding:20px max(5vw,24px);border-bottom:1px solid {muted_color}}}header,nav{{display:flex;gap:18px;flex-wrap:wrap;justify-content:space-between}}main{{max-width:1120px;margin:auto;padding:70px 24px}}.card{{border-top:3px solid {accent_color};padding:24px;margin-top:32px;background:color-mix(in srgb,{text_color} 7%,transparent)}}.button{{display:inline-block;margin-top:18px;background:{accent_color};color:#111827;padding:13px 18px;text-decoration:none;font-weight:700}}p{{color:{muted_color}}}</style></head>"""
-    offers = f"""<!doctype html><html lang="de">{head}<body><header><strong>{company_name}</strong><nav><a href="index.html">Start</a><a href="angebote.html">Angebote</a><a href="kontakt.html">Kontakt</a></nav></header><main><h1>Unsere Angebote</h1><p>{description}</p><section class="card"><h2>Individuelles Angebot</h2><p>{description}</p><a class="button" href="kontakt.html">Angebot anfragen</a></section></main><footer>{company_name} · <a href="mailto:{business_email}">{business_email}</a></footer></body></html>"""
-    contact = f"""<!doctype html><html lang="de">{head}<body><header><strong>{company_name}</strong><nav><a href="index.html">Start</a><a href="angebote.html">Angebote</a><a href="kontakt.html">Kontakt</a></nav></header><main><h1>Kontakt</h1><p>Schreiben Sie uns. Wir melden uns zeitnah bei Ihnen.</p><section class="card"><h2>Kontakt aufnehmen</h2><p><a href="mailto:{business_email}">{business_email}</a></p><a class="button" href="mailto:{business_email}">E-Mail schreiben</a></section></main><footer>{company_name} · <a href="mailto:{business_email}">{business_email}</a></footer></body></html>"""
-    return {"angebote.html": offers, "kontakt.html": contact}
+    navigation = f'<nav><a href="index.html">Start</a><a href="leistungen.html">Leistungen</a><a href="angebote.html">Angebote</a><a href="kontakt.html">Kontakt</a></nav>'
+    services = f"""<!doctype html><html lang="de">{head}<body><header><strong>{company_name}</strong>{navigation}</header><main><h1>Leistungen für Ihren Erfolg.</h1><p>{description}</p><section class="card"><h2>Individuelle Beratung</h2><p>Wir analysieren Ihren Bedarf und entwickeln eine passende Lösung.</p></section><section class="card"><h2>Verlässliche Umsetzung</h2><p>Klare Abläufe, hohe Qualität und ein verbindlicher Ansprechpartner.</p></section><section class="card"><h2>Nachhaltiger Service</h2><p>Auch nach dem Projekt bleiben wir persönlich für Sie erreichbar.</p><a class="button" href="kontakt.html">Jetzt anfragen</a></section></main><footer>{company_name} · <a href="mailto:{business_email}">{business_email}</a></footer></body></html>"""
+    offers = f"""<!doctype html><html lang="de">{head}<body><header><strong>{company_name}</strong>{navigation}</header><main><h1>Unsere Angebote</h1><p>{description}</p><section class="card"><h2>Individuelles Angebot</h2><p>{description}</p><a class="button" href="kontakt.html">Angebot anfragen</a></section></main><footer>{company_name} · <a href="mailto:{business_email}">{business_email}</a></footer></body></html>"""
+    contact = f"""<!doctype html><html lang="de">{head}<body><header><strong>{company_name}</strong>{navigation}</header><main><h1>Kontakt</h1><p>Schreiben Sie uns. Wir melden uns zeitnah bei Ihnen.</p><section class="card"><h2>Kontakt aufnehmen</h2><p><a href="mailto:{business_email}">{business_email}</a></p><a class="button" href="mailto:{business_email}">E-Mail schreiben</a></section></main><footer>{company_name} · <a href="mailto:{business_email}">{business_email}</a></footer></body></html>"""
+    return {"leistungen.html": services, "angebote.html": offers, "kontakt.html": contact}
 
 
 def ask_ai_for_html(system_instruction: str, user_instruction: str) -> str:
@@ -1942,6 +1974,16 @@ def render_template_preview(
             if source in changes:
                 st.session_state[target] = str(changes[source]).strip()
 
+    def show_template_page() -> None:
+        """Übernimmt den Navigationsklick aus der interaktiven Vorlagenvorschau."""
+        component_state = st.session_state.get("clickable_template_editor")
+        page = getattr(component_state, "navigated", None)
+        if page in {"start", "leistungen"}:
+            st.session_state.template_preview_page = page
+        elif page in {"angebote", "kontakt"}:
+            st.session_state.template_preview_page = "start"
+            st.info("Diese Unterseite wird beim Veröffentlichen als eigene HTML-Seite angelegt.")
+
     CLICKABLE_TEMPLATE_EDITOR(
         key="clickable_template_editor",
         data={
@@ -1953,6 +1995,7 @@ def render_template_preview(
             or "Sie ersetzen Unternehmensdaten, Texte und Bilder direkt in dieser Vorlage. Die Gestaltung, Abstände und Inhaltsbereiche bleiben professionell geordnet.",
             "buttonText": str(st.session_state.get("template_button_text", "")).strip()
             or "Ihr Angebot entdecken",
+            "page": str(st.session_state.get("template_preview_page", "start")),
             "imageDataUrl": image_data_url,
             "backgroundColor": background_color,
             "accentColor": accent_color,
@@ -1964,6 +2007,7 @@ def render_template_preview(
             "radius": radius,
         },
         on_saved_change=save_clickable_template_changes,
+        on_navigated_change=show_template_page,
     )
 
 
