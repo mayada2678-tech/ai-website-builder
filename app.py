@@ -371,8 +371,9 @@ DESIGN_USE_CASES = {
     },
 }
 BACKGROUND_PRESET_COLORS = {
-    "Dunkel": "#111827",
     "Weiß": "#FFFFFF",
+    "Schwarz": "#000000",
+    "Dunkel": "#111827",
     "Hellgrau": "#F3F4F6",
 }
 SUPPORTED_LANGUAGES = {
@@ -1987,7 +1988,7 @@ def render_template_and_design_ui() -> str:
         background_presets = st.segmented_control(
             "Hintergrund-Vorlage",
             list(BACKGROUND_PRESET_COLORS),
-            default="Dunkel",
+            default="Weiß",
             key="template_background_preset",
             on_change=apply_background_preset,
         )
