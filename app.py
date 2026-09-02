@@ -4,6 +4,7 @@ import hmac
 import re
 import secrets
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -406,6 +407,21 @@ def initialize_database() -> None:
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS support_requests (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                request_type TEXT NOT NULL,
+                app_area TEXT NOT NULL,
+                subject TEXT NOT NULL,
+                description TEXT NOT NULL,
+                reproduction_steps TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            )
+            """
+        )
 
 
 def hash_password(password: str) -> str:
@@ -515,6 +531,62 @@ def delete_saved_website(user_id: int, website_id: int) -> None:
         )
 
 
+def save_support_request(
+    user_id: int,
+    request_type: str,
+    app_area: str,
+    subject: str,
+    description: str,
+    reproduction_steps: str,
+) -> None:
+    """Speichert eine Kundenanfrage samt nachvollziehbarer Fehlerbeschreibung."""
+    with sqlite3.connect(DATABASE_PATH) as connection:
+        connection.execute(
+            """
+            INSERT INTO support_requests (
+                user_id, request_type, app_area, subject, description,
+                reproduction_steps, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                user_id,
+                request_type,
+                app_area,
+                subject.strip(),
+                description.strip(),
+                reproduction_steps.strip(),
+                datetime.now(timezone.utc).isoformat(),
+            ),
+        )
+
+
+def get_support_requests(user_id: int | None = None) -> list[tuple]:
+    """Lädt eigene Anfragen oder für den App-Inhaber die gesamte Support-Inbox."""
+    with sqlite3.connect(DATABASE_PATH) as connection:
+        if user_id is None:
+            return connection.execute(
+                """
+                SELECT support_requests.id, users.email, support_requests.request_type,
+                       support_requests.app_area, support_requests.subject,
+                       support_requests.description, support_requests.reproduction_steps,
+                       support_requests.created_at
+                FROM support_requests
+                JOIN users ON users.id = support_requests.user_id
+                ORDER BY support_requests.id DESC
+                """
+            ).fetchall()
+        return connection.execute(
+            """
+            SELECT id, request_type, app_area, subject, description,
+                   reproduction_steps, created_at
+            FROM support_requests
+            WHERE user_id = ?
+            ORDER BY id DESC
+            """,
+            (user_id,),
+        ).fetchall()
+
+
 def get_user_status(user_id: int) -> dict[str, float | bool]:
     """Liest Guthaben und Premium-Status des angemeldeten Nutzers."""
     with sqlite3.connect(DATABASE_PATH) as connection:
@@ -583,6 +655,7 @@ except KeyError:
     st.stop()
 
 client = OpenAI(api_key=OPENAI_API_KEY)
+SUPPORT_ADMIN_EMAIL = str(st.secrets.get("support_admin_email", "")).strip().lower()
 
 DEFAULT_STATE = {
     "user_id": None,
@@ -2218,6 +2291,97 @@ def render_domain_and_deployment_ui() -> None:
             )
 
 
+def render_customer_service_ui(user_id: int, user_email: str) -> None:
+    """Ermöglicht Kunden Feedback und nachvollziehbare Supportanfragen."""
+    st.header("Kundenservice")
+    st.caption(
+        "Melden Sie einen Fehler, eine Frage oder Feedback. Beschreiben Sie den betroffenen "
+        "Bereich und die Schritte möglichst genau, damit wir schnell helfen können."
+    )
+
+    with st.form("customer_service_form", clear_on_submit=True):
+        request_type, app_area = st.columns(2)
+        with request_type:
+            support_type = st.selectbox(
+                "Anliegen",
+                ["Fehler melden", "Frage zur Nutzung", "Idee oder Feedback"],
+                key="support_request_type",
+            )
+        with app_area:
+            affected_area = st.selectbox(
+                "Betroffener App-Bereich",
+                [
+                    "Website planen", "Vorlage und Design", "Bilder und Inhalte",
+                    "Vorschau und Editor", "Veröffentlichung", "Anmeldung oder Konto",
+                    "Andere Funktion",
+                ],
+                key="support_app_area",
+            )
+        subject = st.text_input(
+            "Kurzer Betreff",
+            placeholder="z. B. Vorschau lädt nach Bild-Upload nicht",
+            key="support_subject",
+        )
+        description = st.text_area(
+            "Was ist passiert oder welches Feedback möchten Sie geben?",
+            placeholder="Beschreiben Sie das gewünschte Ergebnis und was stattdessen passiert ist.",
+            key="support_description",
+            height=150,
+        )
+        reproduction_steps = st.text_area(
+            "Schritte bis zum Problem (optional)",
+            placeholder="1. Vorlage wählen\n2. Bild hochladen\n3. Vorschau öffnen",
+            key="support_reproduction_steps",
+            height=110,
+        )
+        submitted = st.form_submit_button(
+            "Anfrage an Kundenservice senden",
+            icon=":material/send:",
+            type="primary",
+            width="stretch",
+        )
+
+    if submitted:
+        if len(subject.strip()) < 4:
+            st.error("Bitte geben Sie einen kurzen Betreff mit mindestens 4 Zeichen ein.")
+        elif len(description.strip()) < 15:
+            st.error("Bitte beschreiben Sie Ihr Anliegen mit mindestens 15 Zeichen.")
+        else:
+            save_support_request(
+                user_id, support_type, affected_area, subject, description, reproduction_steps
+            )
+            st.success("Ihre Anfrage wurde gespeichert. Der Kundenservice kann sie jetzt prüfen.")
+
+    own_requests = get_support_requests(user_id)
+    st.subheader("Meine Anfragen", anchor=False)
+    if not own_requests:
+        st.caption("Sie haben noch keine Anfrage gesendet.")
+    for request_id, support_type, affected_area, subject, description, steps, created_at in own_requests:
+        with st.expander(f"#{request_id} · {support_type} · {subject}"):
+            st.caption(f"Bereich: {affected_area} · Gesendet: {created_at[:16].replace('T', ' ')} UTC")
+            st.write(description)
+            if steps:
+                st.code(steps, language=None)
+
+    if user_email.strip().lower() != SUPPORT_ADMIN_EMAIL or not SUPPORT_ADMIN_EMAIL:
+        return
+
+    st.divider()
+    st.subheader("Kundenservice-Inbox", anchor=False)
+    support_requests = get_support_requests()
+    if not support_requests:
+        st.caption("Noch keine Kundenanfragen vorhanden.")
+    for request_id, requester_email, support_type, affected_area, subject, description, steps, created_at in support_requests:
+        with st.expander(f"#{request_id} · {support_type} · {subject}"):
+            st.caption(
+                f"Kunde: {requester_email} · Bereich: {affected_area} · "
+                f"Gesendet: {created_at[:16].replace('T', ' ')} UTC"
+            )
+            st.write(description)
+            if steps:
+                st.code(steps, language=None)
+
+
 with st.sidebar:
     with st.container(border=True):
         st.subheader(t("account"))
@@ -2291,8 +2455,8 @@ with st.sidebar:
 st.title(t("main_title"), anchor=False)
 st.caption(t("main_subtitle"))
 
-new_tab, manage_tab = st.tabs(
-    [t("new_website"), t("load_published")]
+new_tab, manage_tab, service_tab = st.tabs(
+    [t("new_website"), t("load_published"), "Kundenservice"]
 )
 
 
@@ -2482,6 +2646,9 @@ with manage_tab:
                         state="error",
                     )
                     st.error(str(error))
+
+with service_tab:
+    render_customer_service_ui(current_user_id, st.session_state.user_email)
 
 if st.session_state.live_url:
     st.success("Eine veröffentlichte oder geladene Website ist verfügbar.")
