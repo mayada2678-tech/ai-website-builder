@@ -1489,6 +1489,57 @@ def optimize_editor_text(text: str) -> str:
     return clean_html(response)
 
 
+def build_customized_template_html(
+    template_name: str,
+    background_color: str,
+    accent_color: str,
+    border_style: str,
+    company_name: str,
+    business_email: str,
+    slogan: str,
+    phone: str,
+    description: str,
+    image_file,
+) -> str:
+    """Übernimmt die ausgewählte Vorlage lokal und füllt sie mit Kundendaten."""
+    company_name = escape(company_name.strip())
+    business_email = escape(business_email.strip())
+    slogan = escape(slogan.strip() or "Qualität, die für Sie arbeitet.")
+    description = escape(description.strip() or "Wir verbinden fachliche Kompetenz mit persönlicher Beratung.")
+    phone = escape(phone.strip())
+    radius = "0" if border_style == "sharp" else "10px"
+    text_color = contrast_text_color(background_color)
+    muted_color = "#334155" if is_light_color(background_color) else "#cbd5e1"
+    image_html = '<div class="image-placeholder">Bild oder Logo hochladen</div>'
+    if image_file is not None:
+        image_name = save_uploaded_image(image_file, "vorlagen-hero")
+        image_html = f'<img class="hero-image" src="{image_name}" alt="{company_name}">'
+    phone_html = f'<p>Telefon: {phone}</p>' if phone else ""
+    return f"""<!doctype html>
+<html lang="de">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{company_name}</title>
+<style>
+:root {{ --background: {background_color}; --accent: {accent_color}; --text: {text_color}; --muted: {muted_color}; --radius: {radius}; }}
+* {{ box-sizing: border-box; }} body {{ margin: 0; background: var(--background); color: var(--text); font-family: Arial, sans-serif; line-height: 1.55; }}
+header {{ display:flex; justify-content:space-between; gap:20px; align-items:center; padding:18px max(5vw,24px); border-bottom:1px solid color-mix(in srgb, var(--text) 18%, transparent); }}
+nav {{ display:flex; flex-wrap:wrap; gap:18px; }} nav a, .button {{ color:inherit; text-decoration:none; }}
+.container {{ max-width:1120px; margin:auto; padding:70px 24px; }} .hero {{ display:grid; grid-template-columns:1.1fr .9fr; gap:40px; align-items:center; }}
+.eyebrow {{ color:var(--accent); font-size:13px; font-weight:700; text-transform:uppercase; }} h1 {{ font-family:Georgia,serif; font-size:clamp(2.4rem,5vw,4.4rem); line-height:1.05; margin:14px 0; }}
+p {{ color:var(--muted); }} .button {{ display:inline-block; margin-top:12px; padding:13px 19px; border-radius:var(--radius); background:var(--accent); color:#111827; font-weight:700; }}
+.hero-image,.image-placeholder {{ width:100%; min-height:310px; object-fit:cover; border-radius:var(--radius); border:1px dashed var(--accent); display:grid; place-items:center; color:var(--accent); padding:20px; }}
+.cards {{ display:grid; grid-template-columns:repeat(3,1fr); gap:15px; margin-top:45px; }} .card {{ border-top:3px solid var(--accent); background:color-mix(in srgb, var(--text) 6%, transparent); padding:22px; }}
+.band {{ background:color-mix(in srgb, var(--text) 6%, transparent); }} .contact {{ display:grid; grid-template-columns:1fr 1fr; gap:30px; }} footer {{ padding:28px max(5vw,24px); border-top:1px solid color-mix(in srgb, var(--text) 18%, transparent); color:var(--muted); }}
+@media(max-width:700px) {{ header,.hero,.contact {{ display:block; }} nav {{ margin-top:12px; }} .hero-image,.image-placeholder {{ margin-top:26px; min-height:220px; }} .cards {{ grid-template-columns:1fr; }} }}
+</style></head>
+<body><header><strong>{company_name}</strong><nav><a href="#leistungen">Leistungen</a><a href="#ueber-uns">Über uns</a><a href="#kontakt">Kontakt</a></nav></header>
+<main><section class="container hero" id="hero"><div><span class="eyebrow">{escape(template_name)}</span><h1>{slogan}</h1><p>{description}</p><a class="button" href="#kontakt">Ihr Angebot entdecken</a></div>{image_html}</section>
+<section class="band"><div class="container" id="leistungen"><span class="eyebrow">Leistungen und Vorteile</span><h2>Kompetent. Persönlich. Verlässlich.</h2><div class="cards"><article class="card"><strong>01</strong><h3>Klare Leistungen</h3><p>Passende Lösungen mit nachvollziehbarer Beratung.</p></article><article class="card"><strong>02</strong><h3>Vertrauen schaffen</h3><p>Qualität, Transparenz und ein verbindlicher Service.</p></article><article class="card"><strong>03</strong><h3>Kontakt erleichtern</h3><p>Schnell und direkt zu Ihrer persönlichen Anfrage.</p></article></div></div></section>
+<section class="container" id="ueber-uns"><span class="eyebrow">Über uns</span><h2>Ein Auftritt, der zu Ihrem Unternehmen passt.</h2><p>{description}</p></section>
+<section class="band"><div class="container contact" id="kontakt"><div><span class="eyebrow">Kontakt</span><h2>Wir freuen uns auf Ihre Anfrage.</h2><p><a href="mailto:{business_email}">{business_email}</a></p>{phone_html}</div><div class="card"><h3>Persönlich beraten lassen</h3><p>Schreiben Sie uns direkt. Wir melden uns zeitnah bei Ihnen.</p><a class="button" href="mailto:{business_email}">E-Mail schreiben</a></div></div></section></main>
+<footer>{company_name} · <a href="mailto:{business_email}">{business_email}</a> · Impressum · Datenschutz</footer></body></html>"""
+
+
 def ask_ai_for_html(system_instruction: str, user_instruction: str) -> str:
     """Fordert vollständigen HTML-Code von OpenAI an."""
     if not deduct_tokens(current_user_id):
@@ -2870,40 +2921,72 @@ with new_tab:
 
         st.divider()
         render_client_contact_ui()
+        submit_label = (
+            "Vorlage mit Kundendaten übernehmen"
+            if creation_mode == "Professionelle Vorlage"
+            else "Website erstellen"
+        )
         if st.button(
-            "Website erstellen",
-            icon=":material/rocket_launch:",
+            submit_label,
+            icon=(":material/edit_document:" if creation_mode == "Professionelle Vorlage" else ":material/rocket_launch:"),
             type="primary",
             key="create_website",
             width="stretch",
         ):
-            page_prompt = (
-                "Erstelle eine mehrseitige Informationsarchitektur innerhalb einer einzelnen, deploybaren HTML-Datei. Das HTML muss genau vier eigenständige Ansichten besitzen: `data-page=\"start\"`, `data-page=\"leistungen\"`, `data-page=\"ueber-uns\"` und `data-page=\"kontakt\"`. Die Navigation muss Links auf `#start`, `#leistungen`, `#ueber-uns` und `#kontakt` besitzen. Füge JavaScript für `hashchange` und beim initialen Laden hinzu: Es blendet nur die gewählte Ansicht ein und ergänzt bei unbekanntem Hash `#start`. Beim Klick auf Kontakt muss ausschließlich die vollständige Kontaktansicht mit E-Mail-Adresse, Erreichbarkeit und Kontaktformular erscheinen. Die Browsernavigation Zurück/Vorwärts muss die Ansichten korrekt wechseln."
-                if page_structure == "Mehrseitige Website"
-                else "Erstelle eine klar gegliederte, einseitige Website mit Navigation zu den jeweiligen Inhaltsbereichen."
-            )
-            prompt = (
-                f"{template_prompt}\n{section_prompt}\n\n"
-                f"WEITERE KUNDENANFORDERUNGEN:\n{description.strip()}\n\n"
-                f"SEITENSTRUKTUR:\n{page_prompt}"
-            )
-            with st.status("Website wird erstellt ...", expanded=True) as status:
+            if creation_mode == "Professionelle Vorlage":
                 try:
-                    generate_website(
-                        prompt,
+                    company_name = str(st.session_state.client_company_name).strip()
+                    business_email = str(st.session_state.client_business_email).strip()
+                    if not company_name or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", business_email):
+                        raise ValueError("Bitte geben Sie Unternehmensname und eine gültige geschäftliche E-Mail-Adresse ein.")
+                    background_color = BACKGROUND_PRESET_COLORS[
+                        st.session_state.template_background_preset
+                    ]
+                    html = build_customized_template_html(
+                        str(st.session_state.template_name),
+                        background_color,
+                        str(st.session_state.template_accent_color),
+                        str(st.session_state.template_border_style),
+                        company_name,
+                        business_email,
+                        str(st.session_state.client_company_slogan),
+                        str(st.session_state.client_business_phone),
+                        description,
                         initial_image,
-                        image_placement,
-                        multi_page=page_structure == "Mehrseitige Website",
                     )
-                    status.update(label="Website wurde erstellt.", state="complete")
+                    queue_html_update(html)
+                    st.success("Die Vorlage wurde mit Ihren Kundendaten übernommen und kann jetzt direkt bearbeitet werden.")
                     st.rerun()
-                except Exception as error:
-                    error_message = str(error) or "Unbekannter Fehler bei der Erstellung."
-                    status.update(
-                        label=f"Erstellung fehlgeschlagen: {error_message}",
-                        state="error",
-                    )
-                    st.error(error_message)
+                except ValueError as error:
+                    st.error(str(error))
+            else:
+                page_prompt = (
+                    "Erstelle eine mehrseitige Informationsarchitektur innerhalb einer einzelnen, deploybaren HTML-Datei. Das HTML muss genau vier eigenständige Ansichten besitzen: `data-page=\"start\"`, `data-page=\"leistungen\"`, `data-page=\"ueber-uns\"` und `data-page=\"kontakt\"`. Die Navigation muss Links auf `#start`, `#leistungen`, `#ueber-uns` und `#kontakt` besitzen. Füge JavaScript für `hashchange` und beim initialen Laden hinzu: Es blendet nur die gewählte Ansicht ein und ergänzt bei unbekanntem Hash `#start`. Beim Klick auf Kontakt muss ausschließlich die vollständige Kontaktansicht mit E-Mail-Adresse, Erreichbarkeit und Kontaktformular erscheinen. Die Browsernavigation Zurück/Vorwärts muss die Ansichten korrekt wechseln."
+                    if page_structure == "Mehrseitige Website"
+                    else "Erstelle eine klar gegliederte, einseitige Website mit Navigation zu den jeweiligen Inhaltsbereichen."
+                )
+                prompt = (
+                    f"{template_prompt}\n{section_prompt}\n\n"
+                    f"WEITERE KUNDENANFORDERUNGEN:\n{description.strip()}\n\n"
+                    f"SEITENSTRUKTUR:\n{page_prompt}"
+                )
+                with st.status("Website wird erstellt ...", expanded=True) as status:
+                    try:
+                        generate_website(
+                            prompt,
+                            initial_image,
+                            image_placement,
+                            multi_page=page_structure == "Mehrseitige Website",
+                        )
+                        status.update(label="Website wurde erstellt.", state="complete")
+                        st.rerun()
+                    except Exception as error:
+                        error_message = str(error) or "Unbekannter Fehler bei der Erstellung."
+                        status.update(
+                            label=f"Erstellung fehlgeschlagen: {error_message}",
+                            state="error",
+                        )
+                        st.error(error_message)
 
 with manage_tab:
     st.subheader("Öffentliche Website laden")
