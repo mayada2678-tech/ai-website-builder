@@ -1285,11 +1285,15 @@ def render_template_and_design_ui() -> str:
             key="template_background_preset",
             on_change=apply_background_preset,
         )
-        background_color = st.color_picker(
-            t("background_color"),
-            BACKGROUND_PRESET_COLORS[background_presets],
-            key="template_background_color",
+        preset_background_color = BACKGROUND_PRESET_COLORS[background_presets]
+        st.color_picker(
+            f"{t('background_color')} ({background_presets})",
+            preset_background_color,
+            key=f"template_preset_background_{background_presets}",
+            disabled=True,
+            help="Die Hintergrundfarbe wird über die Auswahl der Hintergrund-Vorlage festgelegt.",
         )
+        background_color = preset_background_color
         accent_color = st.color_picker(
             t("accent_color"),
             "#38BDF8",
