@@ -1497,6 +1497,14 @@ def replace_first_image_source(html: str, image_name: str, alt_text: str) -> str
     image_tag = f'<img src="{image_name}" alt="{alt_text}">'
     if re.search(r"(?i)<img\b[^>]*>", html):
         return re.sub(r"(?i)<img\b[^>]*>", image_tag, html, count=1)
+    if re.search(r'(?i)<div\b[^>]*class=["\'][^"\']*image-placeholder[^"\']*["\'][^>]*>.*?</div>', html, re.DOTALL):
+        return re.sub(
+            r'(?i)<div\b[^>]*class=["\'][^"\']*image-placeholder[^"\']*["\'][^>]*>.*?</div>',
+            image_tag,
+            html,
+            count=1,
+            flags=re.DOTALL,
+        )
     return re.sub(r"(?i)</body\s*>", f"{image_tag}</body>", html, count=1)
 
 
@@ -1504,8 +1512,8 @@ def replace_visible_text(html: str, old_text: str, new_text: str) -> str:
     """Ersetzt eine bewusst ausgewählte Textstelle ohne HTML-Markup zu verändern."""
     old_text = old_text.strip()
     new_text = new_text.strip()
-    if not old_text or not new_text:
-        raise ValueError("Bitte geben Sie den bisherigen und den neuen Text ein.")
+    if not old_text:
+        raise ValueError("Bitte geben Sie den bisherigen Text ein.")
     if old_text not in html:
         raise ValueError("Die angegebene Textstelle wurde im aktuellen Entwurf nicht gefunden.")
     return html.replace(old_text, escape(new_text), 1)
@@ -1559,12 +1567,14 @@ def build_customized_template_html(
     phone: str,
     description: str,
     image_file,
+    button_text: str = "Ihr Angebot entdecken",
 ) -> str:
     """Übernimmt die ausgewählte Vorlage lokal und füllt sie mit Kundendaten."""
     company_name = escape(company_name.strip())
     business_email = escape(business_email.strip())
     slogan = escape(slogan.strip() or "Qualität, die für Sie arbeitet.")
     description = escape(description.strip() or "Wir verbinden fachliche Kompetenz mit persönlicher Beratung.")
+    button_text = escape(button_text.strip() or "Ihr Angebot entdecken")
     phone = escape(phone.strip())
     radius = "0" if border_style == "sharp" else "10px"
     text_color = contrast_text_color(background_color)
@@ -1592,7 +1602,7 @@ p {{ color:var(--muted); }} .button {{ display:inline-block; margin-top:12px; pa
 @media(max-width:700px) {{ header,.hero,.contact {{ display:block; }} nav {{ margin-top:12px; }} .hero-image,.image-placeholder {{ margin-top:26px; min-height:220px; }} .cards {{ grid-template-columns:1fr; }} }}
 </style></head>
 <body><header><strong>{company_name}</strong><nav><a href="index.html#leistungen">Leistungen</a><a href="angebote.html">Angebote</a><a href="index.html#ueber-uns">Über uns</a><a href="kontakt.html">Kontakt</a></nav></header>
-<main><section class="container hero" id="hero"><div><span class="eyebrow">{escape(template_name)}</span><h1>{slogan}</h1><p>{description}</p><a class="button" href="#kontakt">Ihr Angebot entdecken</a></div>{image_html}</section>
+<main><section class="container hero" id="hero"><div><span class="eyebrow">{escape(template_name)}</span><h1>{slogan}</h1><p>{description}</p><a class="button" href="#kontakt">{button_text}</a></div>{image_html}</section>
 <section class="band"><div class="container" id="leistungen"><span class="eyebrow">Leistungen und Vorteile</span><h2>Kompetent. Persönlich. Verlässlich.</h2><div class="cards"><article class="card"><strong>01</strong><h3>Klare Leistungen</h3><p>Passende Lösungen mit nachvollziehbarer Beratung.</p></article><article class="card"><strong>02</strong><h3>Vertrauen schaffen</h3><p>Qualität, Transparenz und ein verbindlicher Service.</p></article><article class="card"><strong>03</strong><h3>Kontakt erleichtern</h3><p>Schnell und direkt zu Ihrer persönlichen Anfrage.</p></article></div></div></section>
 <section class="container" id="ueber-uns"><span class="eyebrow">Über uns</span><h2>Ein Auftritt, der zu Ihrem Unternehmen passt.</h2><p>{description}</p></section>
 <section class="band"><div class="container contact" id="kontakt"><div><span class="eyebrow">Kontakt</span><h2>Wir freuen uns auf Ihre Anfrage.</h2><p><a href="mailto:{business_email}">{business_email}</a></p>{phone_html}</div><div class="card"><h3>Persönlich beraten lassen</h3><p>Schreiben Sie uns direkt. Wir melden uns zeitnah bei Ihnen.</p><a class="button" href="mailto:{business_email}">E-Mail schreiben</a></div></div></section></main>
@@ -1827,10 +1837,21 @@ def render_template_preview(
     border_color = "rgba(17,24,39,.18)" if light_background else "rgba(255,255,255,.16)"
     accent_text_color = contrast_text_color(accent_color)
     company_name = escape(str(st.session_state.get("client_company_name", "")).strip() or template_name)
-    slogan = escape(str(st.session_state.get("client_company_slogan", "")).strip() or "Eine Vorlage mit klarer Struktur und Raum für Ihre Inhalte.")
+    slogan = escape(
+        str(st.session_state.get("template_hero_heading", "")).strip()
+        or str(st.session_state.get("client_company_slogan", "")).strip()
+        or "Eine Vorlage mit klarer Struktur und Raum für Ihre Inhalte."
+    )
     description = escape(str(st.session_state.get("template_custom_description", "")).strip() or "Sie ersetzen Unternehmensdaten, Texte und Bilder direkt in dieser Vorlage. Die Gestaltung, Abstände und Inhaltsbereiche bleiben professionell geordnet.")
     business_email = escape(str(st.session_state.get("client_business_email", "")).strip() or "Ihre Kontakt-E-Mail")
     phone = escape(str(st.session_state.get("client_business_phone", "")).strip() or "Telefonnummer ergänzen")
+    button_text = escape(str(st.session_state.get("template_button_text", "")).strip() or "Ihr Angebot entdecken")
+    image_file = st.session_state.get("initial_image")
+    image_html = f'<div style="min-height:220px;border:1px dashed {accent_color};border-radius:{radius};display:flex;align-items:center;justify-content:center;background:{surface_color};font:700 12px ui-sans-serif,sans-serif;color:{accent_color};text-align:center;padding:18px;">BILDPLATZ<br><span style="color:{muted_text_color};font-weight:400;">Hero oder Willkommensbereich</span></div>'
+    if image_file is not None:
+        image_data = base64.b64encode(image_file.getvalue()).decode("ascii")
+        image_type = escape(image_file.type or "image/png")
+        image_html = f'<img src="data:{image_type};base64,{image_data}" alt="{company_name}" style="width:100%;min-height:220px;max-height:320px;object-fit:cover;border-radius:{radius};">'
     st.caption("Live-Vorlage: Jede Änderung an Kundendaten, Farben oder Beschreibung wird sofort hier angezeigt.")
     st.html(
                 f"""
@@ -1844,9 +1865,9 @@ def render_template_preview(
                             <p style="margin:0 0 12px;color:{accent_color};font:700 11px ui-sans-serif,sans-serif;letter-spacing:0;text-transform:uppercase;">Professionelle Markenwebsite</p>
                                                         <h3 style="margin:0;font-size:34px;line-height:1.1;">{slogan}</h3>
                                                             <p style="margin:18px 0 24px;max-width:500px;font:15px/1.65 ui-sans-serif,sans-serif;color:{muted_text_color};">{description}</p>
-                            <span style="display:inline-block;background:{accent_color};color:{accent_text_color};padding:11px 16px;border-radius:{radius};font:700 13px ui-sans-serif,sans-serif;">Ihr Angebot entdecken</span>
+                            <span style="display:inline-block;background:{accent_color};color:{accent_text_color};padding:11px 16px;border-radius:{radius};font:700 13px ui-sans-serif,sans-serif;">{button_text}</span>
                         </div>
-                        <div style="min-height:220px;border:1px dashed {accent_color};border-radius:{radius};display:flex;align-items:center;justify-content:center;background:{surface_color};font:700 12px ui-sans-serif,sans-serif;color:{accent_color};text-align:center;padding:18px;">BILDPLATZ<br><span style="color:{muted_text_color};font-weight:400;">Hero oder Willkommensbereich</span></div>
+                        {image_html}
                     </div>
                     <div style="padding:0 28px 42px;">
                         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;font:13px ui-sans-serif,sans-serif;">
@@ -1917,6 +1938,27 @@ def render_template_and_design_ui() -> str:
             key="template_border_style",
         )
 
+    st.text_input(
+        "Button-Text in der Vorlage",
+        placeholder="z. B. Termin vereinbaren",
+        key="template_button_text",
+        help="Die Beschriftung wird direkt in der Live-Vorlage und später auf der Website angezeigt.",
+    )
+    content_columns = st.columns(2)
+    with content_columns[0]:
+        st.text_input(
+            "Überschrift der Vorlage",
+            placeholder="z. B. Ihr Partner für Qualität und Vertrauen",
+            key="template_hero_heading",
+        )
+    with content_columns[1]:
+        st.text_area(
+            "Beschreibung in der Vorlage",
+            placeholder="Beschreiben Sie Angebot, Zielgruppe und Ihre besonderen Stärken.",
+            key="template_custom_description",
+            height=100,
+        )
+
     render_template_preview(
         selected_template_name,
         current_template["sections"],
@@ -1925,18 +1967,8 @@ def render_template_and_design_ui() -> str:
         border_style,
     )
 
-    custom_description = st.text_area(
-        t("company_description"),
-        placeholder=(
-            "Zum Beispiel: Autohaus Mueller in Hannover, spezialisiert auf "
-            "E-Mobilitaet und Gebrauchtwagen mit fuenf Jahren Garantie."
-        ),
-        key="template_custom_description",
-        height=130,
-    )
-
     radius_class = "rounded-none" if border_style == "sharp" else "rounded-2xl"
-    description = str(custom_description or "").strip()
+    description = str(st.session_state.get("template_custom_description", "")).strip()
     dir_attribute = (
         f'dir="{selected_language["dir"]}" '
         f'lang="{selected_language["code"]}"'
@@ -2202,8 +2234,8 @@ def render_direct_content_editor() -> None:
             key="direct_previous_text",
         )
         edited_text = st.text_area(
-            "Neuer Text",
-            placeholder="Schreiben Sie hier den neuen Text.",
+            "Neuer Text (leer lassen zum Löschen)",
+            placeholder="Schreiben Sie hier den neuen Text oder lassen Sie das Feld leer.",
             key="direct_edited_text",
             height=100,
         )
@@ -2227,7 +2259,7 @@ def render_direct_content_editor() -> None:
             if st.button(
                 "Text übernehmen",
                 icon=":material/save:",
-                disabled=not previous_text.strip() or not edited_text.strip(),
+                disabled=not previous_text.strip(),
                 key="apply_direct_text",
                 width="stretch",
             ):
@@ -3034,10 +3066,12 @@ with new_tab:
                         str(st.session_state.template_border_style),
                         company_name,
                         business_email,
-                        str(st.session_state.client_company_slogan),
+                        str(st.session_state.get("template_hero_heading", "")).strip()
+                        or str(st.session_state.client_company_slogan),
                         str(st.session_state.client_business_phone),
                         description,
                         initial_image,
+                        str(st.session_state.get("template_button_text", "")),
                     )
                     queue_html_update(html)
                     st.session_state.site_pages.update(
