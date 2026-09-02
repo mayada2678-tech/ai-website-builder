@@ -35,7 +35,7 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
         .template-eyebrow { color: var(--accent); font: 700 11px ui-sans-serif, sans-serif; text-transform: uppercase; }
         .template-heading { margin: 12px 0 0; font-size: 34px; line-height: 1.1; }
         .template-description { max-width: 500px; margin: 18px 0 24px; color: var(--muted); font: 15px/1.65 ui-sans-serif, sans-serif; }
-        .template-button { display: inline-block; background: var(--accent); color: var(--accent-text); padding: 11px 16px; border-radius: var(--radius); font: 700 13px ui-sans-serif, sans-serif; }
+        .template-button { border: 0; display: inline-block; background: var(--accent); color: var(--accent-text); padding: 11px 16px; border-radius: var(--radius); cursor: pointer; font: 700 13px ui-sans-serif, sans-serif; }
         .template-image { width: 100%; min-height: 220px; max-height: 320px; object-fit: cover; border-radius: var(--radius); }
         .template-placeholder { min-height: 220px; border: 1px dashed var(--accent); border-radius: var(--radius); display: grid; place-items: center; padding: 18px; color: var(--accent); text-align: center; font: 700 12px ui-sans-serif, sans-serif; }
         [contenteditable="true"] { cursor: text; outline: 1px dashed transparent; outline-offset: 4px; }
@@ -104,17 +104,19 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
             const hero = create('div', 'template-hero');
             const copy = create('div', '');
             copy.append(create('p', 'template-eyebrow', 'Professionelle Markenwebsite'));
-            const fields = [['heading', 'h3', 'template-heading'], ['description', 'p', 'template-description'], ['buttonText', 'span', 'template-button']];
+            const fields = [['heading', 'h3', 'template-heading'], ['description', 'p', 'template-description'], ['buttonText', 'button', 'template-button']];
             const changed = {};
             fields.forEach(([key, tag, className]) => {
                 const field = create(tag, className, data[key]);
                 field.contentEditable = 'true';
                 field.setAttribute('role', 'textbox');
                 field.setAttribute('aria-label', key === 'heading' ? 'Überschrift bearbeiten' : key === 'description' ? 'Beschreibung bearbeiten' : 'Button-Text bearbeiten');
+                if (key === 'buttonText') field.type = 'button';
                 field.onblur = () => {
                     const value = field.textContent.trim();
                     if (value !== data[key]) { changed[key] = value; setTriggerValue('saved', changed); }
                 };
+                if (key === 'buttonText') field.onclick = () => setTriggerValue('navigated', 'angebote');
                 copy.append(field);
             });
             const image = data.imageDataUrl ? create('img', 'template-image') : create('div', 'template-placeholder', 'BILDPLATZ: Hero oder Willkommensbereich');
@@ -1710,7 +1712,7 @@ p {{ color:var(--muted); }} .button {{ display:inline-block; margin-top:12px; pa
 @media(max-width:700px) {{ header,.hero,.contact {{ display:block; }} nav {{ margin-top:12px; }} .hero-image,.image-placeholder {{ margin-top:26px; min-height:220px; }} .cards {{ grid-template-columns:1fr; }} }}
 </style></head>
 <body><header><strong>{company_name}</strong><nav><a href="leistungen.html">Leistungen</a><a href="angebote.html">Angebote</a><a href="ueber-uns.html">Über uns</a><a href="kontakt.html">Kontakt</a></nav></header>
-<main><section class="container hero" id="hero"><div><span class="eyebrow">{escape(template_name)}</span><h1>{slogan}</h1><p>{description}</p><a class="button" href="#kontakt">{button_text}</a></div>{image_html}</section>
+<main><section class="container hero" id="hero"><div><span class="eyebrow">{escape(template_name)}</span><h1>{slogan}</h1><p>{description}</p><a class="button" href="angebote.html">{button_text}</a></div>{image_html}</section>
 <section class="band"><div class="container" id="leistungen"><span class="eyebrow">Leistungen und Vorteile</span><h2>Kompetent. Persönlich. Verlässlich.</h2><div class="cards"><article class="card"><strong>01</strong><h3>Klare Leistungen</h3><p>Passende Lösungen mit nachvollziehbarer Beratung.</p></article><article class="card"><strong>02</strong><h3>Vertrauen schaffen</h3><p>Qualität, Transparenz und ein verbindlicher Service.</p></article><article class="card"><strong>03</strong><h3>Kontakt erleichtern</h3><p>Schnell und direkt zu Ihrer persönlichen Anfrage.</p></article></div></div></section>
 <section class="container" id="ueber-uns"><span class="eyebrow">Über uns</span><h2>Ein Auftritt, der zu Ihrem Unternehmen passt.</h2><p>{description}</p></section>
 <section class="band"><div class="container contact" id="kontakt"><div><span class="eyebrow">Kontakt</span><h2>Wir freuen uns auf Ihre Anfrage.</h2><p><a href="mailto:{business_email}">{business_email}</a></p>{phone_html}</div><div class="card"><h3>Persönlich beraten lassen</h3><p>Schreiben Sie uns direkt. Wir melden uns zeitnah bei Ihnen.</p><a class="button" href="mailto:{business_email}">E-Mail schreiben</a></div></div></section></main>
