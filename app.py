@@ -655,6 +655,13 @@ except KeyError:
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 SUPPORT_ADMIN_EMAIL = str(st.secrets.get("support_admin_email", "")).strip().lower()
+PRIVACY_CONTACT_EMAIL = str(st.secrets.get("privacy_contact_email", "")).strip()
+PRIVACY_CONTROLLER_NAME = str(
+    st.secrets.get("privacy_controller_name", "App-Betreiber")
+).strip()
+PRIVACY_CONTROLLER_ADDRESS = str(
+    st.secrets.get("privacy_controller_address", "")
+).strip()
 
 DEFAULT_STATE = {
     "user_id": None,
@@ -2381,6 +2388,83 @@ def render_customer_service_ui(user_id: int, user_email: str) -> None:
                 st.code(steps, language=None)
 
 
+def render_privacy_policy_ui() -> None:
+    """Zeigt eine verständliche Übersicht der in der App genutzten Datenverarbeitung."""
+    st.header("Datenschutzbestimmungen")
+    st.caption("Stand: 2. September 2026")
+
+    st.subheader("1. Verantwortliche Stelle", anchor=False)
+    st.write(PRIVACY_CONTROLLER_NAME or "App-Betreiber")
+    if PRIVACY_CONTROLLER_ADDRESS:
+        st.write(PRIVACY_CONTROLLER_ADDRESS)
+    if PRIVACY_CONTACT_EMAIL:
+        st.write(f"Datenschutz-Kontakt: {PRIVACY_CONTACT_EMAIL}")
+
+    st.subheader("2. Datenkategorien", anchor=False)
+    st.write(
+        "Wir verarbeiten Ihre Konto-E-Mail-Adresse, ein sicher gehashtes Passwort, den Guthaben- "
+        "und Premiumstatus sowie gespeicherte Website-Entwürfe. Bei einer Supportanfrage speichern "
+        "wir Anliegen, Beschreibung und optionale Reproduktionsschritte. Bitte übermitteln Sie in "
+        "Freitextfeldern keine besonderen Kategorien personenbezogener Daten oder Zugangsdaten."
+    )
+
+    st.subheader("3. Zwecke und Rechtsgrundlagen", anchor=False)
+    st.write(
+        "Die Verarbeitung erfolgt zur Bereitstellung Ihres Nutzerkontos, zum Speichern und "
+        "Bearbeiten Ihrer Entwürfe sowie zur Bearbeitung von Supportanfragen. Rechtsgrundlage ist "
+        "in der Regel Art. 6 Abs. 1 lit. b DSGVO zur Vertragserfüllung. Die optionale KI-Erstellung "
+        "und Veröffentlichung erfolgen nur, wenn Sie die jeweilige Funktion aktiv starten."
+    )
+
+    st.subheader("4. Empfänger und externe Dienste", anchor=False)
+    st.write(
+        "Wenn Sie eine Website erstellen oder Inhalte per KI bearbeiten, werden die eingegebenen "
+        "Anforderungen an OpenAI übermittelt. Starten Sie eine Veröffentlichung, werden die von "
+        "Ihnen gewählten Website-Dateien und Bilder an Vercel übertragen. Der lokale Hilfe-Chat "
+        "übermittelt seine Standardantworten und Schreibkorrekturen nicht an OpenAI. Informationen "
+        "zu möglichen Drittlandübermittlungen entnehmen Sie bitte den Datenschutzinformationen der "
+        "jeweiligen Anbieter."
+    )
+
+    st.subheader("5. Speicherdauer", anchor=False)
+    st.write(
+        "Kontodaten und Entwürfe werden gespeichert, solange Ihr Konto besteht oder bis Sie die "
+        "jeweiligen Entwürfe löschen. Supportanfragen werden nur so lange aufbewahrt, wie sie zur "
+        "Bearbeitung und nachvollziehbaren Dokumentation erforderlich sind. Gesetzliche "
+        "Aufbewahrungspflichten bleiben unberührt."
+    )
+
+    st.subheader("6. Sicherheit", anchor=False)
+    st.write(
+        "Die Anwendung schützt Passwörter durch einen salt-basierten Hash und speichert Daten in "
+        "einer lokalen Anwendungsdatenbank. Bitte sichern Sie Ihr Konto mit einem starken, nur hier "
+        "verwendeten Passwort und teilen Sie keine Zugangsdaten über den Kundenservice."
+    )
+
+    st.subheader("7. Ihre Rechte", anchor=False)
+    st.write(
+        "Sie haben das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung "
+        "und Datenübertragbarkeit nach Maßgabe der DSGVO. Soweit eine Verarbeitung auf einer "
+        "Einwilligung beruht, können Sie diese mit Wirkung für die Zukunft widerrufen. Sie können "
+        "sich außerdem bei einer Datenschutzaufsichtsbehörde beschweren."
+    )
+
+    st.subheader("8. Kontakt und Änderungen", anchor=False)
+    if PRIVACY_CONTACT_EMAIL:
+        st.write(f"Für Datenschutzanfragen schreiben Sie an: {PRIVACY_CONTACT_EMAIL}")
+    else:
+        st.write(
+            "Nutzen Sie für Datenschutzanfragen den Bereich Kundenservice in dieser App. Der "
+            "App-Betreiber sollte zusätzlich eine Datenschutz-Kontaktadresse in "
+            "`privacy_contact_email` in den Streamlit-Secrets hinterlegen."
+        )
+    st.info(
+        "Diese Informationen beschreiben die technische Datenverarbeitung dieser App. Lassen Sie "
+        "die Erklärung vor einem öffentlichen oder gewerblichen Einsatz rechtlich prüfen und "
+        "aktualisieren Sie sie bei Änderungen an eingesetzten Diensten oder Datenflüssen."
+    )
+
+
 with st.sidebar:
     with st.container(border=True):
         st.subheader(t("account"))
@@ -2454,8 +2538,8 @@ with st.sidebar:
 st.title(t("main_title"), anchor=False)
 st.caption(t("main_subtitle"))
 
-new_tab, manage_tab, service_tab = st.tabs(
-    [t("new_website"), t("load_published"), "Kundenservice"]
+new_tab, manage_tab, service_tab, privacy_tab = st.tabs(
+    [t("new_website"), t("load_published"), "Kundenservice", "Datenschutz"]
 )
 
 
@@ -2648,6 +2732,9 @@ with manage_tab:
 
 with service_tab:
     render_customer_service_ui(current_user_id, st.session_state.user_email)
+
+with privacy_tab:
+    render_privacy_policy_ui()
 
 if st.session_state.live_url:
     st.success("Eine veröffentlichte oder geladene Website ist verfügbar.")
