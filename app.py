@@ -729,6 +729,7 @@ DEFAULT_STATE = {
     "pending_html": "",
     "published_html": "",
     "assets": {},
+    "site_pages": {},
     "live_url": "",
     "deployment_url": "",
     "deployment_id": "",
@@ -1420,7 +1421,9 @@ def ensure_multi_page_navigation(html: str) -> str:
 
 def queue_html_update(html: str) -> None:
     """Plant ein sicheres HTML-Update für den nächsten Durchlauf."""
-    st.session_state.pending_html = require_complete_html(html)
+    index_html = require_complete_html(html)
+    st.session_state.site_pages = {"index.html": index_html}
+    st.session_state.pending_html = index_html
 
 
 def safe_project_name(name: str) -> str:
@@ -1588,12 +1591,28 @@ p {{ color:var(--muted); }} .button {{ display:inline-block; margin-top:12px; pa
 .band {{ background:color-mix(in srgb, var(--text) 6%, transparent); }} .contact {{ display:grid; grid-template-columns:1fr 1fr; gap:30px; }} footer {{ padding:28px max(5vw,24px); border-top:1px solid color-mix(in srgb, var(--text) 18%, transparent); color:var(--muted); }}
 @media(max-width:700px) {{ header,.hero,.contact {{ display:block; }} nav {{ margin-top:12px; }} .hero-image,.image-placeholder {{ margin-top:26px; min-height:220px; }} .cards {{ grid-template-columns:1fr; }} }}
 </style></head>
-<body><header><strong>{company_name}</strong><nav><a href="#leistungen">Leistungen</a><a href="#ueber-uns">Über uns</a><a href="#kontakt">Kontakt</a></nav></header>
+<body><header><strong>{company_name}</strong><nav><a href="index.html#leistungen">Leistungen</a><a href="angebote.html">Angebote</a><a href="index.html#ueber-uns">Über uns</a><a href="kontakt.html">Kontakt</a></nav></header>
 <main><section class="container hero" id="hero"><div><span class="eyebrow">{escape(template_name)}</span><h1>{slogan}</h1><p>{description}</p><a class="button" href="#kontakt">Ihr Angebot entdecken</a></div>{image_html}</section>
 <section class="band"><div class="container" id="leistungen"><span class="eyebrow">Leistungen und Vorteile</span><h2>Kompetent. Persönlich. Verlässlich.</h2><div class="cards"><article class="card"><strong>01</strong><h3>Klare Leistungen</h3><p>Passende Lösungen mit nachvollziehbarer Beratung.</p></article><article class="card"><strong>02</strong><h3>Vertrauen schaffen</h3><p>Qualität, Transparenz und ein verbindlicher Service.</p></article><article class="card"><strong>03</strong><h3>Kontakt erleichtern</h3><p>Schnell und direkt zu Ihrer persönlichen Anfrage.</p></article></div></div></section>
 <section class="container" id="ueber-uns"><span class="eyebrow">Über uns</span><h2>Ein Auftritt, der zu Ihrem Unternehmen passt.</h2><p>{description}</p></section>
 <section class="band"><div class="container contact" id="kontakt"><div><span class="eyebrow">Kontakt</span><h2>Wir freuen uns auf Ihre Anfrage.</h2><p><a href="mailto:{business_email}">{business_email}</a></p>{phone_html}</div><div class="card"><h3>Persönlich beraten lassen</h3><p>Schreiben Sie uns direkt. Wir melden uns zeitnah bei Ihnen.</p><a class="button" href="mailto:{business_email}">E-Mail schreiben</a></div></div></section></main>
 <footer>{company_name} · <a href="mailto:{business_email}">{business_email}</a> · Impressum · Datenschutz</footer></body></html>"""
+
+
+def build_customized_template_pages(
+    company_name: str, business_email: str, background_color: str,
+    accent_color: str, description: str,
+) -> dict[str, str]:
+    """Erstellt echte statische Angebots- und Kontaktseiten der Kundenwebsite."""
+    company_name = escape(company_name.strip())
+    business_email = escape(business_email.strip())
+    description = escape(description.strip() or "Individuelle Beratung und passende Lösungen.")
+    text_color = contrast_text_color(background_color)
+    muted_color = "#334155" if is_light_color(background_color) else "#cbd5e1"
+    head = f"""<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{company_name}</title><style>body{{margin:0;background:{background_color};color:{text_color};font:16px/1.55 Arial,sans-serif}}header,footer{{padding:20px max(5vw,24px);border-bottom:1px solid {muted_color}}}header,nav{{display:flex;gap:18px;flex-wrap:wrap;justify-content:space-between}}main{{max-width:1120px;margin:auto;padding:70px 24px}}.card{{border-top:3px solid {accent_color};padding:24px;margin-top:32px;background:color-mix(in srgb,{text_color} 7%,transparent)}}.button{{display:inline-block;margin-top:18px;background:{accent_color};color:#111827;padding:13px 18px;text-decoration:none;font-weight:700}}p{{color:{muted_color}}}</style></head>"""
+    offers = f"""<!doctype html><html lang="de">{head}<body><header><strong>{company_name}</strong><nav><a href="index.html">Start</a><a href="angebote.html">Angebote</a><a href="kontakt.html">Kontakt</a></nav></header><main><h1>Unsere Angebote</h1><p>{description}</p><section class="card"><h2>Individuelles Angebot</h2><p>{description}</p><a class="button" href="kontakt.html">Angebot anfragen</a></section></main><footer>{company_name} · <a href="mailto:{business_email}">{business_email}</a></footer></body></html>"""
+    contact = f"""<!doctype html><html lang="de">{head}<body><header><strong>{company_name}</strong><nav><a href="index.html">Start</a><a href="angebote.html">Angebote</a><a href="kontakt.html">Kontakt</a></nav></header><main><h1>Kontakt</h1><p>Schreiben Sie uns. Wir melden uns zeitnah bei Ihnen.</p><section class="card"><h2>Kontakt aufnehmen</h2><p><a href="mailto:{business_email}">{business_email}</a></p><a class="button" href="mailto:{business_email}">E-Mail schreiben</a></section></main><footer>{company_name} · <a href="mailto:{business_email}">{business_email}</a></footer></body></html>"""
+    return {"angebote.html": offers, "kontakt.html": contact}
 
 
 def ask_ai_for_html(system_instruction: str, user_instruction: str) -> str:
@@ -2485,7 +2504,12 @@ def publish_website() -> None:
     )
     st.session_state.project_name = project_name
 
-    files = [{"file": "index.html", "data": html}]
+    site_pages = dict(st.session_state.site_pages) or {"index.html": html}
+    site_pages["index.html"] = html
+    files = [
+        {"file": file_name, "data": require_complete_html(page_html)}
+        for file_name, page_html in site_pages.items()
+    ]
 
     for file_name, asset in st.session_state.assets.items():
         files.append(
@@ -3016,6 +3040,15 @@ with new_tab:
                         initial_image,
                     )
                     queue_html_update(html)
+                    st.session_state.site_pages.update(
+                        build_customized_template_pages(
+                            company_name,
+                            business_email,
+                            background_color,
+                            str(st.session_state.template_accent_color),
+                            description,
+                        )
+                    )
                     st.success("Die Vorlage wurde mit Ihren Kundendaten übernommen und kann jetzt direkt bearbeitet werden.")
                     st.rerun()
                 except ValueError as error:
