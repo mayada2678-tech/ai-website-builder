@@ -2985,9 +2985,40 @@ def render_domain_and_deployment_ui() -> None:
         ):
             show_full_draft_preview()
 
+    st.subheader("Wunschadresse festlegen")
+    st.caption("Wählen Sie die Adresse für Ihre Website, bevor Sie das Abonnement abschließen.")
+    domain_type = st.radio(
+        "Adresse wählen",
+        ["Vercel-Projektadresse", "Eigene Domain verbinden"],
+        key="domain_type",
+    )
+    requested_name = ""
+    if domain_type == "Vercel-Projektadresse":
+        requested_name = st.text_input(
+            "Name für die Vercel-Projektadresse",
+            value=st.session_state.project_name,
+            placeholder="z. B. autohaus-mueller",
+            key="deployment_project_name",
+            help="Vercel vergibt die endgültige .vercel.app-Adresse beim Deployment.",
+        )
+        if requested_name:
+            st.caption(
+                f"Geplante Adresse: {safe_project_name(requested_name)}.vercel.app"
+            )
+    else:
+        custom_domain = st.text_input(
+            "Bereits gekaufte eigene Domain",
+            placeholder="z. B. www.mein-unternehmen.de",
+            key="custom_domain",
+        )
+        if custom_domain:
+            st.caption(
+                f"Geplante Domain: {custom_domain.strip()}"
+            )
+
     if not user_info["subscribed"]:
         st.warning(
-            "Prüfen Sie Ihren Entwurf oben in der Live-Vorschau. Nach der Zahlung wird die Veröffentlichung mit Wunsch-URL oder eigener Domain freigeschaltet."
+            "Prüfen Sie Ihren Entwurf und die gewünschte Adresse. Nach bestätigter Zahlung wird die Veröffentlichung freigeschaltet."
         )
         render_payment_ui(current_user_id, st.session_state.user_email)
         return
@@ -3005,26 +3036,7 @@ def render_domain_and_deployment_ui() -> None:
         key="download_website_zip",
         width="stretch",
     )
-    domain_type = st.radio(
-        "Adresse wählen",
-        ["Vercel-Projektadresse", "Eigene Domain verbinden"],
-        key="domain_type",
-    )
-
     if domain_type == "Vercel-Projektadresse":
-        requested_name = st.text_input(
-            "Name für die Vercel-Projektadresse",
-            value=st.session_state.project_name,
-            placeholder="z. B. autohaus-mueller",
-            key="deployment_project_name",
-            help="Vercel vergibt die endgültige .vercel.app-Adresse beim Deployment.",
-        )
-        if requested_name:
-            st.caption(
-                f"Projektname: {safe_project_name(requested_name)}. "
-                "Die genaue Live-URL wird von Vercel bestätigt."
-            )
-
         if st.button(
             "Jetzt auf Vercel veröffentlichen",
             icon=":material/rocket_launch:",
@@ -3042,11 +3054,7 @@ def render_domain_and_deployment_ui() -> None:
                     status.update(label="Veröffentlichung fehlgeschlagen", state="error")
                     st.error(str(error))
     else:
-        custom_domain = st.text_input(
-            "Bereits gekaufte eigene Domain",
-            placeholder="z. B. www.mein-unternehmen.de",
-            key="custom_domain",
-        )
+        custom_domain = str(st.session_state.get("custom_domain", "")).strip()
         if custom_domain:
             st.info(
                 "Die Domain muss vor der Verknüpfung gekauft sein. Für die automatische "
