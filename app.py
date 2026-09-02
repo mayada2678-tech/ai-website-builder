@@ -28,9 +28,8 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
         css="""
         #template-editor { font-family: Georgia, serif; }
         .template-shell { overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); background: var(--background); color: var(--text); }
-        .template-header, .template-nav { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
-        .template-header { justify-content: space-between; padding: 18px 28px; border-bottom: 1px solid var(--border); font-family: ui-sans-serif, sans-serif; }
-        .template-nav { font-size: 12px; opacity: .8; }
+        .template-header { padding: 18px 28px; border-bottom: 1px solid var(--border); font-family: ui-sans-serif, sans-serif; }
+        .template-nav { display: none; }
         .template-nav button { border: 0; padding: 0; background: transparent; color: inherit; cursor: pointer; font: inherit; }
         .template-nav button:hover, .template-nav button:focus-visible { color: var(--accent); }
         .template-hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(220px, .9fr); gap: 34px; padding: 48px 28px 42px; align-items: center; }
@@ -2033,25 +2032,20 @@ def render_template_preview(
         if page in {"start", "leistungen", "angebote", "projekte", "ueber_uns", "kontakt"}:
             st.session_state.template_preview_page = page
 
-    def select_template_page(page: str) -> None:
-        """Öffnet eine Vorlagen-Unterseite auch ohne Component-Callback."""
-        st.session_state.template_preview_page = page
-
-    st.caption("Unterseite öffnen")
-    navigation_columns = st.columns(6)
-    for column, page, label in zip(
-        navigation_columns,
+    st.segmented_control(
+        "Vorschau-Unterseite",
         ["start", "leistungen", "angebote", "projekte", "ueber_uns", "kontakt"],
-        ["Start", "Leistungen", "Angebote", "Projekte", "Über uns", "Kontakt"],
-    ):
-        with column:
-            st.button(
-                label,
-                key=f"template_page_{page}",
-                on_click=select_template_page,
-                args=(page,),
-                width="stretch",
-            )
+        default="start",
+        format_func={
+            "start": "Start",
+            "leistungen": "Leistungen",
+            "angebote": "Angebote",
+            "projekte": "Projekte",
+            "ueber_uns": "Über uns",
+            "kontakt": "Kontakt",
+        }.get,
+        key="template_preview_page",
+    )
 
     CLICKABLE_TEMPLATE_EDITOR(
         key="clickable_template_editor",
