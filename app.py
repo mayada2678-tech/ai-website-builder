@@ -847,7 +847,7 @@ def get_project_coach_response(prompt: str) -> str:
         )
 
     if any(word in normalized_question for word in (
-        "plan", "planung", "struktur", "zielgruppe", "entwurf", "draft", "layout",
+        "plan", "planning", "planung", "struktur", "zielgruppe", "entwurf", "draft", "layout",
         "design", "sektion", "section", "seiten", "page", "konzept",
     )):
         if language == "en":
@@ -1126,6 +1126,7 @@ def render_help_chatbot() -> None:
         with header_column:
             st.subheader(texts["title"], anchor=False)
             st.caption(actions["ready"] if st.session_state.generated_html else actions["empty"])
+            st.caption(get_customer_guidance())
         with clear_column:
             if st.button(
                 "",
