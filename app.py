@@ -5,6 +5,7 @@ import re
 import secrets
 import sqlite3
 from datetime import datetime, timezone
+from html import escape
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -1432,6 +1433,62 @@ def create_preview_html(html: str) -> str:
     return preview_html
 
 
+def replace_first_image_source(html: str, image_name: str, alt_text: str) -> str:
+    """Ersetzt das erste Bild im Entwurf lokal durch ein hochgeladenes Asset."""
+    image_tag = f'<img src="{image_name}" alt="{alt_text}">'
+    if re.search(r"(?i)<img\b[^>]*>", html):
+        return re.sub(r"(?i)<img\b[^>]*>", image_tag, html, count=1)
+    return re.sub(r"(?i)</body\s*>", f"{image_tag}</body>", html, count=1)
+
+
+def replace_visible_text(html: str, old_text: str, new_text: str) -> str:
+    """Ersetzt eine bewusst ausgewählte Textstelle ohne HTML-Markup zu verändern."""
+    old_text = old_text.strip()
+    new_text = new_text.strip()
+    if not old_text or not new_text:
+        raise ValueError("Bitte geben Sie den bisherigen und den neuen Text ein.")
+    if old_text not in html:
+        raise ValueError("Die angegebene Textstelle wurde im aktuellen Entwurf nicht gefunden.")
+    return html.replace(old_text, escape(new_text), 1)
+
+
+def build_offer_page_section(offer_name: str, offer_price: str, offer_details: str) -> str:
+    """Erstellt eine lokale Angebots-Unterseite mit professioneller Kartenstruktur."""
+    title = escape(offer_name.strip() or "Unsere Angebote")
+    price = escape(offer_price.strip() or "Preis auf Anfrage")
+    details = escape(offer_details.strip() or "Individuell konfigurierbare Leistungen mit transparenter Beratung.")
+    return f"""
+<section id="angebote" data-page="angebote" class="bg-slate-950 px-6 py-16 text-white">
+  <div class="mx-auto max-w-6xl">
+    <p class="text-sm font-semibold uppercase tracking-wide text-cyan-300">Angebote</p>
+    <h1 class="mt-3 text-4xl font-bold">{title}</h1>
+    <p class="mt-4 max-w-2xl text-slate-300">{details}</p>
+    <div class="mt-10 grid gap-6 md:grid-cols-3">
+      <article class="rounded-lg border border-slate-700 bg-slate-900 p-6">
+        <p class="text-sm text-cyan-300">Angebot 01</p><h2 class="mt-2 text-xl font-semibold">{title}</h2>
+        <p class="mt-4 text-slate-300">{details}</p><p class="mt-6 text-2xl font-bold">{price}</p>
+        <a class="mt-6 inline-block rounded bg-cyan-400 px-4 py-2 font-semibold text-slate-950" href="#kontakt">Jetzt anfragen</a>
+      </article>
+      <article class="rounded-lg border border-slate-700 bg-slate-900 p-6"><p class="text-sm text-cyan-300">Details</p><h2 class="mt-2 text-xl font-semibold">Transparent beraten</h2><p class="mt-4 text-slate-300">Leistung, Umfang und nächster Schritt klar erklärt.</p></article>
+      <article class="rounded-lg border border-slate-700 bg-slate-900 p-6"><p class="text-sm text-cyan-300">Kontakt</p><h2 class="mt-2 text-xl font-semibold">Persönliche Anfrage</h2><p class="mt-4 text-slate-300">Wir beraten Sie passend zu Ihrem Bedarf.</p></article>
+    </div>
+  </div>
+</section>
+"""
+
+
+def optimize_editor_text(text: str) -> str:
+    """Optimiert einen ausgewählten Website-Text erst nach ausdrücklichem Nutzer-Klick."""
+    if not text.strip():
+        raise ValueError("Bitte geben Sie zuerst einen Text zur Optimierung ein.")
+    response = ask_ai_for_html(
+        "Du bist ein professioneller deutscher Webtexter. Antworte nur mit dem optimierten Text, ohne HTML, Markdown oder Erklärung.",
+        "Optimiere diesen Text für eine professionelle Website. Korrigiere Rechtschreibung, "
+        "formuliere klar und ansprechend und erfinde keine Fakten:\n\n" + text.strip(),
+    )
+    return clean_html(response)
+
+
 def ask_ai_for_html(system_instruction: str, user_instruction: str) -> str:
     """Fordert vollständigen HTML-Code von OpenAI an."""
     if not deduct_tokens(current_user_id):
@@ -1960,6 +2017,159 @@ def render_editor() -> None:
             except Exception as error:
                 status.update(label="Aktualisierung fehlgeschlagen", state="error")
                 st.error(str(error))
+
+
+def render_direct_content_editor() -> None:
+    """Rendert direkte, kontrollierte Bearbeitungen für typische Website-Bausteine."""
+    st.subheader("Direkt bearbeiten")
+    st.caption(
+        "Laden Sie ein Bild per Klick oder Drag-and-drop hoch, bearbeiten Sie Texte und "
+        "konfigurieren Sie den primären Button. Änderungen werden sofort in die Vorschau übernommen."
+    )
+
+    layout_side = st.radio(
+        "Bild und Text anordnen",
+        ["Bild links, Text rechts", "Text links, Bild rechts"],
+        horizontal=True,
+        key="direct_editor_layout_side",
+    )
+    first_column, second_column = st.columns(2)
+    image_column, text_column = (
+        (first_column, second_column)
+        if layout_side.startswith("Bild")
+        else (second_column, first_column)
+    )
+
+    with image_column:
+        st.markdown("**Bildplatzhalter ersetzen**")
+        replacement_image = st.file_uploader(
+            "Bild klicken oder hier ablegen",
+            type=["png", "jpg", "jpeg", "webp"],
+            key="direct_placeholder_image",
+            help="Das hochgeladene Bild ersetzt sofort das erste Bild im aktuellen Entwurf.",
+        )
+        if st.button(
+            "Bild live ersetzen",
+            icon=":material/image:",
+            disabled=replacement_image is None,
+            key="replace_direct_placeholder_image",
+            width="stretch",
+        ):
+            image_name = save_uploaded_image(replacement_image, "direkter-bildplatzhalter")
+            st.session_state.generated_html = replace_first_image_source(
+                st.session_state.generated_html, image_name, "Website-Bild"
+            )
+            st.session_state.html_editor = st.session_state.generated_html
+            st.success("Das Bild wurde in der Vorschau ersetzt.")
+            st.rerun()
+
+    with text_column:
+        st.markdown("**Textstelle bearbeiten**")
+        previous_text = st.text_input(
+            "Bisheriger Text in der Website",
+            placeholder="z. B. Ihr Angebot entdecken",
+            key="direct_previous_text",
+        )
+        edited_text = st.text_area(
+            "Neuer Text",
+            placeholder="Schreiben Sie hier den neuen Text.",
+            key="direct_edited_text",
+            height=100,
+        )
+        optimize_column, apply_column = st.columns(2)
+        with optimize_column:
+            if st.button(
+                "Text durch KI optimieren",
+                icon=":material/auto_awesome:",
+                disabled=not edited_text.strip(),
+                key="optimize_direct_text",
+                width="stretch",
+            ):
+                with st.status("Text wird professionell optimiert ...", expanded=True) as status:
+                    try:
+                        st.session_state.direct_optimized_text = optimize_editor_text(edited_text)
+                        status.update(label="Optimierter Text ist bereit.", state="complete")
+                    except ValueError as error:
+                        status.update(label="Optimierung fehlgeschlagen", state="error")
+                        st.error(str(error))
+        with apply_column:
+            if st.button(
+                "Text übernehmen",
+                icon=":material/save:",
+                disabled=not previous_text.strip() or not edited_text.strip(),
+                key="apply_direct_text",
+                width="stretch",
+            ):
+                try:
+                    st.session_state.generated_html = replace_visible_text(
+                        st.session_state.generated_html, previous_text, edited_text
+                    )
+                    st.session_state.html_editor = st.session_state.generated_html
+                    st.success("Die Textstelle wurde aktualisiert.")
+                    st.rerun()
+                except ValueError as error:
+                    st.error(str(error))
+
+        optimized_text = str(st.session_state.get("direct_optimized_text", "")).strip()
+        if optimized_text:
+            st.code(optimized_text, language=None)
+
+    st.divider()
+    with st.popover("Button konfigurieren", icon=":material/smart_button:", width="stretch"):
+        button_target = st.radio(
+            "Beim Klick auf den primären Button",
+            ["Externe Website öffnen", "Angebots-Unterseite öffnen"],
+            key="direct_button_target_type",
+        )
+        external_url = ""
+        if button_target == "Externe Website öffnen":
+            external_url = st.text_input(
+                "Externer Link", placeholder="https://www.beispiel.de", key="direct_button_url"
+            )
+        if st.button("Button-Ziel übernehmen", type="primary", key="apply_direct_button_target", width="stretch"):
+            target_url = external_url.strip() if external_url.strip() else "#angebote"
+            if button_target == "Externe Website öffnen" and not re.fullmatch(r"https?://[^\s]+", target_url):
+                st.error("Bitte geben Sie eine gültige externe Adresse mit https:// ein.")
+            else:
+                updated_html, replacements = re.subn(
+                    r"(?i)(<a\b[^>]*href=[\"'])#[^\"']*([\"'][^>]*>)",
+                    rf"\1{target_url}\2",
+                    st.session_state.generated_html,
+                    count=1,
+                )
+                if not replacements:
+                    st.error("Im Entwurf wurde kein konfigurierbarer Button-Link gefunden.")
+                else:
+                    st.session_state.generated_html = updated_html
+                    st.session_state.html_editor = updated_html
+                    st.success("Das Button-Ziel wurde aktualisiert.")
+                    st.rerun()
+
+    st.subheader("Angebots-Unterseite", anchor=False)
+    st.caption("Ergänzt eine professionelle Angebotssektion mit Karten, Preis und Anfrage-Button.")
+    offer_columns = st.columns(3)
+    with offer_columns[0]:
+        offer_name = st.text_input("Angebot oder Service", key="offer_page_name", placeholder="Inspektion und Service")
+    with offer_columns[1]:
+        offer_price = st.text_input("Preis oder Hinweis", key="offer_page_price", placeholder="ab 99 EUR")
+    with offer_columns[2]:
+        offer_details = st.text_input("Kurzer Nutzen", key="offer_page_details", placeholder="Transparent, schnell und zuverlässig")
+    if st.button(
+        "Angebots-Unterseite erstellen",
+        icon=":material/add_circle:",
+        key="create_offer_page",
+        width="stretch",
+    ):
+        if 'id="angebote"' in st.session_state.generated_html:
+            st.warning("Eine Angebots-Unterseite ist bereits vorhanden.")
+        else:
+            offer_section = build_offer_page_section(offer_name, offer_price, offer_details)
+            st.session_state.generated_html = re.sub(
+                r"(?i)</body\s*>", f"{offer_section}</body>", st.session_state.generated_html, count=1
+            )
+            st.session_state.html_editor = st.session_state.generated_html
+            st.success("Die Angebots-Unterseite wurde zur Website ergänzt.")
+            st.rerun()
 
 
 def update_preview_from_test_editor() -> None:
@@ -2754,12 +2964,15 @@ if st.session_state.generated_html:
     st.divider()
     st.header(t("edit_website"))
 
-    live_editor_tab, content_tab, design_tab, image_tab, html_tab = st.tabs(
-        ["Live-Design", "📝 Inhalte", "🎨 Design", "🖼️ Bilder", "💻 HTML-Code"]
+    live_editor_tab, direct_edit_tab, content_tab, design_tab, image_tab, html_tab = st.tabs(
+        ["Live-Design", "Direkt bearbeiten", "📝 Inhalte", "🎨 Design", "🖼️ Bilder", "💻 HTML-Code"]
     )
 
     with live_editor_tab:
         render_editor()
+
+    with direct_edit_tab:
+        render_direct_content_editor()
 
     with content_tab:
         section = st.selectbox(
