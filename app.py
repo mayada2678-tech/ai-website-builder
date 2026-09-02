@@ -1048,6 +1048,19 @@ def generate_website(
     Wenn „Projektbereich“ gewählt wurde, nutze es ausschließlich als hervorgehobenes Projektbild.
 """
 
+    if web3forms_access_key:
+        contact_form_instruction = f"""- Erstelle einen sichtbaren, modernen Kontaktbereich mit diesem exakten Formularbeginn:
+    <form action="https://api.web3forms.com/submit" method="POST" class="mt-8 space-y-4">
+    <input type="hidden" name="access_key" value="{web3forms_access_key}">
+    <input type="hidden" name="subject" value="Neue Anfrage für {company_name}">
+    <input type="hidden" name="to_email" value="{business_email}">
+- Das Formular braucht sichtbare Labels sowie die Pflichtfelder name, email und message.
+- Baue vor dem Absenden per JavaScript ein verstecktes Feld name="redirect" ein und
+    setze dessen value auf window.location.href."""
+    else:
+        contact_form_instruction = f"""- Erstelle einen sichtbaren Kontaktbereich mit der E-Mail-Adresse {business_email}.
+- Verwende kein externes Formular und keinen Web3Forms Access Key."""
+
     saas_system_instruction = f"""
 Du bist ein professioneller, internationaler Frontend-Entwickler und Webdesigner
 fuer eine Webbuilder-SaaS-Plattform. Deine Aufgabe ist es, eine massgeschneiderte,
@@ -1076,16 +1089,7 @@ GESCHAEFTS- UND KONTAKTDATEN:
 - Verwende den Slogan im Hero-Bereich. Zeige die Telefonnummer nur an, wenn sie angegeben wurde.
 
 KONTAKTFORMULAR:
-{f'''- Erstelle einen sichtbaren, modernen Kontaktbereich mit diesem exakten Formularbeginn:
-    <form action="https://api.web3forms.com/submit" method="POST" class="mt-8 space-y-4">
-    <input type="hidden" name="access_key" value="{web3forms_access_key}">
-    <input type="hidden" name="subject" value="Neue Anfrage für {company_name}">
-    <input type="hidden" name="to_email" value="{business_email}">
-- Das Formular braucht sichtbare Labels sowie die Pflichtfelder name, email und message.
-- Baue vor dem Absenden per JavaScript ein verstecktes Feld name="redirect" ein und
-    setze dessen value auf window.location.href.''' if web3forms_access_key else '''- Erstelle einen sichtbaren Kontaktbereich mit der E-Mail-Adresse {business_email}.
-    setze dessen value auf window.location.href.''' if web3forms_access_key else f'''- Erstelle einen sichtbaren Kontaktbereich mit der E-Mail-Adresse {business_email}.
-- Verwende kein externes Formular und keinen Web3Forms Access Key.'''}
+{contact_form_instruction}
 
 CHATBOT MIT VOICE:
 - Integriere unten rechts ein schwebendes, animiertes Chatbot-Widget, das ausschliesslich
@@ -1103,7 +1107,7 @@ CHATBOT MIT VOICE:
 """
 
     html = ask_ai_for_html(
-    system_instruction=saas_system_instruction,
+        system_instruction=saas_system_instruction,
         user_instruction=description,
     )
 
