@@ -246,7 +246,6 @@ BACKGROUND_PRESET_COLORS = {
     "Dunkel": "#111827",
     "Weiß": "#FFFFFF",
     "Hellgrau": "#F3F4F6",
-    "Hellblau": "#EFF6FF",
 }
 SUPPORTED_LANGUAGES = {
     "Deutsch": {"code": "de", "dir": "ltr"},
