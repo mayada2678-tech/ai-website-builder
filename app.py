@@ -1992,6 +1992,26 @@ def render_template_preview(
         if page in {"start", "leistungen", "angebote", "projekte", "ueber_uns", "kontakt"}:
             st.session_state.template_preview_page = page
 
+    def select_template_page(page: str) -> None:
+        """Öffnet eine Vorlagen-Unterseite auch ohne Component-Callback."""
+        st.session_state.template_preview_page = page
+
+    st.caption("Unterseite öffnen")
+    navigation_columns = st.columns(6)
+    for column, page, label in zip(
+        navigation_columns,
+        ["start", "leistungen", "angebote", "projekte", "ueber_uns", "kontakt"],
+        ["Start", "Leistungen", "Angebote", "Projekte", "Über uns", "Kontakt"],
+    ):
+        with column:
+            st.button(
+                label,
+                key=f"template_page_{page}",
+                on_click=select_template_page,
+                args=(page,),
+                width="stretch",
+            )
+
     CLICKABLE_TEMPLATE_EDITOR(
         key="clickable_template_editor",
         data={
