@@ -615,6 +615,23 @@ for key, value in DEFAULT_STATE.items():
         st.session_state[key] = value
 
 st.session_state.setdefault("app_language", "de")
+APP_LANGUAGE_NAMES_BY_CODE = {
+    language_code: language_name
+    for language_name, language_code in APP_LANGUAGES.items()
+}
+TARGET_LANGUAGE_BY_APP_CODE = {
+    "de": "Deutsch",
+    "en": "English",
+    "ar": "Arabisch (العربية)",
+    "ku": "Kurdisch (Kurdî / كوردی)",
+    "es": "Spanisch (Español)",
+    "it": "Italienisch (Italiano)",
+    "hi": "Hindi (हिन्दी)",
+}
+st.session_state.setdefault(
+    "app_language_name",
+    APP_LANGUAGE_NAMES_BY_CODE[st.session_state.app_language],
+)
 
 
 def t(key: str, **values: object) -> str:
@@ -622,6 +639,14 @@ def t(key: str, **values: object) -> str:
     language = str(st.session_state.app_language)
     text = TRANSLATIONS.get(language, TRANSLATIONS["de"]).get(key, key)
     return text.format(**values)
+
+
+def apply_app_language() -> None:
+    """Übernimmt die Sprachwahl des Kunden für den nächsten App-Durchlauf."""
+    st.session_state.app_language = APP_LANGUAGES[st.session_state.app_language_name]
+    st.session_state.target_language = TARGET_LANGUAGE_BY_APP_CODE[
+        st.session_state.app_language
+    ]
 
 
 def apply_design_use_case() -> None:
@@ -649,15 +674,15 @@ def apply_background_preset() -> None:
     st.session_state.template_background_color = BACKGROUND_PRESET_COLORS[preset_name]
 
 
-st.selectbox(
-    t("app_language"),
-    list(APP_LANGUAGES),
-    format_func=lambda name: APP_LANGUAGE_LABELS[name],
-    key="app_language_name",
-    on_change=lambda: st.session_state.update(
-        app_language=APP_LANGUAGES[st.session_state.app_language_name]
-    ),
-)
+with st.container(horizontal=True, horizontal_alignment="right"):
+    st.selectbox(
+        t("app_language"),
+        list(APP_LANGUAGES),
+        format_func=lambda name: APP_LANGUAGE_LABELS[name],
+        key="app_language_name",
+        on_change=apply_app_language,
+        width=230,
+    )
 
 if st.session_state.app_language in {"ar", "ku"}:
     st.markdown(
@@ -1077,8 +1102,6 @@ REGELN FUER DIE GENERIERUNG:
     gewählte Seitenstruktur zwingend.
 - Antworte ausschliesslich mit dem vollstaendigen HTML, ohne Markdown oder Erklaerung.
 
-{LANGUAGE_SWITCHER_REQUIREMENTS}
-
 GESCHAEFTS- UND KONTAKTDATEN:
 - Offizieller Unternehmensname: {company_name}
 - Geschaeftliche Kontakt-E-Mail: {business_email}
@@ -1161,12 +1184,9 @@ def render_client_contact_ui() -> None:
 
 
 def render_language_selector() -> tuple[dict[str, str], str]:
-    """Liest die globale Sprache und Leserichtung der zu erzeugenden Website."""
-    target_language = st.selectbox(
-        t("target_language"),
-        list(SUPPORTED_LANGUAGES),
-        key="target_language",
-    )
+    """Leitet Website-Sprache und Leserichtung aus der globalen Sprachwahl ab."""
+    target_language = TARGET_LANGUAGE_BY_APP_CODE[st.session_state.app_language]
+    st.session_state.target_language = target_language
     return SUPPORTED_LANGUAGES[target_language], target_language
 
 
