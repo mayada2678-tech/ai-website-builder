@@ -73,12 +73,14 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
             const header = create('header', 'template-header');
             const company = create('strong', '', data.companyName);
             const nav = create('nav', 'template-nav');
-            [['start', 'Start'], ['leistungen', 'Leistungen'], ['angebote', 'Angebote'], ['projekte', 'Projekte'], ['ueber_uns', 'Über uns'], ['kontakt', 'Kontakt']].forEach(([page, label]) => {
-                const link = create('button', '', label);
-                link.type = 'button';
-                link.onclick = () => setTriggerValue('navigated', page);
-                nav.append(link);
-            });
+            if (data.multiPage) {
+                [['start', 'Start'], ['leistungen', 'Leistungen'], ['angebote', 'Angebote'], ['projekte', 'Projekte'], ['ueber_uns', 'Über uns'], ['kontakt', 'Kontakt']].forEach(([page, label]) => {
+                    const link = create('button', '', label);
+                    link.type = 'button';
+                    link.onclick = () => setTriggerValue('navigated', page);
+                    nav.append(link);
+                });
+            }
             header.append(company, nav);
             if (data.page !== 'start') {
                 const page = create('main', 'template-page');
@@ -127,10 +129,11 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
             const templateSections = create('section', 'template-cards');
             data.templateSections.forEach((section, index) => {
                 const card = create('article', 'template-card');
-                card.append(create('p', 'template-eyebrow', String(index + 1).padStart(2, '0')), create('h2', '', section), create('p', '', data.description));
+                card.append(create('p', 'template-eyebrow', String(index + 1).padStart(2, '0')), create('h2', '', section.title), create('p', '', section.text));
                 templateSections.append(card);
             });
-            shell.append(header, hero, templateSections, create('p', 'template-hint', 'Klicken Sie auf Überschrift, Beschreibung oder Button und schreiben Sie direkt in die Vorlage. Gespeichert wird beim Verlassen des Textfelds.'));
+            const footer = create('footer', 'template-hint', data.footerText);
+            shell.append(header, hero, templateSections, footer, create('p', 'template-hint', 'Änderungen werden sofort in dieser Entwurfsvorschau angezeigt.'));
             root.append(shell);
         }
         """,
@@ -1707,6 +1710,8 @@ def build_customized_template_html(
     description: str,
     image_file,
     button_text: str = "Ihr Angebot entdecken",
+    footer_text: str = "",
+    multi_page: bool = True,
 ) -> str:
     """Übernimmt die ausgewählte Vorlage lokal und füllt sie mit Kundendaten."""
     company_name = escape(company_name.strip())
@@ -1714,6 +1719,10 @@ def build_customized_template_html(
     slogan = escape(slogan.strip() or "Qualität, die für Sie arbeitet.")
     description = escape(description.strip() or "Wir verbinden fachliche Kompetenz mit persönlicher Beratung.")
     button_text = escape(button_text.strip() or "Ihr Angebot entdecken")
+    footer_text = escape(
+        footer_text.strip()
+        or f"{company_name} | {business_email} | Impressum | Datenschutz"
+    )
     phone = escape(phone.strip())
     radius = "0" if border_style == "sharp" else "10px"
     text_color = contrast_text_color(background_color)
@@ -1723,18 +1732,26 @@ def build_customized_template_html(
         image_name = save_uploaded_image(image_file, "vorlagen-hero")
         image_html = f'<img class="hero-image" src="{image_name}" alt="{company_name}">'
     phone_html = f'<p>Telefon: {phone}</p>' if phone else ""
+    navigation = (
+        '<a href="leistungen.html">Leistungen</a><a href="angebote.html">Angebote</a>'
+        '<a href="projekte.html">Projekte</a><a href="ueber-uns.html">Über uns</a>'
+        '<a href="kontakt.html">Kontakt</a>'
+        if multi_page
+        else '<a href="#leistungen">Leistungen</a><a href="#ueber-uns">Über uns</a><a href="#kontakt">Kontakt</a>'
+    )
+    button_target = "angebote.html" if multi_page else "#leistungen"
     return f"""<!doctype html>
 <html lang="de">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{company_name}</title>
 <link rel="stylesheet" href="styles.css">
 <style>:root {{ --background: {background_color}; --accent: {accent_color}; --text: {text_color}; --muted: {muted_color}; --radius: {radius}; }}</style></head>
-<body><header><strong>{company_name}</strong><nav><a href="leistungen.html">Leistungen</a><a href="angebote.html">Angebote</a><a href="projekte.html">Projekte</a><a href="ueber-uns.html">Über uns</a><a href="kontakt.html">Kontakt</a></nav></header>
-<main><section class="container hero" id="hero"><div><span class="eyebrow">{escape(template_name)}</span><h1>{slogan}</h1><p>{description}</p><a class="button" href="angebote.html">{button_text}</a></div>{image_html}</section>
+<body><header><strong>{company_name}</strong><nav>{navigation}</nav></header>
+<main><section class="container hero" id="hero"><div><span class="eyebrow">{escape(template_name)}</span><h1>{slogan}</h1><p>{description}</p><a class="button" href="{button_target}">{button_text}</a></div>{image_html}</section>
 <section class="band"><div class="container" id="leistungen"><span class="eyebrow">Leistungen und Vorteile</span><h2>Kompetent. Persönlich. Verlässlich.</h2><div class="cards"><article class="card"><strong>01</strong><h3>Klare Leistungen</h3><p>Passende Lösungen mit nachvollziehbarer Beratung.</p></article><article class="card"><strong>02</strong><h3>Vertrauen schaffen</h3><p>Qualität, Transparenz und ein verbindlicher Service.</p></article><article class="card"><strong>03</strong><h3>Kontakt erleichtern</h3><p>Schnell und direkt zu Ihrer persönlichen Anfrage.</p></article></div></div></section>
 <section class="container" id="ueber-uns"><span class="eyebrow">Über uns</span><h2>Ein Auftritt, der zu Ihrem Unternehmen passt.</h2><p>{description}</p></section>
 <section class="band"><div class="container contact" id="kontakt"><div><span class="eyebrow">Kontakt</span><h2>Wir freuen uns auf Ihre Anfrage.</h2><p><a href="mailto:{business_email}">{business_email}</a></p>{phone_html}</div><div class="card"><h3>Persönlich beraten lassen</h3><p>Schreiben Sie uns direkt. Wir melden uns zeitnah bei Ihnen.</p><a class="button" href="mailto:{business_email}">E-Mail schreiben</a></div></div></section></main>
-<footer>{company_name} · <a href="mailto:{business_email}">{business_email}</a> · Impressum · Datenschutz</footer></body></html>"""
+<footer>{footer_text}</footer></body></html>"""
 
 
 def build_customized_template_styles() -> str:
@@ -2050,10 +2067,18 @@ def render_template_preview(
             "buttonText": str(st.session_state.get("template_button_text", "")).strip()
             or "Ihr Angebot entdecken",
             "templateSections": [
-                item.strip()
-                for item in sections.split(",")
+                {
+                    "title": item.partition("|")[0].strip(),
+                    "text": item.partition("|")[2].strip()
+                    or str(st.session_state.get("template_custom_description", "")).strip()
+                    or "Individuell auf Ihr Unternehmen abgestimmt.",
+                }
+                for item in str(st.session_state.get("template_sections_text", sections)).replace(",", "\n").splitlines()
                 if item.strip()
             ],
+            "footerText": str(st.session_state.get("template_footer_text", "")).strip()
+            or f"{company_name} | {business_email} | Impressum | Datenschutz",
+            "multiPage": st.session_state.get("page_structure") == "Mehrseitige Website",
             "businessEmail": str(st.session_state.get("client_business_email", "")).strip()
             or "Ihre Kontakt-E-Mail",
             "page": str(st.session_state.get("template_preview_page", "start")),
@@ -2143,6 +2168,20 @@ def render_template_and_design_ui() -> str:
             key="template_custom_description",
             height=100,
         )
+
+    st.text_area(
+        "Vorlagenabschnitte",
+        value=str(st.session_state.get("template_sections_text", current_template["sections"])),
+        help="Ein Abschnitt pro Zeile. Neue Zeile hinzufügen erstellt einen Abschnitt; Zeile löschen entfernt ihn. Optional: Überschrift | Beschreibung.",
+        key="template_sections_text",
+        height=150,
+    )
+    st.text_input(
+        "Footer-Text",
+        value=str(st.session_state.get("template_footer_text", "")),
+        placeholder="z. B. Muster GmbH | Impressum | Datenschutz",
+        key="template_footer_text",
+    )
 
     render_template_preview(
         selected_template_name,
@@ -3276,17 +3315,20 @@ with new_tab:
                         description,
                         initial_image,
                         str(st.session_state.get("template_button_text", "")),
+                        str(st.session_state.get("template_footer_text", "")),
+                        page_structure == "Mehrseitige Website",
                     )
                     queue_html_update(html)
-                    st.session_state.site_pages.update(
-                        build_customized_template_pages(
-                            company_name,
-                            business_email,
-                            background_color,
-                            str(st.session_state.template_accent_color),
-                            description,
+                    if page_structure == "Mehrseitige Website":
+                        st.session_state.site_pages.update(
+                            build_customized_template_pages(
+                                company_name,
+                                business_email,
+                                background_color,
+                                str(st.session_state.template_accent_color),
+                                description,
+                            )
                         )
-                    )
                     st.success("Die Vorlage wurde mit Ihren Kundendaten übernommen und kann jetzt direkt bearbeitet werden.")
                     st.rerun()
                 except ValueError as error:
