@@ -44,6 +44,26 @@ st.markdown(
     [data-testid="stExpander"] {
         border-color: rgba(103, 232, 249, 0.18);
     }
+    .st-key-authentication_shell {
+        max-width: 68rem;
+        margin: 4.5rem auto 2rem;
+        padding: 0.5rem;
+        border: 1px solid rgba(103, 232, 249, 0.22);
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(17, 34, 52, 0.92));
+        box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.22);
+    }
+    .st-key-authentication_shell [data-testid="stTabs"] {
+        margin-top: 0.4rem;
+    }
+    .st-key-authentication_shell [data-testid="stForm"] {
+        padding-top: 0.55rem;
+    }
+    @media (max-width: 640px) {
+        .st-key-authentication_shell {
+            margin-top: 1.25rem;
+            padding: 0.25rem;
+        }
+    }
     .st-key-help_chat_launcher {
         position: fixed;
         right: 1.5rem;
@@ -164,6 +184,61 @@ TEMPLATES = {
             "Sortiment, Standort, Oeffnungszeiten und Kontakt. Angebote muessen auf "
             "Mobilgeraeten besonders schnell erfassbar sein."
         ),
+    },
+}
+DESIGN_USE_CASES = {
+    "Individuell konfigurieren": {},
+    "Landingpage für Angebot oder Kampagne": {
+        "background": "#FFFFFF",
+        "accent": "#0F766E",
+        "border_style": "rounded",
+        "page_structure": "Eine übersichtliche Seite",
+        "sections": [
+            "Hero und Willkommensbereich",
+            "Leistungen oder Produkte",
+            "Kundenstimmen oder Referenzen",
+            "Kontakt und Erreichbarkeit",
+        ],
+        "description": "Klare Landingpage mit starkem Angebot, Nutzenargumenten, Vertrauen und einer eindeutigen Kontaktaktion.",
+    },
+    "Business-Website": {
+        "background": "#F3F4F6",
+        "accent": "#1D4ED8",
+        "border_style": "rounded",
+        "page_structure": "Mehrseitige Website",
+        "sections": [
+            "Hero und Willkommensbereich",
+            "Über uns",
+            "Leistungen oder Produkte",
+            "Galerie oder Projekte",
+            "Kontakt und Erreichbarkeit",
+        ],
+        "description": "Vertrauenswürdiger Unternehmensauftritt mit Leistungen, Unternehmensprofil, Projekten und Kontakt.",
+    },
+    "Kontakt- und Leadformular": {
+        "background": "#EFF6FF",
+        "accent": "#2563EB",
+        "border_style": "rounded",
+        "page_structure": "Eine übersichtliche Seite",
+        "sections": [
+            "Hero und Willkommensbereich",
+            "Leistungen oder Produkte",
+            "Kontakt und Erreichbarkeit",
+        ],
+        "description": "Fokussierte Formularseite zur Gewinnung qualifizierter Anfragen mit klaren Vorteilen und Kontaktmöglichkeit.",
+    },
+    "Daten-Dashboard und Reporting": {
+        "background": "#111827",
+        "accent": "#22C55E",
+        "border_style": "sharp",
+        "page_structure": "Mehrseitige Website",
+        "sections": [
+            "Hero und Willkommensbereich",
+            "Leistungen oder Produkte",
+            "Galerie oder Projekte",
+            "Kontakt und Erreichbarkeit",
+        ],
+        "description": "Professionelles Informations- und Reporting-Portal mit Kennzahlen, klaren Datenbereichen und Kontakt.",
     },
 }
 SUPPORTED_LANGUAGES = {
@@ -543,6 +618,28 @@ def t(key: str, **values: object) -> str:
     return text.format(**values)
 
 
+def apply_design_use_case() -> None:
+    """Übernimmt eine Designhilfe als bearbeitbare Startkonfiguration."""
+    use_case = DESIGN_USE_CASES[st.session_state.design_use_case]
+    if not use_case:
+        return
+
+    st.session_state.template_background_color = use_case["background"]
+    st.session_state.template_accent_color = use_case["accent"]
+    st.session_state.template_border_style = use_case["border_style"]
+    st.session_state.page_structure = use_case["page_structure"]
+    st.session_state.selected_website_sections = use_case["sections"]
+    st.session_state.template_custom_description = use_case["description"]
+    preset_names = {
+        "#111827": "Dunkel",
+        "#FFFFFF": "Weiß",
+        "#F3F4F6": "Hellgrau",
+        "#EFF6FF": "Hellblau",
+    }
+    st.session_state.template_background_preset = preset_names[use_case["background"]]
+    st.session_state.applied_background_preset = preset_names[use_case["background"]]
+
+
 st.selectbox(
     t("app_language"),
     list(APP_LANGUAGES),
@@ -583,44 +680,75 @@ if st.session_state.pending_html:
 
 def show_authentication() -> None:
     """Rendert Anmeldung und Registrierung, bevor der Builder erreichbar ist."""
-    st.title(t("auth_title"))
-    st.caption(t("auth_subtitle"))
-    login_tab, register_tab = st.tabs([t("login"), t("register")])
+    with st.container(border=True, key="authentication_shell"):
+        intro_column, form_column = st.columns((1.05, 0.95), gap="large")
 
-    with login_tab:
-        with st.form("login_form"):
-            email = st.text_input(t("email"), key="login_email")
-            password = st.text_input(t("password"), type="password", key="login_password")
-            submitted = st.form_submit_button(t("login"), type="primary")
+        with intro_column:
+            st.badge("KI-gestützter Website-Workflow", icon=":material/auto_awesome:", color="blue")
+            st.title(t("auth_title"), anchor=False)
+            st.write(t("auth_subtitle"))
+            st.space("small")
+            st.markdown(":material/check_circle: **Planen** Sie Struktur, Inhalte und Markenauftritt.")
+            st.markdown(":material/visibility: **Prüfen** Sie Ihr Ergebnis in einer Live-Vorschau.")
+            st.markdown(":material/rocket_launch: **Veröffentlichen** Sie fertige Entwürfe direkt auf Vercel.")
+            st.space("small")
+            st.caption("Ihre Entwürfe, Einstellungen und Bearbeitungen bleiben Ihrem Konto zugeordnet.")
 
-        if submitted:
-            user = authenticate_user(email, password)
-            if user is None:
-                st.error(t("invalid_login"))
-            else:
-                st.session_state.user_id, st.session_state.user_email = user
-                st.rerun()
+        with form_column:
+            st.subheader("Ihr Arbeitsbereich", anchor=False)
+            st.caption("Melden Sie sich an oder erstellen Sie ein neues Konto.")
+            login_tab, register_tab = st.tabs([t("login"), t("register")])
 
-    with register_tab:
-        with st.form("registration_form"):
-            email = st.text_input(t("email"), key="registration_email")
-            password = st.text_input(t("password"), type="password", key="registration_password")
-            password_confirmation = st.text_input(
-                t("confirm_password"),
-                type="password",
-                key="registration_password_confirmation",
-            )
-            submitted = st.form_submit_button(t("register"), type="primary")
+            with login_tab:
+                with st.form("login_form"):
+                    email = st.text_input(t("email"), key="login_email")
+                    password = st.text_input(
+                        t("password"),
+                        type="password",
+                        key="login_password",
+                    )
+                    submitted = st.form_submit_button(
+                        t("login"),
+                        type="primary",
+                        width="stretch",
+                    )
 
-        if submitted:
-            if password != password_confirmation:
-                st.error(t("password_mismatch"))
-            else:
-                try:
-                    register_user(email, password)
-                    st.success(t("account_created"))
-                except ValueError as error:
-                    st.error(str(error))
+                if submitted:
+                    user = authenticate_user(email, password)
+                    if user is None:
+                        st.error(t("invalid_login"))
+                    else:
+                        st.session_state.user_id, st.session_state.user_email = user
+                        st.rerun()
+
+            with register_tab:
+                with st.form("registration_form"):
+                    email = st.text_input(t("email"), key="registration_email")
+                    password = st.text_input(
+                        t("password"),
+                        type="password",
+                        key="registration_password",
+                    )
+                    password_confirmation = st.text_input(
+                        t("confirm_password"),
+                        type="password",
+                        key="registration_password_confirmation",
+                    )
+                    submitted = st.form_submit_button(
+                        t("register"),
+                        type="primary",
+                        width="stretch",
+                    )
+
+                if submitted:
+                    if password != password_confirmation:
+                        st.error(t("password_mismatch"))
+                    else:
+                        try:
+                            register_user(email, password)
+                            st.success(t("account_created"))
+                        except ValueError as error:
+                            st.error(str(error))
 
 
 def get_help_response(prompt: str) -> str:
@@ -1766,6 +1894,13 @@ new_tab, manage_tab = st.tabs(
 
 with new_tab:
     st.subheader("Website planen")
+    st.selectbox(
+        "Schnellstart für typische Use Cases",
+        list(DESIGN_USE_CASES),
+        help="Übernimmt eine passende Startkonfiguration. Alle Angaben können danach angepasst werden.",
+        key="design_use_case",
+        on_change=apply_design_use_case,
+    )
     creation_mode = st.segmented_control(
         "Wie möchten Sie starten?",
         ["Professionelle Vorlage", "Freier Entwurf", "Bestehenden Entwurf anpassen"],
@@ -1926,6 +2061,7 @@ if st.session_state.generated_html:
                 "Footer",
                 "Neuen Bereich hinzufügen",
             ],
+            key="content_editor_section",
         )
 
         change_request = st.text_area(
@@ -1934,10 +2070,15 @@ if st.session_state.generated_html:
                 "Beispiel: Ersetze das Kontaktformular durch das konfigurierte "
                 "Formspree-Formular und behalte das aktuelle Design."
             ),
+            key="content_editor_request",
             height=130,
         )
 
-        if st.button("📝 Bereich aktualisieren", use_container_width=True):
+        if st.button(
+            "📝 Bereich aktualisieren",
+            key="apply_content_editor_request",
+            width="stretch",
+        ):
             if not change_request.strip():
                 st.warning("Bitte beschreibe die gewünschte Änderung.")
             else:
@@ -2062,10 +2203,15 @@ Angebote. Alle sonstigen Inhalte und Bilder bleiben erhalten.
                 "Beispiel: Dunkles Premium-Design mit goldenen Akzenten, "
                 "runden Karten und größeren Buttons."
             ),
+            key="design_editor_request",
             height=130,
         )
 
-        if st.button("🎨 Design aktualisieren", use_container_width=True):
+        if st.button(
+            "🎨 Design aktualisieren",
+            key="apply_design_editor_request",
+            width="stretch",
+        ):
             if not design_request.strip():
                 st.warning("Bitte beschreibe die gewünschte Design-Änderung.")
             else:
@@ -2092,6 +2238,7 @@ Angebote. Alle sonstigen Inhalte und Bilder bleiben erhalten.
         image_section = st.selectbox(
             "Abschnitt für das Bild",
             ["Logo", "Hero-Bereich", "Über mich", "Leistungen", "Projekte", "Kontakt"],
+            key="image_editor_section",
         )
 
         image_file = st.file_uploader(
@@ -2100,7 +2247,11 @@ Angebote. Alle sonstigen Inhalte und Bilder bleiben erhalten.
             key="section_image",
         )
 
-        if st.button("🖼️ Bild aktualisieren", use_container_width=True):
+        if st.button(
+            "🖼️ Bild aktualisieren",
+            key="apply_image_editor_request",
+            width="stretch",
+        ):
             if image_file is None:
                 st.warning("Bitte wähle zuerst ein Bild aus.")
             else:
@@ -2140,7 +2291,8 @@ Alle anderen Inhalte müssen unverändert bleiben.
 
         if st.button(
             "👁️ Vorschau aus HTML aktualisieren",
-            use_container_width=True,
+            key="apply_html_editor_preview",
+            width="stretch",
         ):
             try:
                 st.session_state.generated_html = require_complete_html(
@@ -2176,7 +2328,8 @@ Alle anderen Inhalte müssen unverändert bleiben.
         if st.button(
             "🚀 Änderungen veröffentlichen",
             type="primary",
-            use_container_width=True,
+            key="publish_editor_changes",
+            width="stretch",
         ):
             with st.status(
                 "Website wird auf Vercel veröffentlicht ...",
@@ -2207,7 +2360,8 @@ Alle anderen Inhalte müssen unverändert bleiben.
             if st.button(
                 "🗑️ Letztes Deployment löschen",
                 disabled=not st.session_state.delete_confirmation,
-                use_container_width=True,
+                key="delete_latest_deployment",
+                width="stretch",
             ):
                 try:
                     delete_published_website()
