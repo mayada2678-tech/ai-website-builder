@@ -1025,6 +1025,17 @@ def render_language_selector() -> tuple[dict[str, str], str]:
     return SUPPORTED_LANGUAGES[target_language], target_language
 
 
+def is_light_color(color: str) -> bool:
+    """Ermittelt, ob eine Hex-Farbe eine dunkle Textfarbe benötigt."""
+    color = color.lstrip("#")
+    if len(color) != 6:
+        return False
+
+    red, green, blue = (int(color[index:index + 2], 16) for index in (0, 2, 4))
+    luminance = (red * 299 + green * 587 + blue * 114) / 1000
+    return luminance >= 165
+
+
 def render_template_preview(
         template_name: str,
     sections: str,
@@ -1034,11 +1045,16 @@ def render_template_preview(
 ) -> None:
         """Zeigt eine visuelle Vorschau, bevor Kundendaten benötigt werden."""
         radius = "0px" if border_style == "sharp" else "14px"
+        light_background = is_light_color(background_color)
+        text_color = "#111827" if light_background else "#f8fafc"
+        muted_text_color = "#374151" if light_background else "#cbd5e1"
+        surface_color = "rgba(17,24,39,.06)" if light_background else "rgba(255,255,255,.05)"
+        border_color = "rgba(17,24,39,.18)" if light_background else "rgba(255,255,255,.16)"
         st.caption("Vorlagenvorschau - Bildplätze und Abstände sind im Entwurf vorgemerkt.")
         st.html(
                 f"""
-                <section style="background:{background_color};border:1px solid rgba(255,255,255,.16);border-radius:{radius};color:#f8fafc;overflow:hidden;font-family:Georgia,serif;">
-                    <header style="display:flex;justify-content:space-between;align-items:center;padding:18px 28px;border-bottom:1px solid rgba(255,255,255,.14);font-family:ui-sans-serif,sans-serif;">
+                <section style="background:{background_color};border:1px solid {border_color};border-radius:{radius};color:{text_color};overflow:hidden;font-family:Georgia,serif;">
+                    <header style="display:flex;justify-content:space-between;align-items:center;padding:18px 28px;border-bottom:1px solid {border_color};font-family:ui-sans-serif,sans-serif;">
                         <strong style="font-size:17px;letter-spacing:0;">{template_name}</strong>
                         <span style="font-size:12px;opacity:.8;">Start &nbsp;&nbsp; Leistungen &nbsp;&nbsp; Über uns &nbsp;&nbsp; Kontakt</span>
                     </header>
@@ -1046,28 +1062,28 @@ def render_template_preview(
                         <div>
                             <p style="margin:0 0 12px;color:{accent_color};font:700 11px ui-sans-serif,sans-serif;letter-spacing:0;text-transform:uppercase;">Professionelle Markenwebsite</p>
                             <h3 style="margin:0;font-size:34px;line-height:1.1;">Eine Vorlage mit klarer Struktur und Raum für Ihre Inhalte.</h3>
-                            <p style="margin:18px 0 24px;max-width:500px;font:15px/1.65 ui-sans-serif,sans-serif;opacity:.82;">Sie ersetzen anschließend nur Unternehmensdaten, Texte und Bilder. Die Gestaltung, Abstände und Inhaltsbereiche bleiben professionell geordnet.</p>
+                              <p style="margin:18px 0 24px;max-width:500px;font:15px/1.65 ui-sans-serif,sans-serif;color:{muted_text_color};">Sie ersetzen anschließend nur Unternehmensdaten, Texte und Bilder. Die Gestaltung, Abstände und Inhaltsbereiche bleiben professionell geordnet.</p>
                             <span style="display:inline-block;background:{accent_color};color:#08111e;padding:11px 16px;border-radius:{radius};font:700 13px ui-sans-serif,sans-serif;">Ihr Angebot entdecken</span>
                         </div>
-                        <div style="min-height:220px;border:1px dashed {accent_color};border-radius:{radius};display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.05);font:700 12px ui-sans-serif,sans-serif;color:{accent_color};text-align:center;padding:18px;">BILDPLATZ<br><span style="color:#f8fafc;opacity:.75;font-weight:400;">Hero oder Willkommensbereich</span></div>
+                        <div style="min-height:220px;border:1px dashed {accent_color};border-radius:{radius};display:flex;align-items:center;justify-content:center;background:{surface_color};font:700 12px ui-sans-serif,sans-serif;color:{accent_color};text-align:center;padding:18px;">BILDPLATZ<br><span style="color:{muted_text_color};font-weight:400;">Hero oder Willkommensbereich</span></div>
                     </div>
                     <div style="padding:0 28px 42px;">
                         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;font:13px ui-sans-serif,sans-serif;">
-                            <div style="padding:16px;border-top:2px solid {accent_color};background:rgba(255,255,255,.05);">01<br><strong>Klare Leistungen</strong></div>
-                            <div style="padding:16px;border-top:2px solid {accent_color};background:rgba(255,255,255,.05);">02<br><strong>Vertrauen schaffen</strong></div>
-                            <div style="padding:16px;border-top:2px solid {accent_color};background:rgba(255,255,255,.05);">03<br><strong>Kontakt erleichtern</strong></div>
+                              <div style="padding:16px;border-top:2px solid {accent_color};background:{surface_color};">01<br><strong>Klare Leistungen</strong></div>
+                              <div style="padding:16px;border-top:2px solid {accent_color};background:{surface_color};">02<br><strong>Vertrauen schaffen</strong></div>
+                              <div style="padding:16px;border-top:2px solid {accent_color};background:{surface_color};">03<br><strong>Kontakt erleichtern</strong></div>
                         </div>
                     </div>
-                    <div style="padding:42px 28px;background:rgba(255,255,255,.045);">
+                      <div style="padding:42px 28px;background:{surface_color};">
                         <p style="margin:0 0 10px;color:{accent_color};font:700 11px ui-sans-serif,sans-serif;text-transform:uppercase;">Leistungen und Vorteile</p>
                         <h4 style="margin:0 0 18px;font-size:25px;">Inhalte, die für Ihre Branche vorbereitet sind.</h4>
-                        <p style="margin:0;max-width:760px;font:14px/1.65 ui-sans-serif,sans-serif;opacity:.84;">{sections}</p>
+                        <p style="margin:0;max-width:760px;font:14px/1.65 ui-sans-serif,sans-serif;color:{muted_text_color};">{sections}</p>
                     </div>
                     <div style="display:grid;grid-template-columns:1.35fr .65fr;gap:16px;padding:42px 28px;">
-                        <div style="min-height:150px;border:1px dashed rgba(255,255,255,.42);border-radius:{radius};display:flex;align-items:center;justify-content:center;font:700 12px ui-sans-serif,sans-serif;opacity:.82;">BILDPLATZ: Projekt, Team oder Galerie</div>
+                        <div style="min-height:150px;border:1px dashed {border_color};border-radius:{radius};display:flex;align-items:center;justify-content:center;font:700 12px ui-sans-serif,sans-serif;color:{muted_text_color};">BILDPLATZ: Projekt, Team oder Galerie</div>
                         <div style="padding:22px;background:{accent_color};color:#08111e;border-radius:{radius};font-family:ui-sans-serif,sans-serif;"><strong>Kontaktbereich</strong><p style="margin:10px 0 0;font-size:13px;line-height:1.5;">E-Mail, Telefonnummer, Öffnungszeiten und Kontaktformular.</p></div>
                     </div>
-                    <footer style="padding:20px 28px;border-top:1px solid rgba(255,255,255,.14);font:12px ui-sans-serif,sans-serif;opacity:.75;">Impressum &nbsp;&nbsp; Datenschutz &nbsp;&nbsp; Social Media</footer>
+                      <footer style="padding:20px 28px;border-top:1px solid {border_color};font:12px ui-sans-serif,sans-serif;color:{muted_text_color};">Impressum &nbsp;&nbsp; Datenschutz &nbsp;&nbsp; Social Media</footer>
                 </section>
                 """
         )
@@ -1091,9 +1107,24 @@ def render_template_and_design_ui() -> str:
         st.info(current_template["description"])
 
     with design_column:
+        background_presets = st.segmented_control(
+            "Hintergrund-Vorlage",
+            ["Dunkel", "Weiß", "Hellgrau", "Hellblau"],
+            default="Dunkel",
+            key="template_background_preset",
+        )
+        preset_colors = {
+            "Dunkel": "#111827",
+            "Weiß": "#FFFFFF",
+            "Hellgrau": "#F3F4F6",
+            "Hellblau": "#EFF6FF",
+        }
+        if st.session_state.get("applied_background_preset") != background_presets:
+            st.session_state.template_background_color = preset_colors[background_presets]
+            st.session_state.applied_background_preset = background_presets
         background_color = st.color_picker(
             t("background_color"),
-            "#111827",
+            preset_colors[background_presets],
             key="template_background_color",
         )
         accent_color = st.color_picker(
