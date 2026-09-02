@@ -20,6 +20,77 @@ st.set_page_config(
     layout="wide",
 )
 
+CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
+        "clickable_template_editor",
+        html='<section id="template-editor"></section>',
+        css="""
+        #template-editor { font-family: Georgia, serif; }
+        .template-shell { overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); background: var(--background); color: var(--text); }
+        .template-header, .template-nav { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+        .template-header { justify-content: space-between; padding: 18px 28px; border-bottom: 1px solid var(--border); font-family: ui-sans-serif, sans-serif; }
+        .template-nav { font-size: 12px; opacity: .8; }
+        .template-hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(220px, .9fr); gap: 34px; padding: 48px 28px 42px; align-items: center; }
+        .template-eyebrow { color: var(--accent); font: 700 11px ui-sans-serif, sans-serif; text-transform: uppercase; }
+        .template-heading { margin: 12px 0 0; font-size: 34px; line-height: 1.1; }
+        .template-description { max-width: 500px; margin: 18px 0 24px; color: var(--muted); font: 15px/1.65 ui-sans-serif, sans-serif; }
+        .template-button { display: inline-block; background: var(--accent); color: var(--accent-text); padding: 11px 16px; border-radius: var(--radius); font: 700 13px ui-sans-serif, sans-serif; }
+        .template-image { width: 100%; min-height: 220px; max-height: 320px; object-fit: cover; border-radius: var(--radius); }
+        .template-placeholder { min-height: 220px; border: 1px dashed var(--accent); border-radius: var(--radius); display: grid; place-items: center; padding: 18px; color: var(--accent); text-align: center; font: 700 12px ui-sans-serif, sans-serif; }
+        [contenteditable="true"] { cursor: text; outline: 1px dashed transparent; outline-offset: 4px; }
+        [contenteditable="true"]:hover, [contenteditable="true"]:focus { outline-color: var(--accent); }
+        .template-hint { margin: 0; padding: 12px 28px; background: var(--surface); color: var(--muted); font: 12px ui-sans-serif, sans-serif; }
+        @media (max-width: 700px) { .template-hero { grid-template-columns: 1fr; } }
+        """,
+        js="""
+        export default function(component) {
+            const { data, parentElement, setTriggerValue } = component;
+            const root = parentElement.querySelector('#template-editor');
+            if (!root || !data) return;
+            root.replaceChildren();
+            const create = (tag, className, text) => {
+                const element = document.createElement(tag);
+                element.className = className;
+                if (text !== undefined) element.textContent = text;
+                return element;
+            };
+            const shell = create('section', 'template-shell');
+            shell.style.setProperty('--background', data.backgroundColor);
+            shell.style.setProperty('--accent', data.accentColor);
+            shell.style.setProperty('--text', data.textColor);
+            shell.style.setProperty('--muted', data.mutedTextColor);
+            shell.style.setProperty('--border', data.borderColor);
+            shell.style.setProperty('--surface', data.surfaceColor);
+            shell.style.setProperty('--accent-text', data.accentTextColor);
+            shell.style.setProperty('--radius', data.radius);
+            const header = create('header', 'template-header');
+            const company = create('strong', '', data.companyName);
+            const nav = create('nav', 'template-nav', 'Start   Leistungen   Angebote   Kontakt');
+            header.append(company, nav);
+            const hero = create('div', 'template-hero');
+            const copy = create('div', '');
+            copy.append(create('p', 'template-eyebrow', 'Professionelle Markenwebsite'));
+            const fields = [['heading', 'h3', 'template-heading'], ['description', 'p', 'template-description'], ['buttonText', 'span', 'template-button']];
+            const changed = {};
+            fields.forEach(([key, tag, className]) => {
+                const field = create(tag, className, data[key]);
+                field.contentEditable = 'true';
+                field.setAttribute('role', 'textbox');
+                field.setAttribute('aria-label', key === 'heading' ? 'Überschrift bearbeiten' : key === 'description' ? 'Beschreibung bearbeiten' : 'Button-Text bearbeiten');
+                field.onblur = () => {
+                    const value = field.textContent.trim();
+                    if (value !== data[key]) { changed[key] = value; setTriggerValue('saved', changed); }
+                };
+                copy.append(field);
+            });
+            const image = data.imageDataUrl ? create('img', 'template-image') : create('div', 'template-placeholder', 'BILDPLATZ: Hero oder Willkommensbereich');
+            if (data.imageDataUrl) { image.src = data.imageDataUrl; image.alt = data.companyName; }
+            hero.append(copy, image);
+            shell.append(header, hero, create('p', 'template-hint', 'Klicken Sie auf Überschrift, Beschreibung oder Button und schreiben Sie direkt in die Vorlage. Gespeichert wird beim Verlassen des Textfelds.'));
+            root.append(shell);
+        }
+        """,
+)
+
 
 st.markdown(
     """
@@ -1847,47 +1918,51 @@ def render_template_preview(
     phone = escape(str(st.session_state.get("client_business_phone", "")).strip() or "Telefonnummer ergänzen")
     button_text = escape(str(st.session_state.get("template_button_text", "")).strip() or "Ihr Angebot entdecken")
     image_file = st.session_state.get("initial_image")
-    image_html = f'<div style="min-height:220px;border:1px dashed {accent_color};border-radius:{radius};display:flex;align-items:center;justify-content:center;background:{surface_color};font:700 12px ui-sans-serif,sans-serif;color:{accent_color};text-align:center;padding:18px;">BILDPLATZ<br><span style="color:{muted_text_color};font-weight:400;">Hero oder Willkommensbereich</span></div>'
+    image_data_url = ""
     if image_file is not None:
-        image_data = base64.b64encode(image_file.getvalue()).decode("ascii")
-        image_type = escape(image_file.type or "image/png")
-        image_html = f'<img src="data:{image_type};base64,{image_data}" alt="{company_name}" style="width:100%;min-height:220px;max-height:320px;object-fit:cover;border-radius:{radius};">'
-    st.caption("Live-Vorlage: Jede Änderung an Kundendaten, Farben oder Beschreibung wird sofort hier angezeigt.")
-    st.html(
-                f"""
-                <section style="background:{background_color};border:1px solid {border_color};border-radius:{radius};color:{text_color};overflow:hidden;font-family:Georgia,serif;">
-                    <header style="display:flex;justify-content:space-between;align-items:center;padding:18px 28px;border-bottom:1px solid {border_color};font-family:ui-sans-serif,sans-serif;">
-                        <strong style="font-size:17px;letter-spacing:0;">{company_name}</strong>
-                        <span style="font-size:12px;opacity:.8;">Start &nbsp;&nbsp; Leistungen &nbsp;&nbsp; Über uns &nbsp;&nbsp; Kontakt</span>
-                    </header>
-                    <div style="display:grid;grid-template-columns:minmax(0,1.1fr) minmax(220px,.9fr);gap:34px;padding:48px 28px 42px;align-items:center;">
-                        <div>
-                            <p style="margin:0 0 12px;color:{accent_color};font:700 11px ui-sans-serif,sans-serif;letter-spacing:0;text-transform:uppercase;">Professionelle Markenwebsite</p>
-                                                        <h3 style="margin:0;font-size:34px;line-height:1.1;">{slogan}</h3>
-                                                            <p style="margin:18px 0 24px;max-width:500px;font:15px/1.65 ui-sans-serif,sans-serif;color:{muted_text_color};">{description}</p>
-                            <span style="display:inline-block;background:{accent_color};color:{accent_text_color};padding:11px 16px;border-radius:{radius};font:700 13px ui-sans-serif,sans-serif;">{button_text}</span>
-                        </div>
-                        {image_html}
-                    </div>
-                    <div style="padding:0 28px 42px;">
-                        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;font:13px ui-sans-serif,sans-serif;">
-                              <div style="padding:16px;border-top:2px solid {accent_color};background:{surface_color};">01<br><strong>Klare Leistungen</strong></div>
-                              <div style="padding:16px;border-top:2px solid {accent_color};background:{surface_color};">02<br><strong>Vertrauen schaffen</strong></div>
-                              <div style="padding:16px;border-top:2px solid {accent_color};background:{surface_color};">03<br><strong>Kontakt erleichtern</strong></div>
-                        </div>
-                    </div>
-                      <div style="padding:42px 28px;background:{surface_color};">
-                        <p style="margin:0 0 10px;color:{accent_color};font:700 11px ui-sans-serif,sans-serif;text-transform:uppercase;">Leistungen und Vorteile</p>
-                        <h4 style="margin:0 0 18px;font-size:25px;">Inhalte, die für Ihre Branche vorbereitet sind.</h4>
-                        <p style="margin:0;max-width:760px;font:14px/1.65 ui-sans-serif,sans-serif;color:{muted_text_color};">{sections}</p>
-                    </div>
-                    <div style="display:grid;grid-template-columns:1.35fr .65fr;gap:16px;padding:42px 28px;">
-                        <div style="min-height:150px;border:1px dashed {border_color};border-radius:{radius};display:flex;align-items:center;justify-content:center;font:700 12px ui-sans-serif,sans-serif;color:{muted_text_color};">BILDPLATZ: Projekt, Team oder Galerie</div>
-                        <div style="padding:22px;background:{accent_color};color:{accent_text_color};border-radius:{radius};font-family:ui-sans-serif,sans-serif;"><strong>Kontaktbereich</strong><p style="margin:10px 0 0;font-size:13px;line-height:1.5;">{business_email}<br>{phone}</p></div>
-                    </div>
-                      <footer style="padding:20px 28px;border-top:1px solid {border_color};font:12px ui-sans-serif,sans-serif;color:{muted_text_color};">{company_name} &nbsp;&nbsp; {business_email} &nbsp;&nbsp; Impressum &nbsp;&nbsp; Datenschutz</footer>
-                </section>
-                """
+        image_type = image_file.type or "image/png"
+        image_data_url = (
+            f"data:{image_type};base64,"
+            f"{base64.b64encode(image_file.getvalue()).decode('ascii')}"
+        )
+
+    def save_clickable_template_changes() -> None:
+        """Übernimmt eine im Klickeditor abgeschlossene Textänderung."""
+        component_state = st.session_state.get("clickable_template_editor")
+        changes = getattr(component_state, "saved", None)
+        if not isinstance(changes, dict):
+            return
+        fields = {
+            "heading": "template_hero_heading",
+            "description": "template_custom_description",
+            "buttonText": "template_button_text",
+        }
+        for source, target in fields.items():
+            if source in changes:
+                st.session_state[target] = str(changes[source]).strip()
+
+    CLICKABLE_TEMPLATE_EDITOR(
+        key="clickable_template_editor",
+        data={
+            "companyName": str(st.session_state.get("client_company_name", "")).strip() or template_name,
+            "heading": str(st.session_state.get("template_hero_heading", "")).strip()
+            or str(st.session_state.get("client_company_slogan", "")).strip()
+            or "Eine Vorlage mit klarer Struktur und Raum für Ihre Inhalte.",
+            "description": str(st.session_state.get("template_custom_description", "")).strip()
+            or "Sie ersetzen Unternehmensdaten, Texte und Bilder direkt in dieser Vorlage. Die Gestaltung, Abstände und Inhaltsbereiche bleiben professionell geordnet.",
+            "buttonText": str(st.session_state.get("template_button_text", "")).strip()
+            or "Ihr Angebot entdecken",
+            "imageDataUrl": image_data_url,
+            "backgroundColor": background_color,
+            "accentColor": accent_color,
+            "textColor": text_color,
+            "mutedTextColor": muted_text_color,
+            "surfaceColor": surface_color,
+            "borderColor": border_color,
+            "accentTextColor": accent_text_color,
+            "radius": radius,
+        },
+        on_saved_change=save_clickable_template_changes,
     )
 
 
