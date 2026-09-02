@@ -47,13 +47,16 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
         .template-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 34px; }
         .template-card { min-height: 210px; padding: 22px; border-top: 3px solid var(--accent); background: var(--surface); font-family: ui-sans-serif, sans-serif; }
         .template-card p { color: var(--muted); }
+        .template-footer { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 28px; padding: 34px 28px 20px; border-top: 1px solid var(--border); font-family: ui-sans-serif, sans-serif; }
+        .template-footer h2 { margin: 0; font-size: 15px; } .template-footer p, .template-footer a { color: var(--muted); font-size: 13px; line-height: 1.6; text-decoration: none; }
+        .template-footer a:hover { color: var(--accent); } .template-footer-legal { grid-column: 1 / -1; margin: 0; padding-top: 16px; border-top: 1px solid var(--border); }
         .template-chatbot { position: fixed; right: 22px; bottom: 22px; z-index: 10; font-family: ui-sans-serif, sans-serif; }
         .template-chatbot-toggle { width: 48px; height: 48px; border: 0; border-radius: 50%; background: var(--accent); color: var(--accent-text); cursor: pointer; font: 700 20px ui-sans-serif, sans-serif; box-shadow: 0 10px 28px rgba(15, 23, 42, .24); }
         .template-chatbot-panel { display: none; width: min(300px, calc(100vw - 44px)); margin: 0 0 10px auto; padding: 18px; background: var(--background); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 16px 38px rgba(15, 23, 42, .22); }
         .template-chatbot-panel.is-open { display: block; }
         .template-chatbot-panel h2 { margin: 0; font-size: 16px; }
         .template-chatbot-panel p { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
-        @media (max-width: 700px) { .template-header { align-items: flex-start; flex-direction: column; } .template-nav { justify-content: flex-start; } .template-hero, .template-cards { grid-template-columns: 1fr; } }
+        @media (max-width: 700px) { .template-header { align-items: flex-start; flex-direction: column; } .template-nav { justify-content: flex-start; } .template-hero, .template-cards, .template-footer { grid-template-columns: 1fr; } }
         """,
         js="""
         export default function(component) {
@@ -138,7 +141,16 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
                 card.append(create('p', 'template-eyebrow', String(index + 1).padStart(2, '0')), create('h2', '', section.title), create('p', '', section.text));
                 templateSections.append(card);
             });
-            const footer = create('footer', 'template-hint', data.footerText);
+            const footer = create('footer', 'template-footer');
+            const brand = create('section', '');
+            brand.append(create('h2', '', data.companyName), create('p', '', data.footerText));
+            const contact = create('section', '');
+            contact.append(create('h2', '', 'Kontakt'), create('a', '', data.businessEmail));
+            contact.lastChild.href = `mailto:${data.businessEmail}`;
+            const legal = create('section', '');
+            legal.append(create('h2', '', 'Rechtliches'), create('a', '', 'Impressum'), create('p', '', 'Datenschutz'));
+            const legalNote = create('p', 'template-footer-legal', `© ${new Date().getFullYear()} ${data.companyName}. Alle Rechte vorbehalten.`);
+            footer.append(brand, contact, legal, legalNote);
             shell.append(header, hero, templateSections, footer, create('p', 'template-hint', 'Änderungen werden sofort in dieser Entwurfsvorschau angezeigt.'));
             const chatbot = create('aside', 'template-chatbot');
             const chatbotPanel = create('section', 'template-chatbot-panel');
@@ -833,6 +845,73 @@ def activate_premium_demo(user_id: int) -> None:
         )
 
 
+def create_stripe_checkout_session(user_id: int, user_email: str) -> str:
+    """Erstellt eine Stripe-Checkout-Sitzung für die Veröffentlichungsfreigabe."""
+    if not STRIPE_SECRET_KEY or not STRIPE_PRICE_ID or not STRIPE_SUCCESS_URL:
+        raise ValueError("Stripe ist noch nicht eingerichtet.")
+
+    response = requests.post(
+        "https://api.stripe.com/v1/checkout/sessions",
+        auth=(STRIPE_SECRET_KEY, ""),
+        data={
+            "mode": "subscription",
+            "customer_email": user_email,
+            "client_reference_id": str(user_id),
+            "line_items[0][price]": STRIPE_PRICE_ID,
+            "line_items[0][quantity]": "1",
+            "success_url": f"{STRIPE_SUCCESS_URL}?checkout_session_id={{CHECKOUT_SESSION_ID}}",
+            "cancel_url": STRIPE_SUCCESS_URL,
+        },
+        timeout=30,
+    )
+    if response.status_code != 200:
+        raise ValueError("Stripe konnte die Zahlung nicht vorbereiten.")
+    checkout_url = response.json().get("url")
+    if not checkout_url:
+        raise ValueError("Stripe hat keine Zahlungsadresse geliefert.")
+    return checkout_url
+
+
+def confirm_stripe_checkout(user_id: int) -> bool:
+    """Schaltet Veröffentlichung nur nach bestätigter Stripe-Zahlung frei."""
+    session_id = st.query_params.get("checkout_session_id")
+    if not session_id or not STRIPE_SECRET_KEY:
+        return False
+    response = requests.get(
+        f"https://api.stripe.com/v1/checkout/sessions/{session_id}",
+        auth=(STRIPE_SECRET_KEY, ""),
+        timeout=30,
+    )
+    if response.status_code != 200:
+        return False
+    checkout = response.json()
+    if (
+        checkout.get("payment_status") != "paid"
+        or checkout.get("client_reference_id") != str(user_id)
+    ):
+        return False
+    activate_premium_demo(user_id)
+    st.query_params.clear()
+    return True
+
+
+def render_payment_ui(user_id: int, user_email: str) -> None:
+    """Zeigt die Zahlung für die Veröffentlichung, ohne Freischaltung vor Zahlung."""
+    st.subheader("Veröffentlichung freischalten")
+    st.caption("Nach bestätigter Zahlung kann die Website mit Wunsch-URL und eigener Domain veröffentlicht werden.")
+    if not STRIPE_SECRET_KEY or not STRIPE_PRICE_ID or not STRIPE_SUCCESS_URL:
+        st.warning("Zahlung ist noch nicht eingerichtet. Hinterlegen Sie stripe_secret_key, stripe_price_id und stripe_success_url in den Streamlit-Secrets.")
+        return
+    if st.button("Zahlung vorbereiten", icon=":material/payment:", key="create_stripe_checkout", width="stretch"):
+        try:
+            st.session_state.stripe_checkout_url = create_stripe_checkout_session(user_id, user_email)
+        except ValueError as error:
+            st.error(str(error))
+    checkout_url = str(st.session_state.get("stripe_checkout_url", ""))
+    if checkout_url:
+        st.link_button("Sicher bezahlen", checkout_url, icon=":material/open_in_new:", type="primary", width="stretch")
+
+
 initialize_database()
 
 try:
@@ -846,6 +925,9 @@ except KeyError:
     st.stop()
 
 client = OpenAI(api_key=OPENAI_API_KEY)
+STRIPE_SECRET_KEY = str(st.secrets.get("stripe_secret_key", "")).strip()
+STRIPE_PRICE_ID = str(st.secrets.get("stripe_price_id", "")).strip()
+STRIPE_SUCCESS_URL = str(st.secrets.get("stripe_success_url", "")).strip().rstrip("?")
 SUPPORT_ADMIN_EMAIL = str(st.secrets.get("support_admin_email", "")).strip().lower()
 PRIVACY_CONTACT_EMAIL = str(st.secrets.get("privacy_contact_email", "")).strip()
 PRIVACY_CONTROLLER_NAME = str(
@@ -1462,19 +1544,15 @@ if st.session_state.user_id is None:
 
 current_user_id = int(st.session_state.user_id)
 user_info = get_user_status(current_user_id)
+if not user_info["subscribed"] and confirm_stripe_checkout(current_user_id):
+    st.success("Zahlung bestätigt. Die Veröffentlichung ist jetzt freigeschaltet.")
+    st.rerun()
 render_help_chatbot()
 
 if not user_info["subscribed"] and user_info["balance"] <= 0:
     st.error(t("balance_empty"))
     st.info(t("premium_info"))
-    if st.button(
-        t("activate_premium"),
-        type="primary",
-        icon=":material/workspace_premium:",
-    ):
-        activate_premium_demo(current_user_id)
-        st.rerun()
-    st.stop()
+    render_payment_ui(current_user_id, st.session_state.user_email)
 
 if not user_info["subscribed"] and user_info["balance"] < 1.00:
     st.warning(t("low_balance", balance=user_info["balance"]))
@@ -1760,6 +1838,7 @@ def build_customized_template_html(
         else '<a href="#leistungen">Leistungen</a><a href="#ueber-uns">Über uns</a><a href="#kontakt">Kontakt</a>'
     )
     button_target = "angebote.html" if multi_page else "#leistungen"
+    footer_html = f'''<footer class="site-footer"><section><strong>{company_name}</strong><p>{footer_text}</p></section><section><strong>Kontakt</strong><p><a href="mailto:{business_email}">{business_email}</a></p></section><section><strong>Rechtliches</strong><p><a href="#impressum">Impressum</a> · <a href="#datenschutz">Datenschutz</a></p></section><p class="footer-legal">© 2026 {company_name}. Alle Rechte vorbehalten.</p></footer>'''
     return f"""<!doctype html>
 <html lang="de">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1771,12 +1850,12 @@ def build_customized_template_html(
 <section class="band"><div class="container" id="leistungen"><span class="eyebrow">Leistungen und Vorteile</span><h2>Kompetent. Persönlich. Verlässlich.</h2><div class="cards"><article class="card"><strong>01</strong><h3>Klare Leistungen</h3><p>Passende Lösungen mit nachvollziehbarer Beratung.</p></article><article class="card"><strong>02</strong><h3>Vertrauen schaffen</h3><p>Qualität, Transparenz und ein verbindlicher Service.</p></article><article class="card"><strong>03</strong><h3>Kontakt erleichtern</h3><p>Schnell und direkt zu Ihrer persönlichen Anfrage.</p></article></div></div></section>
 <section class="container" id="ueber-uns"><span class="eyebrow">Über uns</span><h2>Ein Auftritt, der zu Ihrem Unternehmen passt.</h2><p>{description}</p></section>
 <section class="band"><div class="container contact" id="kontakt"><div><span class="eyebrow">Kontakt</span><h2>Wir freuen uns auf Ihre Anfrage.</h2><p><a href="mailto:{business_email}">{business_email}</a></p>{phone_html}</div><div class="card"><h3>Persönlich beraten lassen</h3><p>Schreiben Sie uns direkt. Wir melden uns zeitnah bei Ihnen.</p><a class="button" href="mailto:{business_email}">E-Mail schreiben</a></div></div></section></main>
-<footer>{footer_text}</footer><aside class="customer-chatbot"><button type="button" aria-expanded="false">?</button><section hidden><strong>{company_name} Assistent</strong><p>{chatbot_knowledge}</p></section></aside><script>const chatbot=document.querySelector('.customer-chatbot'),toggle=chatbot.querySelector('button'),panel=chatbot.querySelector('section');toggle.onclick=()=>{{panel.hidden=!panel.hidden;toggle.setAttribute('aria-expanded',String(!panel.hidden));}};</script></body></html>"""
+{footer_html}<aside class="customer-chatbot"><button type="button" aria-expanded="false">?</button><section hidden><strong>{company_name} Assistent</strong><p>{chatbot_knowledge}</p></section></aside><script>const chatbot=document.querySelector('.customer-chatbot'),toggle=chatbot.querySelector('button'),panel=chatbot.querySelector('section');toggle.onclick=()=>{{panel.hidden=!panel.hidden;toggle.setAttribute('aria-expanded',String(!panel.hidden));}};</script></body></html>"""
 
 
 def build_customized_template_styles() -> str:
     """Liefert das gemeinsame Design für alle statischen Vorlagen-Seiten."""
-    return """* { box-sizing: border-box; } body { margin: 0; background: var(--background); color: var(--text); font: 16px/1.55 Arial, sans-serif; } header, footer { padding: 20px max(5vw, 24px); border-bottom: 1px solid color-mix(in srgb, var(--text) 18%, transparent); } header, nav { display: flex; gap: 18px; flex-wrap: wrap; justify-content: space-between; align-items: center; } nav a, .button { color: inherit; text-decoration: none; } main, .container { max-width: 1120px; margin: auto; padding: 70px 24px; } .hero, .contact { display: grid; grid-template-columns: 1.1fr .9fr; gap: 40px; align-items: center; } .eyebrow { color: var(--accent); font-size: 13px; font-weight: 700; text-transform: uppercase; } h1 { font-family: Georgia, serif; font-size: clamp(2.4rem, 5vw, 4.4rem); line-height: 1.05; margin: 14px 0; } p { color: var(--muted); } .button { display: inline-block; margin-top: 18px; padding: 13px 19px; border-radius: var(--radius); background: var(--accent); color: #111827; font-weight: 700; } .hero-image, .image-placeholder { width: 100%; min-height: 310px; object-fit: cover; border-radius: var(--radius); border: 1px dashed var(--accent); display: grid; place-items: center; color: var(--accent); padding: 20px; } .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 45px; } .card { border-top: 3px solid var(--accent); background: color-mix(in srgb, var(--text) 6%, transparent); padding: 24px; margin-top: 32px; } .band { background: color-mix(in srgb, var(--text) 6%, transparent); } .customer-chatbot { position: fixed; right: 24px; bottom: 24px; z-index: 10; } .customer-chatbot button { width: 52px; height: 52px; border: 0; border-radius: 50%; background: var(--accent); color: #111827; cursor: pointer; font-weight: 700; font-size: 20px; } .customer-chatbot section { width: min(300px, calc(100vw - 48px)); margin-bottom: 10px; padding: 18px; border: 1px solid color-mix(in srgb, var(--text) 18%, transparent); border-radius: var(--radius); background: var(--background); box-shadow: 0 16px 38px rgba(15, 23, 42, .22); } @media (max-width: 700px) { header, .hero, .contact { display: block; } nav { margin-top: 12px; } .hero-image, .image-placeholder { margin-top: 26px; min-height: 220px; } .cards { grid-template-columns: 1fr; } }"""
+    return """* { box-sizing: border-box; } body { margin: 0; background: var(--background); color: var(--text); font: 16px/1.55 Arial, sans-serif; } header { padding: 20px max(5vw, 24px); border-bottom: 1px solid color-mix(in srgb, var(--text) 18%, transparent); } header, nav { display: flex; gap: 18px; flex-wrap: wrap; justify-content: space-between; align-items: center; } nav a, .button, .site-footer a { color: inherit; text-decoration: none; } main, .container { max-width: 1120px; margin: auto; padding: 70px 24px; } .hero, .contact { display: grid; grid-template-columns: 1.1fr .9fr; gap: 40px; align-items: center; } .eyebrow { color: var(--accent); font-size: 13px; font-weight: 700; text-transform: uppercase; } h1 { font-family: Georgia, serif; font-size: clamp(2.4rem, 5vw, 4.4rem); line-height: 1.05; margin: 14px 0; } p { color: var(--muted); } .button { display: inline-block; margin-top: 18px; padding: 13px 19px; border-radius: var(--radius); background: var(--accent); color: #111827; font-weight: 700; } .hero-image, .image-placeholder { width: 100%; min-height: 310px; object-fit: cover; border-radius: var(--radius); border: 1px dashed var(--accent); display: grid; place-items: center; color: var(--accent); padding: 20px; } .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 45px; } .card { border-top: 3px solid var(--accent); background: color-mix(in srgb, var(--text) 6%, transparent); padding: 24px; margin-top: 32px; } .band { background: color-mix(in srgb, var(--text) 6%, transparent); } .site-footer { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 28px; padding: 34px max(5vw, 24px) 20px; border-top: 1px solid color-mix(in srgb, var(--text) 18%, transparent); } .site-footer strong { display: block; } .site-footer p { margin: 8px 0 0; font-size: 13px; } .footer-legal { grid-column: 1 / -1; padding-top: 16px; border-top: 1px solid color-mix(in srgb, var(--text) 18%, transparent); } .customer-chatbot { position: fixed; right: 24px; bottom: 24px; z-index: 10; } .customer-chatbot button { width: 52px; height: 52px; border: 0; border-radius: 50%; background: var(--accent); color: #111827; cursor: pointer; font-weight: 700; font-size: 20px; } .customer-chatbot section { width: min(300px, calc(100vw - 48px)); margin-bottom: 10px; padding: 18px; border: 1px solid color-mix(in srgb, var(--text) 18%, transparent); border-radius: var(--radius); background: var(--background); box-shadow: 0 16px 38px rgba(15, 23, 42, .22); } @media (max-width: 700px) { header, .hero, .contact { display: block; } nav { margin-top: 12px; } .hero-image, .image-placeholder { margin-top: 26px; min-height: 220px; } .cards, .site-footer { grid-template-columns: 1fr; } }"""
 
 
 def build_customized_template_pages(
@@ -2872,8 +2951,9 @@ def render_domain_and_deployment_ui() -> None:
 
     if not user_info["subscribed"]:
         st.warning(
-            "Die Veröffentlichung im Internet ist ausschließlich für Premium-Konten verfügbar."
+            "Prüfen Sie Ihren Entwurf oben in der Live-Vorschau. Nach der Zahlung wird die Veröffentlichung mit Wunsch-URL oder eigener Domain freigeschaltet."
         )
+        render_payment_ui(current_user_id, st.session_state.user_email)
         return
 
     st.caption(
