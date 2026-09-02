@@ -47,12 +47,30 @@ st.markdown(
         border-color: rgba(103, 232, 249, 0.18);
     }
     .st-key-authentication_shell {
-        max-width: 68rem;
-        margin: 4.5rem auto 2rem;
-        padding: 0.5rem;
+        width: min(68rem, calc(100vw - 2rem));
+        min-height: 35rem;
+        margin: 3rem auto 2rem;
+        padding: 1.25rem;
         border: 1px solid rgba(103, 232, 249, 0.22);
         background: linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(17, 34, 52, 0.92));
         box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.22);
+    }
+    .st-key-authentication_shell [data-testid="stHorizontalBlock"] {
+        min-height: 31rem;
+        align-items: stretch;
+    }
+    .st-key-authentication_shell [data-testid="stColumn"]:first-child {
+        padding: 1.35rem 2rem 1.35rem 0.75rem;
+        border-right: 1px solid rgba(103, 232, 249, 0.16);
+    }
+    .st-key-authentication_shell [data-testid="stColumn"]:last-child {
+        padding: 1.35rem 0.75rem 1.35rem 2rem;
+    }
+    .st-key-authentication_shell [data-testid="stTextInput"] input {
+        min-height: 2.85rem;
+    }
+    .st-key-authentication_shell [data-testid="stFormSubmitButton"] button {
+        min-height: 3rem;
     }
     .st-key-authentication_shell [data-testid="stTabs"] {
         margin-top: 0.4rem;
@@ -62,8 +80,18 @@ st.markdown(
     }
     @media (max-width: 640px) {
         .st-key-authentication_shell {
+            width: calc(100vw - 1rem);
+            min-height: auto;
             margin-top: 1.25rem;
-            padding: 0.25rem;
+            padding: 0.5rem;
+        }
+        .st-key-authentication_shell [data-testid="stHorizontalBlock"] {
+            min-height: auto;
+        }
+        .st-key-authentication_shell [data-testid="stColumn"]:first-child,
+        .st-key-authentication_shell [data-testid="stColumn"]:last-child {
+            padding: 1rem 0.5rem;
+            border-right: 0;
         }
     }
     .st-key-help_chat_launcher {
@@ -1743,27 +1771,32 @@ def render_template_preview(
         accent_color: str,
         border_style: str,
 ) -> None:
-        """Zeigt eine visuelle Vorschau, bevor Kundendaten benötigt werden."""
-        radius = "0px" if border_style == "sharp" else "14px"
-        light_background = is_light_color(background_color)
-        text_color = "#111827" if light_background else "#f8fafc"
-        muted_text_color = "#374151" if light_background else "#cbd5e1"
-        surface_color = "rgba(17,24,39,.06)" if light_background else "rgba(255,255,255,.05)"
-        border_color = "rgba(17,24,39,.18)" if light_background else "rgba(255,255,255,.16)"
-        accent_text_color = contrast_text_color(accent_color)
-        st.caption("Vorlagenvorschau - Bildplätze und Abstände sind im Entwurf vorgemerkt.")
-        st.html(
+    """Zeigt die Vorlage mit allen aktuell eingegebenen Kundendaten."""
+    radius = "0px" if border_style == "sharp" else "14px"
+    light_background = is_light_color(background_color)
+    text_color = "#111827" if light_background else "#f8fafc"
+    muted_text_color = "#374151" if light_background else "#cbd5e1"
+    surface_color = "rgba(17,24,39,.06)" if light_background else "rgba(255,255,255,.05)"
+    border_color = "rgba(17,24,39,.18)" if light_background else "rgba(255,255,255,.16)"
+    accent_text_color = contrast_text_color(accent_color)
+    company_name = escape(str(st.session_state.get("client_company_name", "")).strip() or template_name)
+    slogan = escape(str(st.session_state.get("client_company_slogan", "")).strip() or "Eine Vorlage mit klarer Struktur und Raum für Ihre Inhalte.")
+    description = escape(str(st.session_state.get("template_custom_description", "")).strip() or "Sie ersetzen Unternehmensdaten, Texte und Bilder direkt in dieser Vorlage. Die Gestaltung, Abstände und Inhaltsbereiche bleiben professionell geordnet.")
+    business_email = escape(str(st.session_state.get("client_business_email", "")).strip() or "Ihre Kontakt-E-Mail")
+    phone = escape(str(st.session_state.get("client_business_phone", "")).strip() or "Telefonnummer ergänzen")
+    st.caption("Live-Vorlage: Jede Änderung an Kundendaten, Farben oder Beschreibung wird sofort hier angezeigt.")
+    st.html(
                 f"""
                 <section style="background:{background_color};border:1px solid {border_color};border-radius:{radius};color:{text_color};overflow:hidden;font-family:Georgia,serif;">
                     <header style="display:flex;justify-content:space-between;align-items:center;padding:18px 28px;border-bottom:1px solid {border_color};font-family:ui-sans-serif,sans-serif;">
-                        <strong style="font-size:17px;letter-spacing:0;">{template_name}</strong>
+                        <strong style="font-size:17px;letter-spacing:0;">{company_name}</strong>
                         <span style="font-size:12px;opacity:.8;">Start &nbsp;&nbsp; Leistungen &nbsp;&nbsp; Über uns &nbsp;&nbsp; Kontakt</span>
                     </header>
                     <div style="display:grid;grid-template-columns:minmax(0,1.1fr) minmax(220px,.9fr);gap:34px;padding:48px 28px 42px;align-items:center;">
                         <div>
                             <p style="margin:0 0 12px;color:{accent_color};font:700 11px ui-sans-serif,sans-serif;letter-spacing:0;text-transform:uppercase;">Professionelle Markenwebsite</p>
-                            <h3 style="margin:0;font-size:34px;line-height:1.1;">Eine Vorlage mit klarer Struktur und Raum für Ihre Inhalte.</h3>
-                              <p style="margin:18px 0 24px;max-width:500px;font:15px/1.65 ui-sans-serif,sans-serif;color:{muted_text_color};">Sie ersetzen anschließend nur Unternehmensdaten, Texte und Bilder. Die Gestaltung, Abstände und Inhaltsbereiche bleiben professionell geordnet.</p>
+                                                        <h3 style="margin:0;font-size:34px;line-height:1.1;">{slogan}</h3>
+                                                            <p style="margin:18px 0 24px;max-width:500px;font:15px/1.65 ui-sans-serif,sans-serif;color:{muted_text_color};">{description}</p>
                             <span style="display:inline-block;background:{accent_color};color:{accent_text_color};padding:11px 16px;border-radius:{radius};font:700 13px ui-sans-serif,sans-serif;">Ihr Angebot entdecken</span>
                         </div>
                         <div style="min-height:220px;border:1px dashed {accent_color};border-radius:{radius};display:flex;align-items:center;justify-content:center;background:{surface_color};font:700 12px ui-sans-serif,sans-serif;color:{accent_color};text-align:center;padding:18px;">BILDPLATZ<br><span style="color:{muted_text_color};font-weight:400;">Hero oder Willkommensbereich</span></div>
@@ -1782,12 +1815,12 @@ def render_template_preview(
                     </div>
                     <div style="display:grid;grid-template-columns:1.35fr .65fr;gap:16px;padding:42px 28px;">
                         <div style="min-height:150px;border:1px dashed {border_color};border-radius:{radius};display:flex;align-items:center;justify-content:center;font:700 12px ui-sans-serif,sans-serif;color:{muted_text_color};">BILDPLATZ: Projekt, Team oder Galerie</div>
-                        <div style="padding:22px;background:{accent_color};color:{accent_text_color};border-radius:{radius};font-family:ui-sans-serif,sans-serif;"><strong>Kontaktbereich</strong><p style="margin:10px 0 0;font-size:13px;line-height:1.5;">E-Mail, Telefonnummer, Öffnungszeiten und Kontaktformular.</p></div>
+                        <div style="padding:22px;background:{accent_color};color:{accent_text_color};border-radius:{radius};font-family:ui-sans-serif,sans-serif;"><strong>Kontaktbereich</strong><p style="margin:10px 0 0;font-size:13px;line-height:1.5;">{business_email}<br>{phone}</p></div>
                     </div>
-                      <footer style="padding:20px 28px;border-top:1px solid {border_color};font:12px ui-sans-serif,sans-serif;color:{muted_text_color};">Impressum &nbsp;&nbsp; Datenschutz &nbsp;&nbsp; Social Media</footer>
+                      <footer style="padding:20px 28px;border-top:1px solid {border_color};font:12px ui-sans-serif,sans-serif;color:{muted_text_color};">{company_name} &nbsp;&nbsp; {business_email} &nbsp;&nbsp; Impressum &nbsp;&nbsp; Datenschutz</footer>
                 </section>
                 """
-        )
+    )
 
 
 def render_template_and_design_ui() -> str:
