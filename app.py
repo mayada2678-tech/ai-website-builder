@@ -1,9 +1,11 @@
 import base64
 import hashlib
 import hmac
+import io
 import re
 import secrets
 import sqlite3
+import zipfile
 from datetime import datetime, timezone
 from html import escape
 from pathlib import Path
@@ -1537,6 +1539,27 @@ def queue_html_update(html: str) -> None:
     st.session_state.pending_html = index_html
 
 
+def build_website_zip() -> bytes:
+    """Packt den aktuellen Vercel-Entwurf mit Seiten, CSS und Bildern in eine ZIP-Datei."""
+    index_html = require_complete_html(st.session_state.generated_html)
+    site_pages = dict(st.session_state.site_pages) or {"index.html": index_html}
+    site_pages["index.html"] = index_html
+    archive = io.BytesIO()
+
+    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        for file_name, page_content in site_pages.items():
+            content = (
+                require_complete_html(page_content)
+                if file_name.endswith(".html")
+                else page_content
+            )
+            zip_file.writestr(file_name, content)
+        for file_name, asset in st.session_state.assets.items():
+            zip_file.writestr(file_name, base64.b64decode(asset["base64"]))
+
+    return archive.getvalue()
+
+
 def safe_project_name(name: str) -> str:
     """Erstellt einen gültigen Vercel-Projektnamen."""
     safe_name = re.sub(r"[^a-z0-9-]", "-", name.lower()).strip("-")
@@ -1699,25 +1722,19 @@ def build_customized_template_html(
 <html lang="de">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{company_name}</title>
-<style>
-:root {{ --background: {background_color}; --accent: {accent_color}; --text: {text_color}; --muted: {muted_color}; --radius: {radius}; }}
-* {{ box-sizing: border-box; }} body {{ margin: 0; background: var(--background); color: var(--text); font-family: Arial, sans-serif; line-height: 1.55; }}
-header {{ display:flex; justify-content:space-between; gap:20px; align-items:center; padding:18px max(5vw,24px); border-bottom:1px solid color-mix(in srgb, var(--text) 18%, transparent); }}
-nav {{ display:flex; flex-wrap:wrap; gap:18px; }} nav a, .button {{ color:inherit; text-decoration:none; }}
-.container {{ max-width:1120px; margin:auto; padding:70px 24px; }} .hero {{ display:grid; grid-template-columns:1.1fr .9fr; gap:40px; align-items:center; }}
-.eyebrow {{ color:var(--accent); font-size:13px; font-weight:700; text-transform:uppercase; }} h1 {{ font-family:Georgia,serif; font-size:clamp(2.4rem,5vw,4.4rem); line-height:1.05; margin:14px 0; }}
-p {{ color:var(--muted); }} .button {{ display:inline-block; margin-top:12px; padding:13px 19px; border-radius:var(--radius); background:var(--accent); color:#111827; font-weight:700; }}
-.hero-image,.image-placeholder {{ width:100%; min-height:310px; object-fit:cover; border-radius:var(--radius); border:1px dashed var(--accent); display:grid; place-items:center; color:var(--accent); padding:20px; }}
-.cards {{ display:grid; grid-template-columns:repeat(3,1fr); gap:15px; margin-top:45px; }} .card {{ border-top:3px solid var(--accent); background:color-mix(in srgb, var(--text) 6%, transparent); padding:22px; }}
-.band {{ background:color-mix(in srgb, var(--text) 6%, transparent); }} .contact {{ display:grid; grid-template-columns:1fr 1fr; gap:30px; }} footer {{ padding:28px max(5vw,24px); border-top:1px solid color-mix(in srgb, var(--text) 18%, transparent); color:var(--muted); }}
-@media(max-width:700px) {{ header,.hero,.contact {{ display:block; }} nav {{ margin-top:12px; }} .hero-image,.image-placeholder {{ margin-top:26px; min-height:220px; }} .cards {{ grid-template-columns:1fr; }} }}
-</style></head>
+<link rel="stylesheet" href="styles.css">
+<style>:root {{ --background: {background_color}; --accent: {accent_color}; --text: {text_color}; --muted: {muted_color}; --radius: {radius}; }}</style></head>
 <body><header><strong>{company_name}</strong><nav><a href="leistungen.html">Leistungen</a><a href="angebote.html">Angebote</a><a href="projekte.html">Projekte</a><a href="ueber-uns.html">Über uns</a><a href="kontakt.html">Kontakt</a></nav></header>
 <main><section class="container hero" id="hero"><div><span class="eyebrow">{escape(template_name)}</span><h1>{slogan}</h1><p>{description}</p><a class="button" href="angebote.html">{button_text}</a></div>{image_html}</section>
 <section class="band"><div class="container" id="leistungen"><span class="eyebrow">Leistungen und Vorteile</span><h2>Kompetent. Persönlich. Verlässlich.</h2><div class="cards"><article class="card"><strong>01</strong><h3>Klare Leistungen</h3><p>Passende Lösungen mit nachvollziehbarer Beratung.</p></article><article class="card"><strong>02</strong><h3>Vertrauen schaffen</h3><p>Qualität, Transparenz und ein verbindlicher Service.</p></article><article class="card"><strong>03</strong><h3>Kontakt erleichtern</h3><p>Schnell und direkt zu Ihrer persönlichen Anfrage.</p></article></div></div></section>
 <section class="container" id="ueber-uns"><span class="eyebrow">Über uns</span><h2>Ein Auftritt, der zu Ihrem Unternehmen passt.</h2><p>{description}</p></section>
 <section class="band"><div class="container contact" id="kontakt"><div><span class="eyebrow">Kontakt</span><h2>Wir freuen uns auf Ihre Anfrage.</h2><p><a href="mailto:{business_email}">{business_email}</a></p>{phone_html}</div><div class="card"><h3>Persönlich beraten lassen</h3><p>Schreiben Sie uns direkt. Wir melden uns zeitnah bei Ihnen.</p><a class="button" href="mailto:{business_email}">E-Mail schreiben</a></div></div></section></main>
 <footer>{company_name} · <a href="mailto:{business_email}">{business_email}</a> · Impressum · Datenschutz</footer></body></html>"""
+
+
+def build_customized_template_styles() -> str:
+    """Liefert das gemeinsame Design für alle statischen Vorlagen-Seiten."""
+    return """* { box-sizing: border-box; } body { margin: 0; background: var(--background); color: var(--text); font: 16px/1.55 Arial, sans-serif; } header, footer { padding: 20px max(5vw, 24px); border-bottom: 1px solid color-mix(in srgb, var(--text) 18%, transparent); } header, nav { display: flex; gap: 18px; flex-wrap: wrap; justify-content: space-between; align-items: center; } nav a, .button { color: inherit; text-decoration: none; } main, .container { max-width: 1120px; margin: auto; padding: 70px 24px; } .hero, .contact { display: grid; grid-template-columns: 1.1fr .9fr; gap: 40px; align-items: center; } .eyebrow { color: var(--accent); font-size: 13px; font-weight: 700; text-transform: uppercase; } h1 { font-family: Georgia, serif; font-size: clamp(2.4rem, 5vw, 4.4rem); line-height: 1.05; margin: 14px 0; } p { color: var(--muted); } .button { display: inline-block; margin-top: 18px; padding: 13px 19px; border-radius: var(--radius); background: var(--accent); color: #111827; font-weight: 700; } .hero-image, .image-placeholder { width: 100%; min-height: 310px; object-fit: cover; border-radius: var(--radius); border: 1px dashed var(--accent); display: grid; place-items: center; color: var(--accent); padding: 20px; } .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 45px; } .card { border-top: 3px solid var(--accent); background: color-mix(in srgb, var(--text) 6%, transparent); padding: 24px; margin-top: 32px; } .band { background: color-mix(in srgb, var(--text) 6%, transparent); } @media (max-width: 700px) { header, .hero, .contact { display: block; } nav { margin-top: 12px; } .hero-image, .image-placeholder { margin-top: 26px; min-height: 220px; } .cards { grid-template-columns: 1fr; } }"""
 
 
 def build_customized_template_pages(
@@ -1730,14 +1747,14 @@ def build_customized_template_pages(
     description = escape(description.strip() or "Individuelle Beratung und passende Lösungen.")
     text_color = contrast_text_color(background_color)
     muted_color = "#334155" if is_light_color(background_color) else "#cbd5e1"
-    head = f"""<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{company_name}</title><style>body{{margin:0;background:{background_color};color:{text_color};font:16px/1.55 Arial,sans-serif}}header,footer{{padding:20px max(5vw,24px);border-bottom:1px solid {muted_color}}}header,nav{{display:flex;gap:18px;flex-wrap:wrap;justify-content:space-between}}main{{max-width:1120px;margin:auto;padding:70px 24px}}.card{{border-top:3px solid {accent_color};padding:24px;margin-top:32px;background:color-mix(in srgb,{text_color} 7%,transparent)}}.button{{display:inline-block;margin-top:18px;background:{accent_color};color:#111827;padding:13px 18px;text-decoration:none;font-weight:700}}p{{color:{muted_color}}}</style></head>"""
+    head = f"""<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{company_name}</title><link rel="stylesheet" href="styles.css"><style>:root{{--background:{background_color};--accent:{accent_color};--text:{text_color};--muted:{muted_color};--radius:10px;}}</style></head>"""
     navigation = f'<nav><a href="index.html">Start</a><a href="leistungen.html">Leistungen</a><a href="angebote.html">Angebote</a><a href="projekte.html">Projekte</a><a href="ueber-uns.html">Über uns</a><a href="kontakt.html">Kontakt</a></nav>'
     services = f"""<!doctype html><html lang="de">{head}<body><header><strong>{company_name}</strong>{navigation}</header><main><h1>Leistungen für Ihren Erfolg.</h1><p>{description}</p><section class="card"><h2>Individuelle Beratung</h2><p>Wir analysieren Ihren Bedarf und entwickeln eine passende Lösung.</p></section><section class="card"><h2>Verlässliche Umsetzung</h2><p>Klare Abläufe, hohe Qualität und ein verbindlicher Ansprechpartner.</p></section><section class="card"><h2>Nachhaltiger Service</h2><p>Auch nach dem Projekt bleiben wir persönlich für Sie erreichbar.</p><a class="button" href="kontakt.html">Jetzt anfragen</a></section></main><footer>{company_name} · <a href="mailto:{business_email}">{business_email}</a></footer></body></html>"""
     projects = f"""<!doctype html><html lang="de">{head}<body><header><strong>{company_name}</strong>{navigation}</header><main><h1>Projekte</h1><p>{description}</p><section class="card"><h2>Ausgewählte Projekte</h2><p>Einblick in Lösungen, die wir gemeinsam mit unseren Kunden umgesetzt haben.</p></section><section class="card"><h2>Unser Vorgehen</h2><p>Von der ersten Idee bis zur verlässlichen Umsetzung begleiten wir jedes Vorhaben.</p></section><section class="card"><h2>Ihr nächstes Projekt</h2><p>Wir freuen uns darauf, mehr über Ihr Vorhaben zu erfahren.</p><a class="button" href="kontakt.html">Projekt anfragen</a></section></main><footer>{company_name} · <a href="mailto:{business_email}">{business_email}</a></footer></body></html>"""
     about = f"""<!doctype html><html lang="de">{head}<body><header><strong>{company_name}</strong>{navigation}</header><main><h1>Über uns</h1><p>{description}</p><section class="card"><h2>Unsere Arbeitsweise</h2><p>Wir verbinden fachliche Kompetenz mit klarer Kommunikation und persönlicher Beratung.</p></section><section class="card"><h2>Unser Anspruch</h2><p>Qualität, Verlässlichkeit und eine langfristige Zusammenarbeit stehen im Mittelpunkt.</p></section><section class="card"><h2>Persönlich erreichbar</h2><p>Wir nehmen uns Zeit für Ihr Anliegen und entwickeln passende Lösungen.</p><a class="button" href="kontakt.html">Kontakt aufnehmen</a></section></main><footer>{company_name} · <a href="mailto:{business_email}">{business_email}</a></footer></body></html>"""
     offers = f"""<!doctype html><html lang="de">{head}<body><header><strong>{company_name}</strong>{navigation}</header><main><h1>Unsere Angebote</h1><p>{description}</p><section class="card"><h2>Individuelles Angebot</h2><p>{description}</p><a class="button" href="kontakt.html">Angebot anfragen</a></section></main><footer>{company_name} · <a href="mailto:{business_email}">{business_email}</a></footer></body></html>"""
     contact = f"""<!doctype html><html lang="de">{head}<body><header><strong>{company_name}</strong>{navigation}</header><main><h1>Kontakt</h1><p>Schreiben Sie uns. Wir melden uns zeitnah bei Ihnen.</p><section class="card"><h2>Kontakt aufnehmen</h2><p><a href="mailto:{business_email}">{business_email}</a></p><a class="button" href="mailto:{business_email}">E-Mail schreiben</a></section></main><footer>{company_name} · <a href="mailto:{business_email}">{business_email}</a></footer></body></html>"""
-    return {"leistungen.html": services, "angebote.html": offers, "projekte.html": projects, "ueber-uns.html": about, "kontakt.html": contact}
+    return {"leistungen.html": services, "angebote.html": offers, "projekte.html": projects, "ueber-uns.html": about, "kontakt.html": contact, "styles.css": build_customized_template_styles()}
 
 
 def ask_ai_for_html(system_instruction: str, user_instruction: str) -> str:
@@ -1866,8 +1883,32 @@ CHATBOT MIT VOICE:
 
     html = ensure_customer_email(html, business_email)
     if multi_page:
-        html = ensure_multi_page_navigation(html)
+        html = re.sub(
+            r"(?i)(</head\s*>)",
+            r'<link rel="stylesheet" href="styles.css">\1',
+            html,
+            count=1,
+        )
     queue_html_update(html)
+    if multi_page:
+        background_color = BACKGROUND_PRESET_COLORS.get(
+            str(st.session_state.get("template_background_preset", "Weiß")),
+            "#FFFFFF",
+        )
+        static_pages = build_customized_template_pages(
+            company_name,
+            business_email,
+            background_color,
+            str(st.session_state.get("template_accent_color", "#22D3EE")),
+            description,
+        )
+        static_pages.pop("leistungen.html")
+        for page_name, page_content in static_pages.items():
+            if page_name.endswith(".html"):
+                static_pages[page_name] = page_content.replace(
+                    'href="leistungen.html"', 'href="index.html"'
+                )
+        st.session_state.site_pages.update(static_pages)
 
 
 def render_client_contact_ui() -> None:
@@ -2689,8 +2730,15 @@ def publish_website() -> None:
     site_pages = dict(st.session_state.site_pages) or {"index.html": html}
     site_pages["index.html"] = html
     files = [
-        {"file": file_name, "data": require_complete_html(page_html)}
-        for file_name, page_html in site_pages.items()
+        {
+            "file": file_name,
+            "data": (
+                require_complete_html(page_content)
+                if file_name.endswith(".html")
+                else page_content
+            ),
+        }
+        for file_name, page_content in site_pages.items()
     ]
 
     for file_name, asset in st.session_state.assets.items():
@@ -2774,6 +2822,15 @@ def render_domain_and_deployment_ui() -> None:
     st.caption(
         "Die Website wird auf Vercel veröffentlicht. Die finale Adresse wird nach "
         "der erfolgreichen Vercel-Antwort angezeigt."
+    )
+    st.download_button(
+        "Website-Paket als ZIP herunterladen",
+        data=build_website_zip(),
+        file_name="kunden-website.zip",
+        mime="application/zip",
+        icon=":material/folder_zip:",
+        key="download_website_zip",
+        width="stretch",
     )
     domain_type = st.radio(
         "Adresse wählen",
@@ -3239,7 +3296,7 @@ with new_tab:
                     st.error(str(error))
             else:
                 page_prompt = (
-                    "Erstelle eine mehrseitige Informationsarchitektur innerhalb einer einzelnen, deploybaren HTML-Datei. Das HTML muss genau vier eigenständige Ansichten besitzen: `data-page=\"start\"`, `data-page=\"leistungen\"`, `data-page=\"ueber-uns\"` und `data-page=\"kontakt\"`. Die Navigation muss Links auf `#start`, `#leistungen`, `#ueber-uns` und `#kontakt` besitzen. Füge JavaScript für `hashchange` und beim initialen Laden hinzu: Es blendet nur die gewählte Ansicht ein und ergänzt bei unbekanntem Hash `#start`. Beim Klick auf Kontakt muss ausschließlich die vollständige Kontaktansicht mit E-Mail-Adresse, Erreichbarkeit und Kontaktformular erscheinen. Die Browsernavigation Zurück/Vorwärts muss die Ansichten korrekt wechseln."
+                    "Erstelle die statische Startseite `index.html` für eine Vercel-Website. Verwende ausschließlich echte Dateilinks in der Navigation: `index.html` für Leistungen/Start, `angebote.html`, `projekte.html`, `ueber-uns.html` und `kontakt.html`. Verwende keine Hash-Navigation, keine `data-page`-Ansichten und kein JavaScript-Routing. Die verlinkten Unterseiten werden beim Deployment als eigenständige HTML-Dateien bereitgestellt."
                     if page_structure == "Mehrseitige Website"
                     else "Erstelle eine klar gegliederte, einseitige Website mit Navigation zu den jeweiligen Inhaltsbereichen."
                 )
