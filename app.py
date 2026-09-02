@@ -28,8 +28,8 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
         css="""
         #template-editor { font-family: Georgia, serif; }
         .template-shell { overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); background: var(--background); color: var(--text); }
-        .template-header { padding: 18px 28px; border-bottom: 1px solid var(--border); font-family: ui-sans-serif, sans-serif; }
-        .template-nav { display: none; }
+        .template-header { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 18px 28px; border-bottom: 1px solid var(--border); font-family: ui-sans-serif, sans-serif; }
+        .template-nav { display: flex; justify-content: flex-end; gap: 16px; flex-wrap: wrap; font-size: 12px; }
         .template-nav button { border: 0; padding: 0; background: transparent; color: inherit; cursor: pointer; font: inherit; }
         .template-nav button:hover, .template-nav button:focus-visible { color: var(--accent); }
         .template-hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(220px, .9fr); gap: 34px; padding: 48px 28px 42px; align-items: center; }
@@ -47,7 +47,7 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
         .template-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 34px; }
         .template-card { min-height: 210px; padding: 22px; border-top: 3px solid var(--accent); background: var(--surface); font-family: ui-sans-serif, sans-serif; }
         .template-card p { color: var(--muted); }
-        @media (max-width: 700px) { .template-hero, .template-cards { grid-template-columns: 1fr; } }
+        @media (max-width: 700px) { .template-header { align-items: flex-start; flex-direction: column; } .template-nav { justify-content: flex-start; } .template-hero, .template-cards { grid-template-columns: 1fr; } }
         """,
         js="""
         export default function(component) {
@@ -2038,21 +2038,6 @@ def render_template_preview(
         if page in {"start", "leistungen", "angebote", "projekte", "ueber_uns", "kontakt"}:
             st.session_state.template_preview_page = page
 
-    st.segmented_control(
-        "Vorschau-Unterseite",
-        ["start", "leistungen", "angebote", "projekte", "ueber_uns", "kontakt"],
-        default="start",
-        format_func={
-            "start": "Start",
-            "leistungen": "Leistungen",
-            "angebote": "Angebote",
-            "projekte": "Projekte",
-            "ueber_uns": "Über uns",
-            "kontakt": "Kontakt",
-        }.get,
-        key="template_preview_page",
-    )
-
     CLICKABLE_TEMPLATE_EDITOR(
         key="clickable_template_editor",
         data={
@@ -3390,7 +3375,10 @@ if st.session_state.live_url:
 st.divider()
 render_saas_preview_and_testing_window()
 
-if st.session_state.generated_html:
+if (
+    st.session_state.generated_html
+    and st.session_state.get("creation_mode") != "Professionelle Vorlage"
+):
     st.divider()
     st.header(t("edit_website"))
 
