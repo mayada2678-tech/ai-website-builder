@@ -123,7 +123,7 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
                     const chatbotSend = create('button', '', 'Senden');
                     chatbotSend.type = 'submit';
                     chatbotForm.append(chatbotInput, chatbotSend);
-                    chatbotForm.onsubmit = event => { event.preventDefault(); if (!chatbotInput.value.trim()) return; chatbotAnswer.textContent = data.chatbotKnowledge || `Vielen Dank. ${data.companyName} meldet sich gerne bei Ihnen.`; chatbotInput.value = ''; };
+                    chatbotForm.onsubmit = event => { event.preventDefault(); const question = chatbotInput.value.trim(); if (!question) return; chatbotAnswer.textContent = `Danke für Ihre Frage: „${question}“. ${data.chatbotKnowledge || `${data.companyName} meldet sich gerne bei Ihnen.`}`; chatbotInput.value = ''; };
                     chatbotPanel.append(create('h2', '', data.chatbotName || `${data.companyName} Assistent`), chatbotAnswer, chatbotForm);
                     const chatbotToggle = create('button', 'template-chatbot-toggle', 'Chat');
                     chatbotToggle.type = 'button';
@@ -177,7 +177,7 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
                 const chatbotSend = create('button', '', 'Senden');
                 chatbotSend.type = 'submit';
                 chatbotForm.append(chatbotInput, chatbotSend);
-                chatbotForm.onsubmit = event => { event.preventDefault(); if (!chatbotInput.value.trim()) return; chatbotAnswer.textContent = data.chatbotKnowledge || `Vielen Dank. ${data.companyName} meldet sich gerne bei Ihnen.`; chatbotInput.value = ''; };
+                chatbotForm.onsubmit = event => { event.preventDefault(); const question = chatbotInput.value.trim(); if (!question) return; chatbotAnswer.textContent = `Danke für Ihre Frage: „${question}“. ${data.chatbotKnowledge || `${data.companyName} meldet sich gerne bei Ihnen.`}`; chatbotInput.value = ''; };
                 chatbotPanel.append(create('h2', '', data.chatbotName || `${data.companyName} Assistent`), chatbotAnswer, chatbotForm);
                 const chatbotToggle = create('button', 'template-chatbot-toggle', 'Chat');
                 chatbotToggle.type = 'button';
