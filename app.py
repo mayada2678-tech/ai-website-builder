@@ -3340,8 +3340,7 @@ def generate_website_recommendation(topic_or_industry: str) -> str:
 
 def render_website_recommendation_ui() -> None:
     """Rendert die automatische Empfehlung für eine Website-Branche."""
-    st.subheader("Automatischer Themen- und Empfehlungs-Konfigurator", anchor=False)
-    st.write("Geben Sie ein Schlagwort ein und erhalten Sie einen Titel, Leistungen und ein Angebot.")
+    st.caption("Geben Sie ein Schlagwort ein und erhalten Sie einen Titel, Leistungen und ein Angebot.")
     topic = st.text_input(
         "Thema oder Branche, zum Beispiel Kfz-Werkstatt, Friseur oder Dachdecker",
         key="website_recommendation_topic",
@@ -3454,8 +3453,7 @@ def apply_industry_content_preset() -> None:
 
 def render_industry_content_preset_ui() -> None:
     """Rendert die formularbasierte Branchenauswahl für Website-Inhalte."""
-    st.subheader("Branche wählen und Website-Inhalte vorbereiten", anchor=False)
-    st.write("Wählen Sie Ihre Branche und übernehmen Sie die vorbereiteten Texte in den Website-Entwurf.")
+    st.caption("Wählen Sie eine Branche und übernehmen Sie vorbereitete Inhalte in den Entwurf.")
     industry = st.selectbox(
         "Was ist Ihr Betrieb?",
         ["Bitte wählen..."] + list(INDUSTRY_CONTENT_PRESETS),
@@ -3666,29 +3664,24 @@ new_tab, manage_tab, service_tab, privacy_tab = st.tabs(
 
 with new_tab:
     st.subheader("Website planen")
-    st.selectbox(
-        "Schnellstart für typische Use Cases",
-        list(DESIGN_USE_CASES),
-        help="Übernimmt eine passende Startkonfiguration. Alle Angaben können danach angepasst werden.",
-        key="design_use_case",
-        on_change=apply_design_use_case,
-    )
-    render_website_recommendation_ui()
-    st.divider()
-    render_industry_content_preset_ui()
-    st.divider()
-    creation_mode = st.segmented_control(
-        "Wie möchten Sie starten?",
-        ["Professionelle Vorlage", "Freier Entwurf", "Bestehenden Entwurf anpassen"],
-        default="Professionelle Vorlage",
-        key="creation_mode",
-    )
+    st.caption("Wählen Sie Branche, Startmodus und Seitenstruktur. Alle Inhalte können Sie anschließend bearbeiten.")
+    industry_column, mode_column = st.columns(2)
+    with industry_column:
+        render_industry_content_preset_ui()
+    with mode_column:
+        creation_mode = st.segmented_control(
+            "Wie möchten Sie starten?",
+            ["Professionelle Vorlage", "Freier Entwurf", "Bestehenden Entwurf anpassen"],
+            default="Professionelle Vorlage",
+            key="creation_mode",
+        )
     page_structure = st.segmented_control(
         "Seitenstruktur",
         ["Eine übersichtliche Seite", "Mehrseitige Website"],
         default="Eine übersichtliche Seite",
         key="page_structure",
     )
+    st.divider()
 
     template_prompt = ""
     if creation_mode == "Professionelle Vorlage":
