@@ -2271,8 +2271,8 @@ def render_client_contact_ui() -> None:
     st.subheader("Kunden-Chatbot konfigurieren", anchor=False)
     st.info(
         f"Der Chatbot erhält automatisch Basiswissen über die Branche: {industry_knowledge}. "
-        "Er wird beim Erstellen in die Kundenwebsite eingefügt und funktioniert nach der "
-        "Veröffentlichung ohne weitere technische Einrichtung."
+        "Er wird beim Erstellen in die Kundenwebsite eingefügt. Für KI-Antworten nach "
+        "der Veröffentlichung muss im Vercel-Projekt einmalig HF_API_KEY gesetzt sein."
     )
     st.write("Hinterlegen Sie die Firmendaten, die der Chatbot Ihren Website-Besuchern nennen darf.")
     hours_column, contact_column = st.columns(2)
