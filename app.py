@@ -899,6 +899,13 @@ def render_payment_ui(user_id: int, user_email: str) -> None:
     """Zeigt die Zahlung für die Veröffentlichung, ohne Freischaltung vor Zahlung."""
     st.subheader("Veröffentlichung freischalten")
     st.caption("Nach bestätigter Zahlung kann die Website mit Wunsch-URL und eigener Domain veröffentlicht werden.")
+    st.link_button(
+        "Abonnement abschließen",
+        STRIPE_PAYMENT_LINK,
+        icon=":material/payment:",
+        type="primary",
+        width="stretch",
+    )
     stripe_configured = bool(
         STRIPE_SECRET_KEY and STRIPE_PRICE_ID and STRIPE_SUCCESS_URL
     )
@@ -934,6 +941,7 @@ except KeyError:
     st.stop()
 
 client = OpenAI(api_key=OPENAI_API_KEY)
+STRIPE_PAYMENT_LINK = "https://buy.stripe.com/3cIfZh5qseusaOpdYP5Rm02"
 STRIPE_SECRET_KEY = str(st.secrets.get("stripe_secret_key", "")).strip()
 STRIPE_PRICE_ID = str(st.secrets.get("stripe_price_id", "")).strip()
 STRIPE_SUCCESS_URL = str(st.secrets.get("stripe_success_url", "")).strip().rstrip("?")
