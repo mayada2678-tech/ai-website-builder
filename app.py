@@ -1905,9 +1905,27 @@ def build_customized_template_styles() -> str:
     return """* { box-sizing: border-box; } body { margin: 0; background: var(--background); color: var(--text); font: 16px/1.55 Arial, sans-serif; } header { padding: 20px max(5vw, 24px); border-bottom: 1px solid color-mix(in srgb, var(--text) 18%, transparent); } header, nav { display: flex; gap: 18px; flex-wrap: wrap; justify-content: space-between; align-items: center; } nav a, .button, .site-footer a { color: inherit; text-decoration: none; } main, .container { max-width: 1120px; margin: auto; padding: 70px 24px; } .hero, .contact { display: grid; grid-template-columns: 1.1fr .9fr; gap: 40px; align-items: center; } .eyebrow { color: var(--accent); font-size: 13px; font-weight: 700; text-transform: uppercase; } h1 { font-family: Georgia, serif; font-size: clamp(2.4rem, 5vw, 4.4rem); line-height: 1.05; margin: 14px 0; } p { color: var(--muted); } .button { display: inline-block; margin-top: 18px; padding: 13px 19px; border-radius: var(--radius); background: var(--accent); color: #111827; font-weight: 700; } .hero-image, .image-placeholder { width: 100%; min-height: 310px; object-fit: cover; border-radius: var(--radius); border: 1px dashed var(--accent); display: grid; place-items: center; color: var(--accent); padding: 20px; } .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 45px; } .card { border-top: 3px solid var(--accent); background: color-mix(in srgb, var(--text) 6%, transparent); padding: 24px; margin-top: 32px; } .band { background: color-mix(in srgb, var(--text) 6%, transparent); } .site-footer { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 28px; padding: 34px max(5vw, 24px) 20px; border-top: 1px solid color-mix(in srgb, var(--text) 18%, transparent); } .site-footer strong { display: block; } .site-footer p { margin: 8px 0 0; font-size: 13px; } .footer-legal { grid-column: 1 / -1; padding-top: 16px; border-top: 1px solid color-mix(in srgb, var(--text) 18%, transparent); } .customer-chatbot { position: fixed; right: 24px; bottom: 24px; z-index: 10; } .customer-chatbot button { width: 52px; height: 52px; border: 0; border-radius: 50%; background: var(--accent); color: #111827; cursor: pointer; font-weight: 700; font-size: 20px; } .customer-chatbot section { width: min(300px, calc(100vw - 48px)); margin-bottom: 10px; padding: 18px; border: 1px solid color-mix(in srgb, var(--text) 18%, transparent); border-radius: var(--radius); background: var(--background); box-shadow: 0 16px 38px rgba(15, 23, 42, .22); } @media (max-width: 700px) { header, .hero, .contact { display: block; } nav { margin-top: 12px; } .hero-image, .image-placeholder { margin-top: 26px; min-height: 220px; } .cards, .site-footer { grid-template-columns: 1fr; } }"""
 
 
+def build_customer_chatbot_widget(
+    chatbot_name: str, chatbot_color: str, chatbot_knowledge: str
+) -> str:
+    """Erstellt ein lokales Chat-Widget für die exportierte Kundenwebsite."""
+    chatbot_name = escape(chatbot_name.strip() or "Kundenservice")
+    chatbot_knowledge = escape(
+        chatbot_knowledge.strip()
+        or "Vielen Dank für Ihre Nachricht. Wir melden uns gerne persönlich bei Ihnen."
+    )
+    chatbot_color = (
+        chatbot_color
+        if re.fullmatch(r"#[0-9a-fA-F]{6}", chatbot_color)
+        else "#2563EB"
+    )
+    return f'''<aside class="customer-chatbot" data-knowledge="{chatbot_knowledge}"><button id="customer-chat-toggle" type="button" aria-expanded="false" aria-label="{chatbot_name} öffnen" style="background:{chatbot_color};color:#fff;border:0;border-radius:50%;width:56px;height:56px;cursor:pointer;font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,.24)">Chat</button><section id="customer-chat-panel" hidden style="position:absolute;right:0;bottom:68px;width:min(330px,calc(100vw - 40px));padding:18px;background:#fff;color:#111827;border:1px solid #d1d5db;border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.22)"><strong>{chatbot_name}</strong><p id="customer-chat-answer" style="margin:10px 0;color:#374151">Hallo! Wie können wir helfen?</p><form id="customer-chat-form" style="display:flex;gap:6px"><input id="customer-chat-input" aria-label="Frage eingeben" placeholder="Frage eingeben..." required style="min-width:0;flex:1;padding:8px"><button type="submit" style="border:0;background:{chatbot_color};color:#fff;padding:8px 12px;cursor:pointer">Senden</button></form></section></aside><script>(()=>{{const toggle=document.getElementById('customer-chat-toggle'),panel=document.getElementById('customer-chat-panel'),form=document.getElementById('customer-chat-form'),input=document.getElementById('customer-chat-input'),answer=document.getElementById('customer-chat-answer'),knowledge=document.querySelector('.customer-chatbot').dataset.knowledge;toggle.onclick=()=>{{panel.hidden=!panel.hidden;toggle.setAttribute('aria-expanded',String(!panel.hidden));if(!panel.hidden)input.focus();}};form.onsubmit=event=>{{event.preventDefault();const question=input.value.trim().toLowerCase();if(!question)return;answer.textContent=question.includes('kontakt')||question.includes('email')?'Bitte nutzen Sie die Kontaktmöglichkeiten auf dieser Website.':knowledge;input.value='';}};}})();</script>'''
+
+
 def build_customized_template_pages(
     company_name: str, business_email: str, background_color: str,
-    accent_color: str, description: str,
+    accent_color: str, description: str, chatbot_knowledge: str = "",
+    chatbot_name: str = "", chatbot_color: str = "#2563EB",
 ) -> dict[str, str]:
     """Erstellt echte statische Angebots- und Kontaktseiten der Kundenwebsite."""
     company_name = escape(company_name.strip())
@@ -1922,7 +1940,22 @@ def build_customized_template_pages(
     about = f"""<!doctype html><html lang="de">{head}<body><header><strong>{company_name}</strong>{navigation}</header><main><h1>Über uns</h1><p>{description}</p><section class="card"><h2>Unsere Arbeitsweise</h2><p>Wir verbinden fachliche Kompetenz mit klarer Kommunikation und persönlicher Beratung.</p></section><section class="card"><h2>Unser Anspruch</h2><p>Qualität, Verlässlichkeit und eine langfristige Zusammenarbeit stehen im Mittelpunkt.</p></section><section class="card"><h2>Persönlich erreichbar</h2><p>Wir nehmen uns Zeit für Ihr Anliegen und entwickeln passende Lösungen.</p><a class="button" href="kontakt.html">Kontakt aufnehmen</a></section></main><footer>{company_name} · <a href="mailto:{business_email}">{business_email}</a></footer></body></html>"""
     offers = f"""<!doctype html><html lang="de">{head}<body><header><strong>{company_name}</strong>{navigation}</header><main><h1>Unsere Angebote</h1><p>{description}</p><section class="card"><h2>Individuelles Angebot</h2><p>{description}</p><a class="button" href="kontakt.html">Angebot anfragen</a></section></main><footer>{company_name} · <a href="mailto:{business_email}">{business_email}</a></footer></body></html>"""
     contact = f"""<!doctype html><html lang="de">{head}<body><header><strong>{company_name}</strong>{navigation}</header><main><h1>Kontakt</h1><p>Schreiben Sie uns. Wir melden uns zeitnah bei Ihnen.</p><section class="card"><h2>Kontakt aufnehmen</h2><p><a href="mailto:{business_email}">{business_email}</a></p><a class="button" href="mailto:{business_email}">E-Mail schreiben</a></section></main><footer>{company_name} · <a href="mailto:{business_email}">{business_email}</a></footer></body></html>"""
-    return {"leistungen.html": services, "angebote.html": offers, "projekte.html": projects, "ueber-uns.html": about, "kontakt.html": contact, "styles.css": build_customized_template_styles()}
+    chatbot_widget = build_customer_chatbot_widget(
+        chatbot_name, chatbot_color, chatbot_knowledge
+    )
+    pages = {
+        "leistungen.html": services,
+        "angebote.html": offers,
+        "projekte.html": projects,
+        "ueber-uns.html": about,
+        "kontakt.html": contact,
+    }
+    pages = {
+        page_name: page_html.replace("</body>", f"{chatbot_widget}</body>")
+        for page_name, page_html in pages.items()
+    }
+    pages["styles.css"] = build_customized_template_styles()
+    return pages
 
 
 def ask_ai_for_html(system_instruction: str, user_instruction: str) -> str:
@@ -2069,6 +2102,9 @@ CHATBOT MIT VOICE:
             background_color,
             str(st.session_state.get("template_accent_color", "#22D3EE")),
             description,
+            get_configured_chatbot_knowledge(),
+            str(st.session_state.get("customer_chatbot_name", "")),
+            str(st.session_state.get("customer_chatbot_color", "#2563EB")),
         )
         static_pages.pop("leistungen.html")
         for page_name, page_content in static_pages.items():
@@ -3871,6 +3907,9 @@ with new_tab:
                                 background_color,
                                 str(st.session_state.template_accent_color),
                                 description,
+                                get_configured_chatbot_knowledge(),
+                                str(st.session_state.get("customer_chatbot_name", "")),
+                                str(st.session_state.get("customer_chatbot_color", "#2563EB")),
                             )
                         )
                     st.success("Die Vorlage wurde mit Ihren Kundendaten übernommen und kann jetzt direkt bearbeitet werden.")
