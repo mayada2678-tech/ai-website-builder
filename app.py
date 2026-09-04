@@ -3194,6 +3194,93 @@ def optimize_text_with_transformer(bullet_points: str) -> str:
     return optimized_text.strip()
 
 
+def generate_website_recommendation(topic_or_industry: str) -> str:
+    """Erstellt eine Branchenempfehlung für Titel, Leistungen und Angebot."""
+    if not HF_API_KEY:
+        raise ValueError(
+            "Der Hugging-Face-Schlüssel fehlt. Hinterlegen Sie HF_API_KEY in den Streamlit-Secrets."
+        )
+
+    instruction = (
+        "Du bist ein KI-Website-Generator für den AI Website Builder. Erstelle für "
+        "das angegebene Thema eine professionelle, verkaufsstarke Struktur mit "
+        "fertigen Texten für eine deutsche KMU-Website. Gib exakt dieses Format aus:\n"
+        "EMPFOHLENER TITEL: [starker Slogan]\n"
+        "LEISTUNGEN: [drei konkrete Empfehlungen]\n"
+        "ANGEBOT: [Aktionsangebot für Neukunden]"
+    )
+    response = requests.post(
+        HF_TEXT_MODEL_URL,
+        headers={
+            "Authorization": f"Bearer {HF_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "inputs": f"{instruction}\n\nThema: {topic_or_industry.strip()}\nAntwort:",
+            "parameters": {
+                "max_new_tokens": 300,
+                "temperature": 0.3,
+                "return_full_text": False,
+            },
+        },
+        timeout=30,
+    )
+    if response.status_code == 503:
+        raise ValueError(
+            "Das KI-Modell wird gerade gestartet. Bitte versuchen Sie es in wenigen Sekunden erneut."
+        )
+    if response.status_code != 200:
+        try:
+            error_detail = response.json().get("error", "Unbekannter Fehler")
+        except ValueError:
+            error_detail = response.text or "Unbekannter Fehler"
+        raise ValueError(f"Hugging Face konnte keine Empfehlung erstellen: {error_detail}")
+
+    result = response.json()
+    if isinstance(result, list) and result:
+        recommendation = result[0].get("generated_text", "")
+    elif isinstance(result, dict):
+        recommendation = result.get("generated_text", "")
+    else:
+        recommendation = ""
+    if not recommendation.strip():
+        raise ValueError("Hugging Face hat keine Empfehlung zurückgegeben.")
+    return recommendation.strip()
+
+
+def render_website_recommendation_ui() -> None:
+    """Rendert die automatische Empfehlung für eine Website-Branche."""
+    st.subheader("Automatischer Themen- und Empfehlungs-Konfigurator", anchor=False)
+    st.write("Geben Sie ein Schlagwort ein und erhalten Sie einen Titel, Leistungen und ein Angebot.")
+    topic = st.text_input(
+        "Thema oder Branche, zum Beispiel Kfz-Werkstatt, Friseur oder Dachdecker",
+        key="website_recommendation_topic",
+    )
+    if st.button(
+        "Automatische Empfehlung generieren",
+        icon=":material/auto_awesome:",
+        type="primary",
+        key="website_recommendation_submit",
+    ):
+        if not topic.strip():
+            st.warning("Bitte geben Sie zuerst ein Thema oder eine Branche ein.")
+        else:
+            with st.spinner(f"Empfehlung für {topic.strip()} wird erstellt ..."):
+                try:
+                    st.session_state.current_website_recommendation = (
+                        generate_website_recommendation(topic)
+                    )
+                except ValueError as error:
+                    st.error(str(error))
+
+    recommendation = str(
+        st.session_state.get("current_website_recommendation", "")
+    ).strip()
+    if recommendation:
+        st.markdown("#### Automatisch generierte Website-Vorlage")
+        st.info(recommendation)
+
+
 def render_transformer_test_ui() -> None:
     """Rendert den manuellen Test für die Transformer-Textoptimierung."""
     st.divider()
@@ -3394,6 +3481,8 @@ with new_tab:
         key="design_use_case",
         on_change=apply_design_use_case,
     )
+    render_website_recommendation_ui()
+    st.divider()
     creation_mode = st.segmented_control(
         "Wie möchten Sie starten?",
         ["Professionelle Vorlage", "Freier Entwurf", "Bestehenden Entwurf anpassen"],
