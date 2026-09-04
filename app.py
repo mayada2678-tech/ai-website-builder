@@ -3243,6 +3243,37 @@ def render_domain_and_deployment_ui() -> None:
                 "serverseitige Vercel-Domain-API-Integration."
             )
 
+    if st.session_state.deployment_id:
+        st.divider()
+        st.subheader("Veröffentlichung entfernen", anchor=False)
+        st.caption(
+            "Entfernt nur das aktuelle Vercel-Deployment. Der gespeicherte Entwurf und "
+            "das lokale Website-Paket bleiben erhalten."
+        )
+        st.checkbox(
+            "Ich bestätige das Löschen der veröffentlichten Website.",
+            key="delete_published_site_confirmation",
+        )
+        if st.button(
+            "Veröffentlichte Website löschen",
+            icon=":material/delete:",
+            type="secondary",
+            disabled=not st.session_state.get("delete_published_site_confirmation", False),
+            key="delete_published_site_from_domain_center",
+            width="stretch",
+        ):
+            with st.status("Veröffentlichung wird entfernt ...", expanded=True) as status:
+                try:
+                    delete_published_website()
+                    status.update(
+                        label="Die veröffentlichte Website wurde entfernt.",
+                        state="complete",
+                    )
+                    st.rerun()
+                except ValueError as error:
+                    status.update(label="Löschen fehlgeschlagen", state="error")
+                    st.error(str(error))
+
 
 def render_customer_service_ui(user_id: int, user_email: str) -> None:
     """Ermöglicht Kunden Feedback und nachvollziehbare Supportanfragen."""
