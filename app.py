@@ -3307,11 +3307,6 @@ def optimize_text_with_transformer(bullet_points: str) -> str:
 
 def generate_website_recommendation(topic_or_industry: str) -> str:
     """Erstellt eine Branchenempfehlung für Titel, Leistungen und Angebot."""
-    if not HF_API_KEY:
-        raise ValueError(
-            "Der Hugging-Face-Schlüssel fehlt. Hinterlegen Sie HF_API_KEY in den Streamlit-Secrets."
-        )
-
     instruction = (
         "Du bist ein KI-Website-Generator für den AI Website Builder. Erstelle für "
         "das angegebene Thema eine professionelle, verkaufsstarke Struktur mit "
@@ -3320,42 +3315,26 @@ def generate_website_recommendation(topic_or_industry: str) -> str:
         "LEISTUNGEN: [drei konkrete Empfehlungen]\n"
         "ANGEBOT: [Aktionsangebot für Neukunden]"
     )
-    response = requests.post(
-        HF_TEXT_MODEL_URL,
-        headers={
-            "Authorization": f"Bearer {HF_API_KEY}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "inputs": f"{instruction}\n\nThema: {topic_or_industry.strip()}\nAntwort:",
-            "parameters": {
-                "max_new_tokens": 300,
-                "temperature": 0.3,
-                "return_full_text": False,
-            },
-        },
-        timeout=30,
-    )
-    if response.status_code == 503:
-        raise ValueError(
-            "Das KI-Modell wird gerade gestartet. Bitte versuchen Sie es in wenigen Sekunden erneut."
+    try:
+        response = client.chat.completions.create(
+            model=OPENAI_MODEL,
+            temperature=0.3,
+            max_tokens=300,
+            timeout=30,
+            messages=[
+                {"role": "system", "content": instruction},
+                {
+                    "role": "user",
+                    "content": f"Generiere die Empfehlung für: {topic_or_industry.strip()}",
+                },
+            ],
         )
-    if response.status_code != 200:
-        try:
-            error_detail = response.json().get("error", "Unbekannter Fehler")
-        except ValueError:
-            error_detail = response.text or "Unbekannter Fehler"
-        raise ValueError(f"Hugging Face konnte keine Empfehlung erstellen: {error_detail}")
+    except Exception as error:
+        raise ValueError(f"Die Empfehlungs-Engine konnte nicht erreicht werden: {error}") from error
 
-    result = response.json()
-    if isinstance(result, list) and result:
-        recommendation = result[0].get("generated_text", "")
-    elif isinstance(result, dict):
-        recommendation = result.get("generated_text", "")
-    else:
-        recommendation = ""
+    recommendation = response.choices[0].message.content or ""
     if not recommendation.strip():
-        raise ValueError("Hugging Face hat keine Empfehlung zurückgegeben.")
+        raise ValueError("Die Empfehlungs-Engine hat keine Empfehlung zurückgegeben.")
     return recommendation.strip()
 
 
