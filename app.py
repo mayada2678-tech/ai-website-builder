@@ -1737,9 +1737,16 @@ def save_uploaded_image(uploaded_file, section_name: str) -> str:
     return file_name
 
 
-def create_preview_html(html: str) -> str:
-    """Ersetzt lokale Bildnamen in der Vorschau durch eingebettete Data-URLs."""
+def create_preview_html(html: str, include_customer_chatbot: bool = False) -> str:
+    """Erstellt die Builder-Vorschau aus derselben Kunden-HTML wie der Export."""
     preview_html = html
+    if not include_customer_chatbot:
+        preview_html = re.sub(
+            r'<aside class="customer-chatbot".*?</aside>\s*<script>.*?</script>',
+            "",
+            preview_html,
+            flags=re.DOTALL,
+        )
 
     for file_name, asset in st.session_state.assets.items():
         data_url = f"data:{asset['mime_type']};base64,{asset['base64']}"
