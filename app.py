@@ -2199,6 +2199,21 @@ def render_client_contact_ui() -> None:
             value="Werkstatt-Assistent",
             key="customer_chatbot_name",
         )
+    position_column, behavior_column = st.columns(2)
+    with position_column:
+        st.segmented_control(
+            "Position des Chatbots",
+            ["Unten rechts", "Unten links"],
+            default="Unten rechts",
+            key="customer_chatbot_position",
+        )
+    with behavior_column:
+        st.checkbox(
+            "Beim Scrollen sichtbar halten",
+            value=True,
+            key="customer_chatbot_fixed",
+            help="Aktiv: Der Chatbot bleibt am Bildschirmrand. Deaktiviert: Er steht am Ende der Seite.",
+        )
 
 
 def render_language_selector() -> tuple[dict[str, str], str]:
