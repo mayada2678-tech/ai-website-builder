@@ -1551,7 +1551,6 @@ user_info = get_user_status(current_user_id)
 if not user_info["subscribed"] and confirm_stripe_checkout(current_user_id):
     st.success("Zahlung bestätigt. Die Veröffentlichung ist jetzt freigeschaltet.")
     st.rerun()
-render_help_chatbot()
 
 if not user_info["subscribed"] and user_info["balance"] <= 0:
     st.error(t("balance_empty"))
