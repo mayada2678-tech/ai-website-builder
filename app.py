@@ -889,16 +889,40 @@ def confirm_stripe_checkout(user_id: int) -> bool:
 
 
 def render_payment_ui(user_id: int, user_email: str) -> None:
-    """Zeigt den Stripe-Payment-Link für die Veröffentlichungsfreigabe."""
-    st.subheader("Veröffentlichung freischalten")
-    st.caption("Nach bestätigter Zahlung kann die Website mit Wunsch-URL und eigener Domain veröffentlicht werden.")
+    """Zeigt die verfügbaren Stripe-Zahlungswege für das Premium-Abonnement."""
+    st.subheader("Premium-Abonnement")
+    st.caption(
+        "Mit Premium veröffentlichen Sie Websites mit Wunsch-URL und eigener Domain. "
+        f"Das Abonnement wird für {user_email} abgeschlossen."
+    )
     st.link_button(
-        "Abonnement abschließen",
+        "Mit Stripe abonnieren",
         STRIPE_PAYMENT_LINK,
         icon=":material/payment:",
         type="primary",
         width="stretch",
     )
+    if STRIPE_SECRET_KEY and STRIPE_PRICE_ID and STRIPE_SUCCESS_URL:
+        if st.button(
+            "Stripe Checkout öffnen",
+            icon=":material/open_in_new:",
+            key="open_stripe_checkout",
+            width="stretch",
+        ):
+            try:
+                st.session_state.stripe_checkout_url = create_stripe_checkout_session(
+                    user_id, user_email
+                )
+            except ValueError as error:
+                st.error(str(error))
+        checkout_url = str(st.session_state.get("stripe_checkout_url", ""))
+        if checkout_url:
+            st.link_button(
+                "Sicheren Checkout fortsetzen",
+                checkout_url,
+                icon=":material/lock:",
+                width="stretch",
+            )
 
 
 initialize_database()
@@ -946,6 +970,7 @@ DEFAULT_STATE = {
     "deployment_url": "",
     "deployment_id": "",
     "project_name": "ai-website-builder",
+    "stripe_checkout_url": "",
     "delete_confirmation": False,
     "show_botpress_chatbot": True,
     "chat_messages": [
@@ -3600,6 +3625,13 @@ with st.sidebar:
             st.badge(t("premium_active"), icon=":material/workspace_premium:", color="green")
         else:
             st.caption(t("balance", balance=user_info["balance"]))
+            st.link_button(
+                "Premium-Abonnement",
+                STRIPE_PAYMENT_LINK,
+                icon=":material/payment:",
+                type="primary",
+                width="stretch",
+            )
 
         if st.button(t("logout"), icon=":material/logout:", width="stretch"):
             st.session_state.clear()
