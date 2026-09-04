@@ -3681,22 +3681,19 @@ new_tab, manage_tab, service_tab, privacy_tab = st.tabs(
 with new_tab:
     st.subheader("1. Website-Projekt festlegen")
     st.caption("Wählen Sie Branche, Startmodus und Seitenstruktur. Alle Inhalte bleiben anschließend bearbeitbar.")
-    industry_column, mode_column = st.columns(2)
-    with industry_column:
-        render_industry_content_preset_ui()
-    with mode_column:
-        creation_mode = st.segmented_control(
-            "Wie möchten Sie starten?",
-            ["Professionelle Vorlage", "Freier Entwurf", "Bestehenden Entwurf anpassen"],
-            default="Professionelle Vorlage",
-            key="creation_mode",
-        )
+    creation_mode = st.segmented_control(
+        "Wie möchten Sie starten?",
+        ["Professionelle Vorlage", "Freier Entwurf", "Bestehenden Entwurf anpassen"],
+        default="Professionelle Vorlage",
+        key="creation_mode",
+    )
     page_structure = st.segmented_control(
         "Seitenstruktur",
         ["Eine übersichtliche Seite", "Mehrseitige Website"],
         default="Eine übersichtliche Seite",
         key="page_structure",
     )
+    render_industry_content_preset_ui()
     st.divider()
 
     if creation_mode != "Bestehenden Entwurf anpassen":
