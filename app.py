@@ -54,6 +54,9 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
         .template-chatbot-panel.is-open { display: block; }
         .template-chatbot-panel h2 { margin: 0; font-size: 16px; }
         .template-chatbot-panel p { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+        .template-chatbot-form { display: flex; gap: 6px; margin-top: 14px; }
+        .template-chatbot-form input { min-width: 0; flex: 1; padding: 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--background); color: var(--text); }
+        .template-chatbot-form button { border: 0; padding: 8px 10px; border-radius: 4px; background: var(--accent); color: var(--accent-text); cursor: pointer; }
         @media (max-width: 700px) { .template-header { align-items: flex-start; flex-direction: column; } .template-nav { justify-content: flex-start; } .template-hero, .template-cards, .template-footer { grid-template-columns: 1fr; } }
         """,
         js="""
@@ -112,7 +115,16 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
                 if (data.showCustomerChatbot) {
                     const chatbot = create('aside', 'template-chatbot');
                     const chatbotPanel = create('section', 'template-chatbot-panel');
-                    chatbotPanel.append(create('h2', '', data.chatbotName || `${data.companyName} Assistent`), create('p', '', data.chatbotKnowledge || `Willkommen. Wie können wir Ihnen bei ${data.companyName} helfen?`));
+                    const chatbotAnswer = create('p', '', data.chatbotKnowledge || `Willkommen. Wie können wir Ihnen bei ${data.companyName} helfen?`);
+                    const chatbotForm = create('form', 'template-chatbot-form');
+                    const chatbotInput = create('input', '');
+                    chatbotInput.placeholder = 'Frage eingeben...';
+                    chatbotInput.setAttribute('aria-label', 'Frage eingeben');
+                    const chatbotSend = create('button', '', 'Senden');
+                    chatbotSend.type = 'submit';
+                    chatbotForm.append(chatbotInput, chatbotSend);
+                    chatbotForm.onsubmit = event => { event.preventDefault(); if (!chatbotInput.value.trim()) return; chatbotAnswer.textContent = data.chatbotKnowledge || `Vielen Dank. ${data.companyName} meldet sich gerne bei Ihnen.`; chatbotInput.value = ''; };
+                    chatbotPanel.append(create('h2', '', data.chatbotName || `${data.companyName} Assistent`), chatbotAnswer, chatbotForm);
                     const chatbotToggle = create('button', 'template-chatbot-toggle', 'Chat');
                     chatbotToggle.type = 'button';
                     chatbotToggle.setAttribute('aria-label', 'Chatbot öffnen');
@@ -157,7 +169,16 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
             if (data.showCustomerChatbot) {
                 const chatbot = create('aside', 'template-chatbot');
                 const chatbotPanel = create('section', 'template-chatbot-panel');
-                chatbotPanel.append(create('h2', '', data.chatbotName || `${data.companyName} Assistent`), create('p', '', data.chatbotKnowledge || `Willkommen. Wie können wir Ihnen bei ${data.companyName} helfen?`));
+                const chatbotAnswer = create('p', '', data.chatbotKnowledge || `Willkommen. Wie können wir Ihnen bei ${data.companyName} helfen?`);
+                const chatbotForm = create('form', 'template-chatbot-form');
+                const chatbotInput = create('input', '');
+                chatbotInput.placeholder = 'Frage eingeben...';
+                chatbotInput.setAttribute('aria-label', 'Frage eingeben');
+                const chatbotSend = create('button', '', 'Senden');
+                chatbotSend.type = 'submit';
+                chatbotForm.append(chatbotInput, chatbotSend);
+                chatbotForm.onsubmit = event => { event.preventDefault(); if (!chatbotInput.value.trim()) return; chatbotAnswer.textContent = data.chatbotKnowledge || `Vielen Dank. ${data.companyName} meldet sich gerne bei Ihnen.`; chatbotInput.value = ''; };
+                chatbotPanel.append(create('h2', '', data.chatbotName || `${data.companyName} Assistent`), chatbotAnswer, chatbotForm);
                 const chatbotToggle = create('button', 'template-chatbot-toggle', 'Chat');
                 chatbotToggle.type = 'button';
                 chatbotToggle.setAttribute('aria-label', 'Chatbot öffnen');
