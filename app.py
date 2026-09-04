@@ -2,6 +2,7 @@ import base64
 import hashlib
 import hmac
 import io
+import json
 import re
 import secrets
 import sqlite3
@@ -1694,12 +1695,68 @@ def queue_html_update(html: str) -> None:
     st.session_state.html_editor = index_html
 
 
+def build_chat_api_route(chatbot_knowledge: str) -> str:
+        """Erstellt eine Vercel-Route, die den Hugging-Face-Schlüssel serverseitig hält."""
+        knowledge = chatbot_knowledge.strip() or (
+                "Keine zusätzlichen Firmendaten vorhanden. Verweise bei unbekannten Fragen "
+                "auf die Kontaktmöglichkeiten der Website."
+        )
+        knowledge_json = json.dumps(knowledge, ensure_ascii=False)
+        return f'''const CHATBOT_KNOWLEDGE = {knowledge_json};
+const MODEL_URL = "https://router.huggingface.co/hf-inference/models/HuggingFaceH4/zephyr-7b-beta";
+
+export default async function handler(request, response) {{
+    if (request.method !== "POST") {{
+        response.setHeader("Allow", "POST");
+        return response.status(405).json({{ error: "Method not allowed" }});
+    }}
+
+    const question = typeof request.body?.question === "string" ? request.body.question.trim() : "";
+    if (!question || question.length > 800) {{
+        return response.status(400).json({{ error: "Bitte senden Sie eine gültige Frage." }});
+    }}
+
+    const apiKey = process.env.HF_API_KEY;
+    if (!apiKey) {{
+        return response.status(500).json({{ error: "Der Chatbot ist noch nicht konfiguriert." }});
+    }}
+
+    const prompt = `<|system|>Du bist ein freundlicher KI-Mitarbeiter. Antworte auf Deutsch, präzise und in höchstens zwei Sätzen. Nutze ausschließlich diese Firmendaten: ${{CHATBOT_KNOWLEDGE}} Wenn die Antwort dort nicht steht, verweise auf die Kontaktmöglichkeiten der Website.</s><|user|>${{question}}</s><|assistant|>`;
+    try {{
+        const hfResponse = await fetch(MODEL_URL, {{
+            method: "POST",
+            headers: {{ Authorization: `Bearer ${{apiKey}}`, "Content-Type": "application/json" }},
+            body: JSON.stringify({{ inputs: prompt, parameters: {{ max_new_tokens: 120, temperature: 0.2, return_full_text: false }} }}),
+        }});
+        const data = await hfResponse.json();
+        if (!hfResponse.ok) {{
+            return response.status(502).json({{ error: data.error || "Die KI-Antwort ist momentan nicht verfügbar." }});
+        }}
+        const generated = Array.isArray(data) ? data[0]?.generated_text : data.generated_text;
+        const answer = typeof generated === "string" ? generated.split("<|assistant|>").pop().trim() : "";
+        return response.status(200).json({{ answer: answer || "Bitte kontaktieren Sie uns direkt für diese Auskunft." }});
+    }} catch (error) {{
+        return response.status(502).json({{ error: "Die KI-Antwort ist momentan nicht verfügbar." }});
+    }}
+}}
+'''
+
+
+def add_vercel_chat_api(site_pages: dict[str, str]) -> dict[str, str]:
+        """Fügt jeder Kundenwebsite die geschützte Chat-Route hinzu."""
+        site_pages["api/chat.js"] = build_chat_api_route(
+                get_configured_chatbot_knowledge()
+        )
+        site_pages["vercel.json"] = '{"cleanUrls": true}'
+        return site_pages
+
+
 def build_website_zip() -> bytes:
     """Packt den aktuellen Vercel-Entwurf mit Seiten, CSS und Bildern in eine ZIP-Datei."""
     index_html = require_complete_html(st.session_state.generated_html)
     site_pages = dict(st.session_state.site_pages) or {"index.html": index_html}
     site_pages["index.html"] = index_html
-    site_pages["vercel.json"] = '{"cleanUrls": true}'
+    site_pages = add_vercel_chat_api(site_pages)
     archive = io.BytesIO()
 
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as zip_file:
@@ -1939,6 +1996,9 @@ def build_customized_template_html(
 <form class="customer-chatbot-form"><input type="text" aria-label="Frage eingeben" placeholder="Frage eingeben..." required><button type="submit" style="background:{chatbot_color}">Senden</button></form>
 </section></aside>
 <script>const chatbot=document.querySelector('.customer-chatbot'),toggle=chatbot.querySelector('.customer-chatbot-toggle'),panel=chatbot.querySelector('.customer-chatbot-window'),closeButton=panel.querySelector('header button'),form=chatbot.querySelector('form'),input=form.querySelector('input'),messages=chatbot.querySelector('.customer-chatbot-messages'),knowledge=chatbot.dataset.knowledge;const setOpen=open=>{{panel.hidden=!open;toggle.setAttribute('aria-expanded',String(open));if(open)input.focus();}};toggle.onclick=()=>setOpen(panel.hidden);closeButton.onclick=()=>setOpen(false);form.onsubmit=event=>{{event.preventDefault();const question=input.value.trim();if(!question)return;const userMessage=document.createElement('p');userMessage.className='customer-chatbot-message customer-chatbot-message-user';userMessage.textContent=question;messages.append(userMessage);input.value='';const answer=document.createElement('p');answer.className='customer-chatbot-message';const questionLower=question.toLowerCase();answer.textContent=questionLower.includes('kontakt')||questionLower.includes('email')?`Sie erreichen uns unter {business_email}.`:knowledge||'Vielen Dank für Ihre Anfrage. Wir melden uns gerne persönlich bei Ihnen.';messages.append(answer);messages.scrollTop=messages.scrollHeight;}};</script>'''
+    chatbot_widget_html = build_customer_chatbot_widget(
+        chatbot_name, chatbot_color, chatbot_knowledge
+    )
     return f"""<!doctype html>
 <html lang="de">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1974,6 +2034,7 @@ def build_customer_chatbot_widget(
     )
     chatbot_side = "left:20px;right:auto;" if st.session_state.get("customer_chatbot_position") == "Unten links" else "right:20px;left:auto;"
     chatbot_behavior = "fixed" if st.session_state.get("customer_chatbot_fixed", True) else "relative"
+    return f'''<aside class="customer-chatbot" style="position:{chatbot_behavior};{chatbot_side}bottom:20px;z-index:10000"><button id="customer-chat-toggle" type="button" aria-expanded="false" aria-label="{chatbot_name} öffnen" style="background:{chatbot_color};color:#fff;border:0;border-radius:50%;width:56px;height:56px;cursor:pointer;font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,.24)">Chat</button><section id="customer-chat-panel" hidden style="position:absolute;right:0;bottom:68px;width:min(330px,calc(100vw - 40px));padding:18px;background:#fff;color:#111827;border:1px solid #d1d5db;border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.22)"><strong>{chatbot_name}</strong><p id="customer-chat-answer" style="margin:10px 0;color:#374151">Hallo! Wie können wir helfen?</p><form id="customer-chat-form" style="display:flex;gap:6px"><input id="customer-chat-input" aria-label="Frage eingeben" placeholder="Frage eingeben..." required style="min-width:0;flex:1;padding:8px"><button type="submit" style="border:0;background:{chatbot_color};color:#fff;padding:8px 12px;cursor:pointer">Senden</button></form></section></aside><script>(()=>{{const toggle=document.getElementById('customer-chat-toggle'),panel=document.getElementById('customer-chat-panel'),form=document.getElementById('customer-chat-form'),input=document.getElementById('customer-chat-input'),answer=document.getElementById('customer-chat-answer');toggle.onclick=()=>{{panel.hidden=!panel.hidden;toggle.setAttribute('aria-expanded',String(!panel.hidden));if(!panel.hidden)input.focus();}};form.onsubmit=async event=>{{event.preventDefault();const question=input.value.trim();if(!question)return;answer.textContent='Antwort wird erstellt ...';try{{const result=await fetch('/api/chat',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{question}})}});const data=await result.json();answer.textContent=data.answer||data.error||'Bitte kontaktieren Sie uns direkt.';}}catch(error){{answer.textContent='Bitte kontaktieren Sie uns direkt.';}}input.value='';}};}})();</script>'''
     return f'''<aside class="customer-chatbot" data-knowledge="{chatbot_knowledge}" style="position:{chatbot_behavior};{chatbot_side}bottom:20px;z-index:10000"><button id="customer-chat-toggle" type="button" aria-expanded="false" aria-label="{chatbot_name} öffnen" style="background:{chatbot_color};color:#fff;border:0;border-radius:50%;width:56px;height:56px;cursor:pointer;font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,.24)">Chat</button><section id="customer-chat-panel" hidden style="position:absolute;right:0;bottom:68px;width:min(330px,calc(100vw - 40px));padding:18px;background:#fff;color:#111827;border:1px solid #d1d5db;border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.22)"><strong>{chatbot_name}</strong><p id="customer-chat-answer" style="margin:10px 0;color:#374151">Hallo! Wie können wir helfen?</p><form id="customer-chat-form" style="display:flex;gap:6px"><input id="customer-chat-input" aria-label="Frage eingeben" placeholder="Frage eingeben..." required style="min-width:0;flex:1;padding:8px"><button type="submit" style="border:0;background:{chatbot_color};color:#fff;padding:8px 12px;cursor:pointer">Senden</button></form></section></aside><script>(()=>{{const toggle=document.getElementById('customer-chat-toggle'),panel=document.getElementById('customer-chat-panel'),form=document.getElementById('customer-chat-form'),input=document.getElementById('customer-chat-input'),answer=document.getElementById('customer-chat-answer'),knowledge=document.querySelector('.customer-chatbot').dataset.knowledge;toggle.onclick=()=>{{panel.hidden=!panel.hidden;toggle.setAttribute('aria-expanded',String(!panel.hidden));if(!panel.hidden)input.focus();}};form.onsubmit=event=>{{event.preventDefault();const question=input.value.trim().toLowerCase();if(!question)return;answer.textContent=question.includes('kontakt')||question.includes('email')?'Bitte nutzen Sie die Kontaktmöglichkeiten auf dieser Website.':knowledge;input.value='';}};}})();</script>'''
 
 
@@ -2052,7 +2113,7 @@ def generate_website(
     business_email = str(st.session_state.get("client_business_email", "")).strip()
     company_slogan = str(st.session_state.get("client_company_slogan", "")).strip()
     business_phone = str(st.session_state.get("client_business_phone", "")).strip()
-    chatbot_knowledge = str(st.session_state.get("client_chatbot_knowledge", "")).strip()
+    chatbot_knowledge = get_configured_chatbot_knowledge()
     web3forms_access_key = str(
         st.session_state.get("client_web3forms_access_key", "")
     ).strip()
@@ -2120,12 +2181,12 @@ KONTAKTFORMULAR:
 CHATBOT MIT VOICE:
 - Integriere unten rechts ein schwebendes, animiertes Chatbot-Widget, das ausschliesslich
     fuer {company_name} geschrieben ist und keine Daten anderer Personen enthaelt.
-- Verwende ein JavaScript-Array mit hilfreichen, branchenspezifischen Antworten basierend
-    auf Branche und Kundenbeschreibung.
-- Berücksichtige dieses vom Kunden bereitgestellte Chatbot-Wissen in den Antworten:
-    {chatbot_knowledge or 'Keine zusätzlichen Angaben; erfinde keine Öffnungszeiten, Preise oder Angebote.'}
-- Bei Fragen nach Kontakt oder E-Mail verweist der Bot auf {business_email}; bei einer
-    nichtdeutschen Website verwende die entsprechende Uebersetzung.
+- Sende jede Besucherfrage per POST als JSON {{"question": question}} an die Same-Origin-Route
+    /api/chat und zeige ausschließlich das JSON-Feld answer aus deren Antwort an.
+- Die Route enthält das Kundenwissen und kommuniziert serverseitig mit Hugging Face. Rufe
+    Hugging Face niemals aus dem Browser auf und verwende weder API-Schlüssel noch Antworten
+    als JavaScript-Array im HTML.
+- Bei einem Fehler der Route zeige eine kurze freundliche Aufforderung zur direkten Kontaktaufnahme.
 - Lies Bot-Antworten mit window.speechSynthesis in der passenden Sprache vor. Entferne
     vor dem Vorlesen Links, Emojis und HTML per JavaScript-Regex.
 
@@ -2213,12 +2274,31 @@ def render_client_contact_ui() -> None:
         "Er wird beim Erstellen in die Kundenwebsite eingefügt und funktioniert nach der "
         "Veröffentlichung ohne weitere technische Einrichtung."
     )
-    st.text_area(
-        "Chatbot-Wissen (optional)",
-        placeholder="Zum Beispiel: Öffnungszeiten, Preise, Angebote, Terminvereinbarung oder häufige Fragen.",
-        key="client_chatbot_knowledge",
-        height=110,
-    )
+    st.write("Hinterlegen Sie die Firmendaten, die der Chatbot Ihren Website-Besuchern nennen darf.")
+    hours_column, contact_column = st.columns(2)
+    with hours_column:
+        st.text_input(
+            "Öffnungszeiten",
+            placeholder="z. B. Mo-Fr: 08:00-17:00 Uhr",
+            key="client_chatbot_hours",
+        )
+        st.text_input(
+            "Telefon und weitere Kontaktwege",
+            placeholder="z. B. +49 30 123456 oder info@unternehmen.de",
+            key="client_chatbot_contact",
+        )
+    with contact_column:
+        st.text_area(
+            "Preise und wichtige Leistungen",
+            placeholder="z. B. Erstberatung kostenlos, Wartung ab 89 Euro",
+            key="client_chatbot_services",
+            height=100,
+        )
+        st.text_input(
+            "Notfall und Bereitschaft",
+            placeholder="z. B. Notdienst unter +49 171 123456",
+            key="client_chatbot_emergency",
+        )
     color_column, shape_column, name_column = st.columns(3)
     with color_column:
         st.color_picker(
@@ -2253,15 +2333,24 @@ def render_client_contact_ui() -> None:
             key="customer_chatbot_fixed",
             help="Aktiv: Der Chatbot bleibt am Bildschirmrand. Deaktiviert: Er steht am Ende der Seite.",
         )
-    chatbot_knowledge = str(st.session_state.get("client_chatbot_knowledge", "")).strip()
-    if chatbot_knowledge:
+    chatbot_knowledge = get_configured_chatbot_knowledge()
+    has_business_knowledge = any(
+        str(st.session_state.get(key, "")).strip()
+        for key in (
+            "client_chatbot_hours",
+            "client_chatbot_contact",
+            "client_chatbot_services",
+            "client_chatbot_emergency",
+        )
+    )
+    if has_business_knowledge:
         st.success(
-            "Chatbot bereit: Firmenwissen wird beim Übernehmen der Vorlage automatisch "
+            "Chatbot bereit: Die Firmendaten werden beim Übernehmen der Vorlage automatisch "
             "in Vorschau, ZIP und veröffentlichte Website übernommen."
         )
     else:
         st.caption(
-            "Empfehlung: Ergänzen Sie Öffnungszeiten, Leistungen, Preise oder häufige Fragen. "
+            "Empfehlung: Ergänzen Sie Öffnungszeiten, Leistungen, Preise oder den Notdienst. "
             "Ohne eigene Angaben verwendet der Chatbot das Branchenwissen und eine sichere Kontaktantwort."
         )
 
@@ -3137,7 +3226,7 @@ def publish_website() -> None:
 
     site_pages = dict(st.session_state.site_pages) or {"index.html": html}
     site_pages["index.html"] = html
-    site_pages["vercel.json"] = '{"cleanUrls": true}'
+    site_pages = add_vercel_chat_api(site_pages)
     files = [
         {
             "file": file_name,
@@ -3622,11 +3711,21 @@ INDUSTRY_CONTENT_PRESETS = {
 
 
 def get_configured_chatbot_knowledge() -> str:
-    """Kombiniert Branchen- und individuelle Informationen für den Kunden-Chatbot."""
+    """Kombiniert Branchenwissen mit den strukturierten Firmendaten des Kunden."""
     industry = str(st.session_state.get("industry_content_preset", ""))
     industry = industry if industry in INDUSTRY_CONTENT_PRESETS else "Kfz-Meisterwerkstatt"
-    custom_knowledge = str(st.session_state.get("client_chatbot_knowledge", "")).strip()
-    return f"Branche: {industry}. {custom_knowledge}".strip()
+    fields = (
+        ("Öffnungszeiten", "client_chatbot_hours"),
+        ("Kontaktwege", "client_chatbot_contact"),
+        ("Preise und Leistungen", "client_chatbot_services"),
+        ("Notfall und Bereitschaft", "client_chatbot_emergency"),
+    )
+    business_details = [
+        f"{label}: {str(st.session_state.get(key, '')).strip()}"
+        for label, key in fields
+        if str(st.session_state.get(key, "")).strip()
+    ]
+    return "\n".join([f"Branche: {industry}.", *business_details])
 
 
 def apply_industry_content_preset() -> None:
