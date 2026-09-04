@@ -1686,9 +1686,31 @@ def ensure_multi_page_navigation(html: str) -> str:
         return re.sub(r"(?i)</body\s*>", f"{router_script}</body>", html, count=1)
 
 
+def inject_configured_customer_chatbot(html: str) -> str:
+    """Setzt genau einen zentral konfigurierten Chatbot in den Kundenentwurf ein."""
+    existing_widget_pattern = (
+        r'(?is)<aside\b[^>]*\bclass=["\'][^"\']*\bcustomer-chatbot\b'
+        r'[^"\']*["\'][^>]*>.*?</aside>\s*<script>.*?</script>'
+    )
+    html_without_existing_widget = re.sub(existing_widget_pattern, "", html)
+    shape_to_radius = {
+        "Rund (Kreis)": "50%",
+        "Eckig mit Rundung": "8px",
+        "Quadratisch": "0",
+    }
+    widget = build_customer_chatbot_widget(
+        str(st.session_state.get("customer_chatbot_name", "")),
+        str(st.session_state.get("customer_chatbot_color", "#2563EB")),
+        get_configured_chatbot_knowledge(),
+    ).replace('border-radius:50%;width:56px', (
+        f'border-radius:{shape_to_radius.get(str(st.session_state.get("customer_chatbot_shape", "Rund (Kreis)")), "50%")};width:56px'
+    ))
+    return re.sub(r"(?i)</body\s*>", f"{widget}</body>", html_without_existing_widget, count=1)
+
+
 def queue_html_update(html: str) -> None:
     """Übernimmt einen vollständigen HTML-Entwurf für Vorschau und Veröffentlichung."""
-    index_html = require_complete_html(html)
+    index_html = inject_configured_customer_chatbot(require_complete_html(html))
     st.session_state.site_pages = {"index.html": index_html}
     st.session_state.pending_html = index_html
     st.session_state.generated_html = index_html
@@ -2179,16 +2201,8 @@ KONTAKTFORMULAR:
 {contact_form_instruction}
 
 CHATBOT MIT VOICE:
-- Integriere unten rechts ein schwebendes, animiertes Chatbot-Widget, das ausschliesslich
-    fuer {company_name} geschrieben ist und keine Daten anderer Personen enthaelt.
-- Sende jede Besucherfrage per POST als JSON {{"question": question}} an die Same-Origin-Route
-    /api/chat und zeige ausschließlich das JSON-Feld answer aus deren Antwort an.
-- Die Route enthält das Kundenwissen und kommuniziert serverseitig mit Hugging Face. Rufe
-    Hugging Face niemals aus dem Browser auf und verwende weder API-Schlüssel noch Antworten
-    als JavaScript-Array im HTML.
-- Bei einem Fehler der Route zeige eine kurze freundliche Aufforderung zur direkten Kontaktaufnahme.
-- Lies Bot-Antworten mit window.speechSynthesis in der passenden Sprache vor. Entferne
-    vor dem Vorlesen Links, Emojis und HTML per JavaScript-Regex.
+- Erstelle kein Chatbot-Markup und keinen Chatbot-Code. Der Kunden-Chatbot wird nach der
+    HTML-Generierung zentral, mit sicheren Server-Aufrufen und den Kundendaten, eingefügt.
 
 {image_instruction}
 """
