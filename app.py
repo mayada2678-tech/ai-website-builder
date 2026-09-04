@@ -1648,6 +1648,7 @@ def build_website_zip() -> bytes:
     index_html = require_complete_html(st.session_state.generated_html)
     site_pages = dict(st.session_state.site_pages) or {"index.html": index_html}
     site_pages["index.html"] = index_html
+    site_pages["vercel.json"] = '{"cleanUrls": true}'
     archive = io.BytesIO()
 
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as zip_file:
@@ -2924,6 +2925,7 @@ def publish_website() -> None:
 
     site_pages = dict(st.session_state.site_pages) or {"index.html": html}
     site_pages["index.html"] = html
+    site_pages["vercel.json"] = '{"cleanUrls": true}'
     files = [
         {
             "file": file_name,
