@@ -3721,7 +3721,74 @@ INDUSTRY_CONTENT_PRESETS = {
         "offer_page_price": "persönlich und individuell",
         "offer_page_details": "Gemeinsam entwickeln wir den passenden Weg zu mehr Beweglichkeit.",
     },
+    "Restaurant": {
+        "client_company_name": "Restaurant Genusszeit",
+        "client_company_slogan": "Frisch gekocht. Herzlich serviert.",
+        "section_hero_title": "Genuss, der verbindet.",
+        "section_hero_subtitle": "Saisonale Küche und echte Gastfreundschaft.",
+        "template_hero_heading": "Frisch gekocht. Herzlich serviert.",
+        "template_custom_description": "Wir servieren frisch zubereitete Gerichte, ausgewählte Getränke und eine entspannte Atmosphäre für Ihren Besuch.",
+        "template_footer_text": "© 2026 Restaurant Genusszeit | Impressum und Datenschutz",
+        "template_sections_text": "Speisekarte | Frische Gerichte und saisonale Spezialitäten.\nReservierung | Sichern Sie sich Ihren Tisch für einen genussvollen Abend.\nFeiern und Gruppen | Der passende Rahmen für besondere Anlässe.",
+        "section_services": "Saisonale Küche, Tischreservierung, Gruppen und Feiern",
+        "section_about_text": "Unser Team verbindet gute Zutaten, sorgfältige Zubereitung und persönliche Gastfreundschaft.",
+        "offer_page_name": "Mittagsmenü",
+        "offer_page_price": "ab 12,90 EUR",
+        "offer_page_details": "Täglich frisch zubereitet, inklusive wechselnder Empfehlung des Hauses.",
+    },
+    "Café und Bäckerei": {
+        "client_company_name": "Café Morgenrot",
+        "client_company_slogan": "Kaffee, Kuchen und Zeit zum Genießen",
+        "section_hero_title": "Ihr Lieblingsplatz im Alltag.",
+        "section_hero_subtitle": "Hausgemachte Köstlichkeiten und guter Kaffee.",
+        "template_hero_heading": "Kaffee, Kuchen und Zeit zum Genießen",
+        "template_custom_description": "Bei uns erwarten Sie aromatischer Kaffee, frische Backwaren und hausgemachte Kuchen in entspannter Atmosphäre.",
+        "template_footer_text": "© 2026 Café Morgenrot | Impressum und Datenschutz",
+        "template_sections_text": "Kaffee und Getränke | Sorgfältig zubereitete Kaffeespezialitäten und erfrischende Getränke.\nFrühstück und Backwaren | Frisch gebacken für einen guten Start in den Tag.\nKuchen und Torten | Hausgemachte Klassiker und saisonale Kreationen.",
+        "section_services": "Kaffeespezialitäten, Frühstück, frische Backwaren und hausgemachte Kuchen",
+        "section_about_text": "Wir schaffen einen Ort für gute Gespräche, kleine Auszeiten und ehrlichen Genuss.",
+        "offer_page_name": "Frühstück für zwei",
+        "offer_page_price": "ab 24 EUR",
+        "offer_page_details": "Ausgewählte Backwaren, Aufstriche und zwei Heißgetränke.",
+    },
+    "Onlineshop": {
+        "client_company_name": "Studio Lieblingsstücke",
+        "client_company_slogan": "Besondere Produkte einfach online entdecken",
+        "section_hero_title": "Schönes für Ihren Alltag.",
+        "section_hero_subtitle": "Ausgewählte Produkte, sicher bestellt und schnell geliefert.",
+        "template_hero_heading": "Besondere Produkte einfach online entdecken",
+        "template_custom_description": "Entdecken Sie sorgfältig ausgewählte Produkte mit klaren Informationen, sicheren Zahlungsarten und zuverlässigem Versand.",
+        "template_footer_text": "© 2026 Studio Lieblingsstücke | Impressum und Datenschutz",
+        "template_sections_text": "Unsere Produkte | Ausgewählte Artikel mit klaren Details und Bildern.\nVersand und Zahlung | Transparent, sicher und bequem bestellen.\nKundenservice | Persönliche Hilfe vor und nach Ihrem Einkauf.",
+        "section_services": "Produktauswahl, sicherer Onlinekauf, Versand und Kundenservice",
+        "section_about_text": "Wir wählen Produkte mit Anspruch aus und machen den Online-Einkauf angenehm und transparent.",
+        "offer_page_name": "Willkommensrabatt",
+        "offer_page_price": "10 Prozent",
+        "offer_page_details": "Für Ihre erste Bestellung im Onlineshop.",
+    },
 }
+
+OTHER_INDUSTRY_OPTION = "Andere Branche oder Kleingewerbe"
+
+
+def build_generic_industry_preset(industry: str) -> dict[str, str]:
+    """Erstellt einen sofort nutzbaren Entwurf für nicht vorgegebene Branchen."""
+    business_name = f"{industry} Musterbetrieb"
+    return {
+        "client_company_name": business_name,
+        "client_company_slogan": "Persönlicher Service, passend für Ihr Anliegen",
+        "section_hero_title": "Kompetenz, die für Sie da ist.",
+        "section_hero_subtitle": "Individuelle Lösungen und persönliche Beratung.",
+        "template_hero_heading": "Persönlicher Service, passend für Ihr Anliegen",
+        "template_custom_description": f"{business_name} bietet zuverlässige Leistungen, klare Beratung und persönliche Betreuung.",
+        "template_footer_text": f"© 2026 {business_name} | Impressum und Datenschutz",
+        "template_sections_text": "Unsere Leistungen | Passende Lösungen für Ihr Anliegen.\nPersönliche Beratung | Wir nehmen uns Zeit für Ihre Fragen.\nKontakt | Sprechen Sie direkt mit unserem Team.",
+        "section_services": "Individuelle Leistungen, persönliche Beratung und zuverlässiger Service",
+        "section_about_text": "Wir stehen für Qualität, Verlässlichkeit und einen persönlichen Ansprechpartner.",
+        "offer_page_name": "Unverbindliche Beratung",
+        "offer_page_price": "kostenlos",
+        "offer_page_details": "Wir besprechen Ihr Anliegen persönlich und transparent.",
+    }
 
 
 def get_configured_chatbot_knowledge() -> str:
@@ -3745,10 +3812,15 @@ def get_configured_chatbot_knowledge() -> str:
 def apply_industry_content_preset() -> None:
     """Übernimmt die Inhalte der im Formular gewählten Branche."""
     industry = str(st.session_state.get("industry_content_preset", ""))
-    preset = INDUSTRY_CONTENT_PRESETS.get(industry)
+    custom_industry = str(st.session_state.get("custom_industry_name", "")).strip()
+    preset = (
+        build_generic_industry_preset(custom_industry)
+        if industry == OTHER_INDUSTRY_OPTION and custom_industry
+        else INDUSTRY_CONTENT_PRESETS.get(industry)
+    )
     if preset:
         st.session_state.update(preset)
-        st.session_state.industry_preset_applied = industry
+        st.session_state.industry_preset_applied = custom_industry or industry
 
 
 def render_industry_content_preset_ui() -> None:
@@ -3756,19 +3828,30 @@ def render_industry_content_preset_ui() -> None:
     st.caption("Wählen Sie eine Branche und übernehmen Sie vorbereitete Inhalte in den Entwurf.")
     industry = st.selectbox(
         "Was ist Ihr Betrieb?",
-        ["Bitte wählen..."] + list(INDUSTRY_CONTENT_PRESETS),
+        ["Bitte wählen..."] + list(INDUSTRY_CONTENT_PRESETS) + [OTHER_INDUSTRY_OPTION],
         key="industry_content_preset",
     )
+    custom_industry = ""
+    if industry == OTHER_INDUSTRY_OPTION:
+        custom_industry = st.text_input(
+            "Branche oder Art des Kleingewerbes",
+            placeholder="z. B. Kosmetikstudio, Reinigungsservice oder Fotograf",
+            key="custom_industry_name",
+        ).strip()
     if industry != "Bitte wählen..." and st.button(
         "Vorlage automatisch mit Brancheninhalten befüllen",
         icon=":material/auto_awesome:",
         type="primary",
         key="apply_industry_content_preset",
     ):
-        apply_industry_content_preset()
-        st.rerun()
-    if industry != "Bitte wählen..." and st.session_state.get("industry_preset_applied") == industry:
-        st.success(f"Die Inhalte für „{industry}“ wurden vorbereitet.")
+        if industry == OTHER_INDUSTRY_OPTION and not custom_industry:
+            st.warning("Bitte geben Sie zuerst eine Branche oder Art des Kleingewerbes ein.")
+        else:
+            apply_industry_content_preset()
+            st.rerun()
+    applied_industry = custom_industry or industry
+    if industry != "Bitte wählen..." and st.session_state.get("industry_preset_applied") == applied_industry:
+        st.success(f"Die Inhalte für „{applied_industry}“ wurden vorbereitet.")
 
 
 def render_transformer_test_ui() -> None:
