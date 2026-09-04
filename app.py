@@ -48,8 +48,8 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
         .template-footer { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 28px; padding: 34px 28px 20px; border-top: 1px solid var(--border); font-family: ui-sans-serif, sans-serif; }
         .template-footer h2 { margin: 0; font-size: 15px; } .template-footer p, .template-footer a { color: var(--muted); font-size: 13px; line-height: 1.6; text-decoration: none; }
         .template-footer a:hover { color: var(--accent); } .template-footer-legal { grid-column: 1 / -1; margin: 0; padding-top: 16px; border-top: 1px solid var(--border); }
-        .template-chatbot { position: fixed; right: 22px; bottom: 22px; z-index: 10; font-family: ui-sans-serif, sans-serif; }
-        .template-chatbot-toggle { width: 48px; height: 48px; border: 0; background: var(--accent); color: var(--accent-text); cursor: pointer; font: 700 20px ui-sans-serif, sans-serif; box-shadow: 0 10px 28px rgba(15, 23, 42, .24); }
+        .template-chatbot { position: fixed; right: 18px; bottom: 18px; z-index: 100; font-family: ui-sans-serif, sans-serif; }
+        .template-chatbot-toggle { width: 56px; height: 56px; border: 0; border-radius: 50%; background: var(--accent); color: var(--accent-text); cursor: pointer; font: 700 13px ui-sans-serif, sans-serif; box-shadow: 0 10px 28px rgba(15, 23, 42, .24); }
         .template-chatbot-panel { display: none; width: min(300px, calc(100vw - 44px)); margin: 0 0 10px auto; padding: 18px; background: var(--background); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 16px 38px rgba(15, 23, 42, .22); }
         .template-chatbot-panel.is-open { display: block; }
         .template-chatbot-panel h2 { margin: 0; font-size: 16px; }
@@ -109,6 +109,19 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
                 });
                 page.append(cards);
                 shell.append(header, page, create('p', 'template-hint', 'Dies ist eine eigenständige Unterseite im selben Unternehmensdesign.'));
+                if (data.showCustomerChatbot) {
+                    const chatbot = create('aside', 'template-chatbot');
+                    const chatbotPanel = create('section', 'template-chatbot-panel');
+                    chatbotPanel.append(create('h2', '', data.chatbotName || `${data.companyName} Assistent`), create('p', '', data.chatbotKnowledge || `Willkommen. Wie können wir Ihnen bei ${data.companyName} helfen?`));
+                    const chatbotToggle = create('button', 'template-chatbot-toggle', 'Chat');
+                    chatbotToggle.type = 'button';
+                    chatbotToggle.setAttribute('aria-label', 'Chatbot öffnen');
+                    chatbotToggle.style.background = data.chatbotColor || data.accentColor;
+                    chatbotToggle.style.borderRadius = data.chatbotRadius || '50%';
+                    chatbotToggle.onclick = () => chatbotPanel.classList.toggle('is-open');
+                    chatbot.append(chatbotPanel, chatbotToggle);
+                    shell.append(chatbot);
+                }
                 root.append(shell);
                 return;
             }
@@ -145,7 +158,7 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
                 const chatbot = create('aside', 'template-chatbot');
                 const chatbotPanel = create('section', 'template-chatbot-panel');
                 chatbotPanel.append(create('h2', '', data.chatbotName || `${data.companyName} Assistent`), create('p', '', data.chatbotKnowledge || `Willkommen. Wie können wir Ihnen bei ${data.companyName} helfen?`));
-                const chatbotToggle = create('button', 'template-chatbot-toggle', '?');
+                const chatbotToggle = create('button', 'template-chatbot-toggle', 'Chat');
                 chatbotToggle.type = 'button';
                 chatbotToggle.setAttribute('aria-label', 'Chatbot öffnen');
                 chatbotToggle.style.background = data.chatbotColor || data.accentColor;
