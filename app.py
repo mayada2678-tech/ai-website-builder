@@ -2574,6 +2574,62 @@ def render_direct_content_editor() -> None:
         "konfigurieren Sie den primären Button. Änderungen werden sofort in die Vorschau übernommen."
     )
 
+    with st.expander("Visueller Editor: Header, Inhalte und Bild", expanded=False):
+        header_column, footer_column = st.columns(2)
+        with header_column:
+            visual_company_name = st.text_input(
+                "Firmenname im Header",
+                value=str(st.session_state.get("client_company_name", "")),
+                key="visual_editor_company_name",
+            )
+        with footer_column:
+            visual_footer_text = st.text_input(
+                "Footer-Text",
+                value=str(st.session_state.get("template_footer_text", "")),
+                key="visual_editor_footer_text",
+            )
+        visual_heading = st.text_input(
+            "Hauptüberschrift",
+            value=str(st.session_state.get("template_hero_heading", "")),
+            key="visual_editor_heading",
+        )
+        visual_description = st.text_area(
+            "Hauptinhalt",
+            value=str(st.session_state.get("template_custom_description", "")),
+            key="visual_editor_description",
+            height=120,
+        )
+        visual_image = st.file_uploader(
+            "Hauptbild ersetzen",
+            type=["png", "jpg", "jpeg", "webp"],
+            key="visual_editor_image",
+        )
+        if st.button(
+            "Änderungen in Vorschau übernehmen",
+            icon=":material/save:",
+            type="primary",
+            key="apply_visual_editor_changes",
+            width="stretch",
+        ):
+            change_request = (
+                "Aktualisiere ausschließlich diese sichtbaren Website-Inhalte. "
+                f"Firmenname im Header und Footer: {visual_company_name.strip()}. "
+                f"Hauptüberschrift: {visual_heading.strip()}. "
+                f"Hauptinhalt: {visual_description.strip()}. "
+                f"Footer-Text: {visual_footer_text.strip()}."
+            )
+            if visual_image is not None:
+                image_name = save_uploaded_image(visual_image, "visueller-editor")
+                change_request += f' Verwende als Hauptbild: <img src="{image_name}" alt="Hauptbild">.'
+            with st.status("Änderungen werden übernommen ...", expanded=True) as status:
+                try:
+                    modify_current_website(change_request)
+                    status.update(label="Vorschau wurde aktualisiert.", state="complete")
+                    st.rerun()
+                except Exception as error:
+                    status.update(label="Aktualisierung fehlgeschlagen", state="error")
+                    st.error(str(error))
+
     layout_side = st.radio(
         "Bild und Text anordnen",
         ["Bild links, Text rechts", "Text links, Bild rechts"],
