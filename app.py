@@ -2208,7 +2208,11 @@ def render_client_contact_ui() -> None:
     industry = str(st.session_state.get("industry_content_preset", ""))
     industry_knowledge = industry if industry in INDUSTRY_CONTENT_PRESETS else "Kfz-Meisterwerkstatt"
     st.subheader("Kunden-Chatbot konfigurieren", anchor=False)
-    st.info(f"Der Chatbot erhält Basiswissen über die Branche: {industry_knowledge}.")
+    st.info(
+        f"Der Chatbot erhält automatisch Basiswissen über die Branche: {industry_knowledge}. "
+        "Er wird beim Erstellen in die Kundenwebsite eingefügt und funktioniert nach der "
+        "Veröffentlichung ohne weitere technische Einrichtung."
+    )
     st.text_area(
         "Chatbot-Wissen (optional)",
         placeholder="Zum Beispiel: Öffnungszeiten, Preise, Angebote, Terminvereinbarung oder häufige Fragen.",
@@ -2248,6 +2252,17 @@ def render_client_contact_ui() -> None:
             value=True,
             key="customer_chatbot_fixed",
             help="Aktiv: Der Chatbot bleibt am Bildschirmrand. Deaktiviert: Er steht am Ende der Seite.",
+        )
+    chatbot_knowledge = str(st.session_state.get("client_chatbot_knowledge", "")).strip()
+    if chatbot_knowledge:
+        st.success(
+            "Chatbot bereit: Firmenwissen wird beim Übernehmen der Vorlage automatisch "
+            "in Vorschau, ZIP und veröffentlichte Website übernommen."
+        )
+    else:
+        st.caption(
+            "Empfehlung: Ergänzen Sie Öffnungszeiten, Leistungen, Preise oder häufige Fragen. "
+            "Ohne eigene Angaben verwendet der Chatbot das Branchenwissen und eine sichere Kontaktantwort."
         )
 
 
