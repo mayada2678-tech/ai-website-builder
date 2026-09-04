@@ -3394,8 +3394,12 @@ def render_website_recommendation_ui() -> None:
 
 INDUSTRY_CONTENT_PRESETS = {
     "Kfz-Meisterwerkstatt": {
+        "client_company_name": "Kfz-Meisterbetrieb Schmidt",
         "section_hero_title": "Meisterservice für Ihr Fahrzeug.",
         "section_hero_subtitle": "Persönlich, präzise und zuverlässig für alle Marken.",
+        "template_hero_heading": "Ihre zuverlässige Autowerkstatt für alle Marken",
+        "template_custom_description": "Vom Reifenwechsel über den Ölwechsel bis zur Motordiagnose: Wir halten Ihr Fahrzeug mit Meisterqualität sicher auf der Straße.",
+        "template_footer_text": "© 2026 Kfz-Meisterbetrieb Schmidt | Impressum und Datenschutz",
         "section_services": "Meisterhafte Kfz-Reparaturen, präziser Reifenwechsel, umfassender Autoservice",
         "section_about_text": "Seit über 15 Jahren reparieren wir Fahrzeuge aller Marken mit Leidenschaft und Meisterqualität.",
         "offer_page_name": "Ölwechsel-Komplettservice",
@@ -3403,8 +3407,12 @@ INDUSTRY_CONTENT_PRESETS = {
         "offer_page_details": "Inklusive kostenlosem Sicherheits- und Bremsencheck.",
     },
     "Friseursalon": {
+        "client_company_name": "Haardesign und Wohlfühlen",
         "section_hero_title": "Ihr Look. Unser Handwerk.",
         "section_hero_subtitle": "Individuelles Styling in entspannter Wohlfühlatmosphäre.",
+        "template_hero_heading": "Ihr perfekter Look in entspannter Atmosphäre",
+        "template_custom_description": "Ob Haarschnitt, Balayage oder klassisches Styling: Unser kreatives Team nimmt sich Zeit für Ihre Persönlichkeit und Ihr Haar.",
+        "template_footer_text": "© 2026 Haardesign und Wohlfühlen | Impressum und Datenschutz",
         "section_services": "Moderne Haarschnitte, brillante Colorationen, individuelles Styling für Damen, Herren und Kinder",
         "section_about_text": "Unser kreatives Team sorgt in Wohlfühlatmosphäre für Ihren perfekten Look und gesundes Haar.",
         "offer_page_name": "Premium-Balayage-Paket",
@@ -3412,8 +3420,12 @@ INDUSTRY_CONTENT_PRESETS = {
         "offer_page_details": "Individuell abgestimmt inklusive hochwertiger Pflege.",
     },
     "Dachdeckerfachbetrieb": {
+        "client_company_name": "Bedachungen Bednarz",
         "section_hero_title": "Schutz und Qualität für Ihr Dach.",
         "section_hero_subtitle": "Fachgerechte Lösungen für Neubau, Sanierung und Reparatur.",
+        "template_hero_heading": "Ihr Dach in besten Händen",
+        "template_custom_description": "Als Meisterbetrieb bieten wir zuverlässige Arbeiten für Steil- und Flachdächer, Fassaden und Bauklempnerei.",
+        "template_footer_text": "© 2026 Bedachungen Bednarz | Impressum und Datenschutz",
         "section_services": "Dachsanierung, Neueindeckung, Abdichtung und Reparatur, Dachfenster und Wärmedämmung",
         "section_about_text": "Wir verbinden solides Handwerk, langlebige Materialien und eine transparente Beratung für Ihr Zuhause.",
         "offer_page_name": "Kostenloser Dach-Check",
@@ -3421,8 +3433,12 @@ INDUSTRY_CONTENT_PRESETS = {
         "offer_page_details": "Wir prüfen den Zustand Ihres Dachs und beraten zu passenden Maßnahmen.",
     },
     "Physiotherapie-Praxis": {
+        "client_company_name": "Praxis für Physiotherapie und Bewegung",
         "section_hero_title": "Bewegung zurückgewinnen.",
         "section_hero_subtitle": "Persönliche Therapie für mehr Gesundheit und Lebensqualität.",
+        "template_hero_heading": "Zurück zu Schmerzfreiheit und Mobilität",
+        "template_custom_description": "Mit maßgeschneiderten Therapiekonzepten begleiten wir Sie nach Verletzungen, Operationen und bei chronischen Beschwerden.",
+        "template_footer_text": "© 2026 Praxis für Physiotherapie und Bewegung | Impressum und Datenschutz",
         "section_services": "Krankengymnastik, manuelle Therapie, Lymphdrainage und individuelle Trainingsberatung",
         "section_about_text": "Wir begleiten Sie mit fachlicher Kompetenz und einem ganzheitlichen Blick auf Ihre Gesundheit.",
         "offer_page_name": "Erstberatung",
@@ -3452,13 +3468,20 @@ def apply_industry_content_preset() -> None:
 def render_industry_content_preset_ui() -> None:
     """Rendert die formularbasierte Branchenauswahl für Website-Inhalte."""
     st.subheader("Branche wählen und Website-Inhalte vorbereiten", anchor=False)
-    st.write("Wählen Sie Ihre Branche. Texte für Startseite, Leistungen, Über uns und Angebot werden automatisch vorbereitet.")
+    st.write("Wählen Sie Ihre Branche und übernehmen Sie die vorbereiteten Texte in den Website-Entwurf.")
     industry = st.selectbox(
         "Was ist Ihr Betrieb?",
         ["Bitte wählen..."] + list(INDUSTRY_CONTENT_PRESETS),
         key="industry_content_preset",
-        on_change=apply_industry_content_preset,
     )
+    if industry != "Bitte wählen..." and st.button(
+        "Vorlage automatisch mit Brancheninhalten befüllen",
+        icon=":material/auto_awesome:",
+        type="primary",
+        key="apply_industry_content_preset",
+    ):
+        apply_industry_content_preset()
+        st.rerun()
     if industry != "Bitte wählen..." and st.session_state.get("industry_preset_applied") == industry:
         st.success(f"Die Inhalte für „{industry}“ wurden vorbereitet.")
 
