@@ -154,10 +154,12 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
             shell.append(header, hero, templateSections, footer, create('p', 'template-hint', 'Änderungen werden sofort in dieser Entwurfsvorschau angezeigt.'));
             const chatbot = create('aside', 'template-chatbot');
             const chatbotPanel = create('section', 'template-chatbot-panel');
-            chatbotPanel.append(create('h2', '', `${data.companyName} Assistent`), create('p', '', data.chatbotKnowledge || `Willkommen. Wie können wir Ihnen bei ${data.companyName} helfen?`));
+            chatbotPanel.append(create('h2', '', data.chatbotName || `${data.companyName} Assistent`), create('p', '', data.chatbotKnowledge || `Willkommen. Wie können wir Ihnen bei ${data.companyName} helfen?`));
             const chatbotToggle = create('button', 'template-chatbot-toggle', '?');
             chatbotToggle.type = 'button';
             chatbotToggle.setAttribute('aria-label', 'Chatbot öffnen');
+            chatbotToggle.style.background = data.chatbotColor || data.accentColor;
+            chatbotToggle.style.borderRadius = data.chatbotRadius || '50%';
             chatbotToggle.onclick = () => chatbotPanel.classList.toggle('is-open');
             chatbot.append(chatbotPanel, chatbotToggle);
             shell.append(chatbot);
@@ -1807,6 +1809,9 @@ def build_customized_template_html(
     footer_text: str = "",
     multi_page: bool = True,
     chatbot_knowledge: str = "",
+    chatbot_name: str = "",
+    chatbot_color: str = "#38BDF8",
+    chatbot_radius: str = "50%",
 ) -> str:
     """Übernimmt die ausgewählte Vorlage lokal und füllt sie mit Kundendaten."""
     company_name = escape(company_name.strip())
@@ -1822,6 +1827,7 @@ def build_customized_template_html(
         chatbot_knowledge.strip()
         or f"Willkommen bei {company_name}. Wie können wir Ihnen helfen?"
     )
+    chatbot_name = escape(chatbot_name.strip() or f"{company_name} Assistent")
     phone = escape(phone.strip())
     radius = "0" if border_style == "sharp" else "10px"
     text_color = contrast_text_color(background_color)
@@ -1840,6 +1846,14 @@ def build_customized_template_html(
     )
     button_target = "angebote.html" if multi_page else "#leistungen"
     footer_html = f'''<footer class="site-footer"><section><strong>{company_name}</strong><p>{footer_text}</p></section><section><strong>Kontakt</strong><p><a href="mailto:{business_email}">{business_email}</a></p></section><section><strong>Rechtliches</strong><p><a href="#impressum">Impressum</a> · <a href="#datenschutz">Datenschutz</a></p></section><p class="footer-legal">© 2026 {company_name}. Alle Rechte vorbehalten.</p></footer>'''
+    chatbot_widget_html = f'''<style>.customer-chatbot{{position:fixed;right:20px;bottom:20px;z-index:10000;font-family:Arial,sans-serif}}.customer-chatbot-toggle{{border:0;color:#fff;padding:13px 18px;cursor:pointer;font-weight:700;box-shadow:0 4px 10px rgba(0,0,0,.2)}}.customer-chatbot-window{{position:absolute;right:0;bottom:64px;width:min(350px,calc(100vw - 40px));height:450px;background:#fff;color:#111827;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 5px 15px rgba(0,0,0,.3);overflow:hidden}}.customer-chatbot-window header{{display:flex;justify-content:space-between;align-items:center;padding:14px;color:#fff}}.customer-chatbot-window header button{{border:0;background:transparent;color:#fff;font-size:22px;cursor:pointer}}.customer-chatbot-messages{{height:calc(100% - 110px);overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px}}.customer-chatbot-message{{max-width:85%;margin:0;padding:8px 12px;background:#f3f4f6;border-radius:8px;color:#111827}}.customer-chatbot-message-user{{align-self:flex-end;background:{chatbot_color};color:#fff}}.customer-chatbot-form{{display:flex;gap:6px;padding:10px;border-top:1px solid #e5e7eb}}.customer-chatbot-form input{{min-width:0;flex:1;padding:8px;border:1px solid #d1d5db;border-radius:6px}}.customer-chatbot-form button{{border:0;border-radius:6px;padding:8px 12px;color:#fff;cursor:pointer}}@media(max-width:480px){{.customer-chatbot-window{{height:400px}}}}</style><aside class="customer-chatbot" data-knowledge="{chatbot_knowledge}">
+<button class="customer-chatbot-toggle" type="button" aria-expanded="false" aria-label="{chatbot_name} öffnen" style="background:{chatbot_color};border-radius:{chatbot_radius}">Chat</button>
+<section class="customer-chatbot-window" hidden>
+<header style="background:{chatbot_color}"><strong>{chatbot_name}</strong><button type="button" aria-label="Chat schließen">×</button></header>
+<div class="customer-chatbot-messages" aria-live="polite"><p class="customer-chatbot-message">Hallo! Wie kann ich Ihnen helfen?</p></div>
+<form class="customer-chatbot-form"><input type="text" aria-label="Frage eingeben" placeholder="Frage eingeben..." required><button type="submit" style="background:{chatbot_color}">Senden</button></form>
+</section></aside>
+<script>const chatbot=document.querySelector('.customer-chatbot'),toggle=chatbot.querySelector('.customer-chatbot-toggle'),panel=chatbot.querySelector('.customer-chatbot-window'),closeButton=panel.querySelector('header button'),form=chatbot.querySelector('form'),input=form.querySelector('input'),messages=chatbot.querySelector('.customer-chatbot-messages'),knowledge=chatbot.dataset.knowledge;const setOpen=open=>{{panel.hidden=!open;toggle.setAttribute('aria-expanded',String(open));if(open)input.focus();}};toggle.onclick=()=>setOpen(panel.hidden);closeButton.onclick=()=>setOpen(false);form.onsubmit=event=>{{event.preventDefault();const question=input.value.trim();if(!question)return;const userMessage=document.createElement('p');userMessage.className='customer-chatbot-message customer-chatbot-message-user';userMessage.textContent=question;messages.append(userMessage);input.value='';const answer=document.createElement('p');answer.className='customer-chatbot-message';const questionLower=question.toLowerCase();answer.textContent=questionLower.includes('kontakt')||questionLower.includes('email')?`Sie erreichen uns unter {business_email}.`:knowledge||'Vielen Dank für Ihre Anfrage. Wir melden uns gerne persönlich bei Ihnen.';messages.append(answer);messages.scrollTop=messages.scrollHeight;}};</script>'''
     return f"""<!doctype html>
 <html lang="de">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1851,7 +1865,7 @@ def build_customized_template_html(
 <section class="band"><div class="container" id="leistungen"><span class="eyebrow">Leistungen und Vorteile</span><h2>Kompetent. Persönlich. Verlässlich.</h2><div class="cards"><article class="card"><strong>01</strong><h3>Klare Leistungen</h3><p>Passende Lösungen mit nachvollziehbarer Beratung.</p></article><article class="card"><strong>02</strong><h3>Vertrauen schaffen</h3><p>Qualität, Transparenz und ein verbindlicher Service.</p></article><article class="card"><strong>03</strong><h3>Kontakt erleichtern</h3><p>Schnell und direkt zu Ihrer persönlichen Anfrage.</p></article></div></div></section>
 <section class="container" id="ueber-uns"><span class="eyebrow">Über uns</span><h2>Ein Auftritt, der zu Ihrem Unternehmen passt.</h2><p>{description}</p></section>
 <section class="band"><div class="container contact" id="kontakt"><div><span class="eyebrow">Kontakt</span><h2>Wir freuen uns auf Ihre Anfrage.</h2><p><a href="mailto:{business_email}">{business_email}</a></p>{phone_html}</div><div class="card"><h3>Persönlich beraten lassen</h3><p>Schreiben Sie uns direkt. Wir melden uns zeitnah bei Ihnen.</p><a class="button" href="mailto:{business_email}">E-Mail schreiben</a></div></div></section></main>
-{footer_html}<aside class="customer-chatbot"><button type="button" aria-expanded="false">?</button><section hidden><strong>{company_name} Assistent</strong><p>{chatbot_knowledge}</p></section></aside><script>const chatbot=document.querySelector('.customer-chatbot'),toggle=chatbot.querySelector('button'),panel=chatbot.querySelector('section');toggle.onclick=()=>{{panel.hidden=!panel.hidden;toggle.setAttribute('aria-expanded',String(!panel.hidden));}};</script></body></html>"""
+    {footer_html}{chatbot_widget_html}</body></html>"""
 
 
 def build_customized_template_styles() -> str:
@@ -2068,12 +2082,35 @@ def render_client_contact_ui() -> None:
             help="Mit diesem Schlüssel erhält die generierte Website ein Web3Forms-Kontaktformular.",
             key="client_web3forms_access_key",
         )
+    industry = str(st.session_state.get("industry_content_preset", ""))
+    industry_knowledge = industry if industry in INDUSTRY_CONTENT_PRESETS else "Kfz-Meisterwerkstatt"
+    st.subheader("Kunden-Chatbot konfigurieren", anchor=False)
+    st.info(f"Der Chatbot erhält Basiswissen über die Branche: {industry_knowledge}.")
     st.text_area(
         "Chatbot-Wissen (optional)",
         placeholder="Zum Beispiel: Öffnungszeiten, Preise, Angebote, Terminvereinbarung oder häufige Fragen.",
         key="client_chatbot_knowledge",
         height=110,
     )
+    color_column, shape_column, name_column = st.columns(3)
+    with color_column:
+        st.color_picker(
+            "Chat-Designfarbe",
+            "#2563EB",
+            key="customer_chatbot_color",
+        )
+    with shape_column:
+        st.selectbox(
+            "Form des Chat-Icons",
+            ["Rund (Kreis)", "Eckig mit Rundung", "Quadratisch"],
+            key="customer_chatbot_shape",
+        )
+    with name_column:
+        st.text_input(
+            "Name des Chatbots",
+            value="Werkstatt-Assistent",
+            key="customer_chatbot_name",
+        )
 
 
 def render_language_selector() -> tuple[dict[str, str], str]:
@@ -2179,7 +2216,10 @@ def render_template_preview(
             ],
             "footerText": str(st.session_state.get("template_footer_text", "")).strip()
             or f"{company_name} | {business_email} | Impressum | Datenschutz",
-            "chatbotKnowledge": str(st.session_state.get("client_chatbot_knowledge", "")).strip(),
+            "chatbotKnowledge": get_configured_chatbot_knowledge(),
+            "chatbotName": str(st.session_state.get("customer_chatbot_name", "")).strip(),
+            "chatbotColor": str(st.session_state.get("customer_chatbot_color", "#2563EB")),
+            "chatbotRadius": {"Rund (Kreis)": "50%", "Eckig mit Rundung": "8px", "Quadratisch": "0"}.get(str(st.session_state.get("customer_chatbot_shape", "Rund (Kreis)")), "50%"),
             "multiPage": st.session_state.get("page_structure") == "Mehrseitige Website",
             "businessEmail": str(st.session_state.get("client_business_email", "")).strip()
             or "Ihre Kontakt-E-Mail",
@@ -3321,6 +3361,14 @@ INDUSTRY_CONTENT_PRESETS = {
 }
 
 
+def get_configured_chatbot_knowledge() -> str:
+    """Kombiniert Branchen- und individuelle Informationen für den Kunden-Chatbot."""
+    industry = str(st.session_state.get("industry_content_preset", ""))
+    industry = industry if industry in INDUSTRY_CONTENT_PRESETS else "Kfz-Meisterwerkstatt"
+    custom_knowledge = str(st.session_state.get("client_chatbot_knowledge", "")).strip()
+    return f"Branche: {industry}. {custom_knowledge}".strip()
+
+
 def apply_industry_content_preset() -> None:
     """Übernimmt die Inhalte der im Formular gewählten Branche."""
     industry = str(st.session_state.get("industry_content_preset", ""))
@@ -3691,7 +3739,10 @@ with new_tab:
                         str(st.session_state.get("template_button_text", "")),
                         str(st.session_state.get("template_footer_text", "")),
                         page_structure == "Mehrseitige Website",
-                        str(st.session_state.get("client_chatbot_knowledge", "")),
+                        get_configured_chatbot_knowledge(),
+                        str(st.session_state.get("customer_chatbot_name", "")),
+                        str(st.session_state.get("customer_chatbot_color", "#2563EB")),
+                        {"Rund (Kreis)": "50%", "Eckig mit Rundung": "8px", "Quadratisch": "0"}.get(str(st.session_state.get("customer_chatbot_shape", "Rund (Kreis)")), "50%"),
                     )
                     queue_html_update(html)
                     if page_structure == "Mehrseitige Website":
