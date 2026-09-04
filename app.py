@@ -945,6 +945,10 @@ STRIPE_PAYMENT_LINK = "https://buy.stripe.com/3cIfZh5qseusaOpdYP5Rm02"
 STRIPE_SECRET_KEY = str(st.secrets.get("stripe_secret_key", "")).strip()
 STRIPE_PRICE_ID = str(st.secrets.get("stripe_price_id", "")).strip()
 STRIPE_SUCCESS_URL = str(st.secrets.get("stripe_success_url", "")).strip().rstrip("?")
+HF_API_KEY = str(st.secrets.get("HF_API_KEY", "")).strip()
+HF_TEXT_MODEL_URL = (
+    "https://router.huggingface.co/hf-inference/models/Qwen/Qwen2.5-7B-Instruct"
+)
 SUPPORT_ADMIN_EMAIL = str(st.secrets.get("support_admin_email", "")).strip().lower()
 PRIVACY_CONTACT_EMAIL = str(st.secrets.get("privacy_contact_email", "")).strip()
 PRIVACY_CONTROLLER_NAME = str(
@@ -3162,6 +3166,89 @@ def render_customer_service_ui(user_id: int, user_email: str) -> None:
                 st.code(steps, language=None)
 
 
+def optimize_text_with_transformer(bullet_points: str) -> str:
+    """Optimiert kurze Website-Texte mit einem Hugging-Face-Instruct-Modell."""
+    if not HF_API_KEY:
+        raise ValueError(
+            "Der Hugging-Face-Schlüssel fehlt. Hinterlegen Sie HF_API_KEY in den Streamlit-Secrets."
+        )
+
+    prompt = (
+        "Schreibe als professioneller Werbetexter diesen kurzen Text für eine "
+        "Handwerker-Website attraktiv, seriös und fehlerfrei um. Verwende maximal "
+        f"drei Sätze.\n\nText: {bullet_points.strip()}\n\nOptimierter Text:"
+    )
+    response = requests.post(
+        HF_TEXT_MODEL_URL,
+        headers={
+            "Authorization": f"Bearer {HF_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "inputs": prompt,
+            "parameters": {
+                "max_new_tokens": 150,
+                "temperature": 0.4,
+                "return_full_text": False,
+            },
+        },
+        timeout=30,
+    )
+    if response.status_code == 503:
+        raise ValueError(
+            "Das KI-Modell wird gerade gestartet. Bitte versuchen Sie es in wenigen Sekunden erneut."
+        )
+    if response.status_code != 200:
+        error_detail = response.json().get("error", "Unbekannter Fehler")
+        raise ValueError(f"Hugging Face konnte den Text nicht verarbeiten: {error_detail}")
+
+    result = response.json()
+    if isinstance(result, list) and result:
+        optimized_text = result[0].get("generated_text", "")
+    elif isinstance(result, dict):
+        optimized_text = result.get("generated_text", "")
+    else:
+        optimized_text = ""
+    if not optimized_text.strip():
+        raise ValueError("Hugging Face hat keinen optimierten Text zurückgegeben.")
+    return optimized_text.strip()
+
+
+def render_transformer_test_ui() -> None:
+    """Rendert den manuellen Test für die Transformer-Textoptimierung."""
+    st.divider()
+    st.subheader("Live-Test: Transformer-Netzwerk", anchor=False)
+    st.write("Verwandeln Sie kurze Stichpunkte in einen professionellen Website-Text.")
+    test_input = st.text_area(
+        "Eingabe, zum Beispiel für die Angebotsseite",
+        value=(
+            "Bremsen-Service für PKW. Wechseln Beläge und Scheiben. "
+            "Dauer ca. 1 Stunde. Qualitätsteile."
+        ),
+        height=100,
+        key="transformer_test_input",
+    )
+    if st.button(
+        "Transformer-Anfrage starten",
+        icon=":material/auto_awesome:",
+        type="primary",
+        key="transformer_test_submit",
+    ):
+        if not test_input.strip():
+            st.warning("Bitte geben Sie zunächst Stichpunkte ein.")
+            return
+        with st.spinner("Text wird optimiert ..."):
+            try:
+                st.session_state.transformer_test_result = optimize_text_with_transformer(test_input)
+            except ValueError as error:
+                st.error(str(error))
+
+    result = str(st.session_state.get("transformer_test_result", "")).strip()
+    if result:
+        st.markdown("#### Optimierter Website-Text")
+        st.info(result)
+
+
 def render_privacy_policy_ui() -> None:
     """Zeigt eine verständliche Übersicht der in der App genutzten Datenverarbeitung."""
     st.header("Datenschutzbestimmungen")
@@ -3553,6 +3640,7 @@ with manage_tab:
 
 with service_tab:
     render_customer_service_ui(current_user_id, st.session_state.user_email)
+    render_transformer_test_ui()
 
 with privacy_tab:
     render_privacy_policy_ui()
