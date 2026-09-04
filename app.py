@@ -2275,7 +2275,7 @@ def show_full_draft_preview() -> None:
 
 def render_template_and_design_ui() -> str:
     """Rendert die Branchenvorlagen fuer einen gefuehrten Website-Entwurf."""
-    st.subheader(t("template"))
+    st.subheader(f"3. {t('template')} und Gestaltung")
     selected_language, language_name = render_language_selector()
     st.caption(f"{t('target_language')}: {language_name}")
 
@@ -2421,7 +2421,7 @@ DESIGN-VORGABEN:
 
 def render_section_configuration() -> str:
     """Erfasst den gewünschten Umfang und die Kerninhalte eines Entwurfs."""
-    st.subheader("Abschnitte und Inhalte")
+    st.subheader("4. Abschnitte und Inhalte")
     selected_sections = st.multiselect(
         "Welche Bereiche soll die Website enthalten?",
         [
@@ -3679,8 +3679,8 @@ new_tab, manage_tab, service_tab, privacy_tab = st.tabs(
 
 
 with new_tab:
-    st.subheader("Website planen")
-    st.caption("Wählen Sie Branche, Startmodus und Seitenstruktur. Alle Inhalte können Sie anschließend bearbeiten.")
+    st.subheader("1. Website-Projekt festlegen")
+    st.caption("Wählen Sie Branche, Startmodus und Seitenstruktur. Alle Inhalte bleiben anschließend bearbeitbar.")
     industry_column, mode_column = st.columns(2)
     with industry_column:
         render_industry_content_preset_ui()
@@ -3698,6 +3698,12 @@ with new_tab:
         key="page_structure",
     )
     st.divider()
+
+    if creation_mode != "Bestehenden Entwurf anpassen":
+        st.subheader("2. Kundendaten und Kunden-Chatbot")
+        st.caption("Diese Angaben werden direkt in Vorschau, Kontaktbereich und Chatbot übernommen.")
+        render_client_contact_ui()
+        st.divider()
 
     template_prompt = ""
     if creation_mode == "Professionelle Vorlage":
@@ -3774,6 +3780,7 @@ with new_tab:
                 key="creation_description",
                 height=150,
             )
+        st.subheader("5. Bild und Entwurf erstellen")
         initial_image = st.file_uploader(
             "Logo oder Bild hochladen (optional)",
             type=["png", "jpg", "jpeg", "webp"],
@@ -3790,9 +3797,6 @@ with new_tab:
             disabled=initial_image is None,
             key="image_placement",
         )
-
-        st.divider()
-        render_client_contact_ui()
         submit_label = (
             "Vorlage mit Kundendaten übernehmen"
             if creation_mode == "Professionelle Vorlage"
