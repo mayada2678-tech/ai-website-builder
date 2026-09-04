@@ -39,8 +39,6 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
         .template-button { border: 0; display: inline-block; background: var(--accent); color: var(--accent-text); padding: 11px 16px; border-radius: var(--radius); cursor: pointer; font: 700 13px ui-sans-serif, sans-serif; }
         .template-image { width: 100%; min-height: 220px; max-height: 320px; object-fit: cover; border-radius: var(--radius); }
         .template-placeholder { min-height: 220px; border: 1px dashed var(--accent); border-radius: var(--radius); display: grid; place-items: center; padding: 18px; color: var(--accent); text-align: center; font: 700 12px ui-sans-serif, sans-serif; }
-        [contenteditable="true"] { cursor: text; outline: 1px dashed transparent; outline-offset: 4px; }
-        [contenteditable="true"]:hover, [contenteditable="true"]:focus { outline-color: var(--accent); }
         .template-hint { margin: 0; padding: 12px 28px; background: var(--surface); color: var(--muted); font: 12px ui-sans-serif, sans-serif; }
         .template-page { padding: 58px 28px; }
         .template-page h1 { margin: 12px 0; font-size: 38px; line-height: 1.1; }
@@ -117,17 +115,9 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
             const hero = create('div', 'template-hero');
             const copy = create('div', '');
             const fields = [['heading', 'h3', 'template-heading'], ['description', 'p', 'template-description'], ['buttonText', 'button', 'template-button']];
-            const changed = {};
             fields.forEach(([key, tag, className]) => {
                 const field = create(tag, className, data[key]);
-                field.contentEditable = 'true';
-                field.setAttribute('role', 'textbox');
-                field.setAttribute('aria-label', key === 'heading' ? 'Überschrift bearbeiten' : key === 'description' ? 'Beschreibung bearbeiten' : 'Button-Text bearbeiten');
                 if (key === 'buttonText') field.type = 'button';
-                field.onblur = () => {
-                    const value = field.textContent.trim();
-                    if (value !== data[key]) { changed[key] = value; setTriggerValue('saved', changed); }
-                };
                 if (key === 'buttonText') field.onclick = () => setTriggerValue('navigated', 'angebote');
                 copy.append(field);
             });
@@ -150,7 +140,7 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
             legal.append(create('h2', '', 'Rechtliches'), create('a', '', 'Impressum'), create('p', '', 'Datenschutz'));
             const legalNote = create('p', 'template-footer-legal', `© ${new Date().getFullYear()} ${data.companyName}. Alle Rechte vorbehalten.`);
             footer.append(brand, contact, legal, legalNote);
-            shell.append(header, hero, templateSections, footer, create('p', 'template-hint', 'Änderungen werden sofort in dieser Entwurfsvorschau angezeigt.'));
+            shell.append(header, hero, templateSections, footer, create('p', 'template-hint', 'Design, Blöcke und Struktur bleiben erhalten. Inhalte werden über die Eingabefelder festgelegt.'));
             if (data.showCustomerChatbot) {
                 const chatbot = create('aside', 'template-chatbot');
                 const chatbotPanel = create('section', 'template-chatbot-panel');
