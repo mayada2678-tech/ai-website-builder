@@ -3281,6 +3281,69 @@ def render_website_recommendation_ui() -> None:
         st.info(recommendation)
 
 
+INDUSTRY_CONTENT_PRESETS = {
+    "Kfz-Meisterwerkstatt": {
+        "section_hero_title": "Meisterservice für Ihr Fahrzeug.",
+        "section_hero_subtitle": "Persönlich, präzise und zuverlässig für alle Marken.",
+        "section_services": "Meisterhafte Kfz-Reparaturen, präziser Reifenwechsel, umfassender Autoservice",
+        "section_about_text": "Seit über 15 Jahren reparieren wir Fahrzeuge aller Marken mit Leidenschaft und Meisterqualität.",
+        "offer_page_name": "Ölwechsel-Komplettservice",
+        "offer_page_price": "ab 49 EUR",
+        "offer_page_details": "Inklusive kostenlosem Sicherheits- und Bremsencheck.",
+    },
+    "Friseursalon": {
+        "section_hero_title": "Ihr Look. Unser Handwerk.",
+        "section_hero_subtitle": "Individuelles Styling in entspannter Wohlfühlatmosphäre.",
+        "section_services": "Moderne Haarschnitte, brillante Colorationen, individuelles Styling für Damen, Herren und Kinder",
+        "section_about_text": "Unser kreatives Team sorgt in Wohlfühlatmosphäre für Ihren perfekten Look und gesundes Haar.",
+        "offer_page_name": "Premium-Balayage-Paket",
+        "offer_page_price": "Beratung gratis",
+        "offer_page_details": "Individuell abgestimmt inklusive hochwertiger Pflege.",
+    },
+    "Dachdeckerfachbetrieb": {
+        "section_hero_title": "Schutz und Qualität für Ihr Dach.",
+        "section_hero_subtitle": "Fachgerechte Lösungen für Neubau, Sanierung und Reparatur.",
+        "section_services": "Dachsanierung, Neueindeckung, Abdichtung und Reparatur, Dachfenster und Wärmedämmung",
+        "section_about_text": "Wir verbinden solides Handwerk, langlebige Materialien und eine transparente Beratung für Ihr Zuhause.",
+        "offer_page_name": "Kostenloser Dach-Check",
+        "offer_page_price": "unverbindlich",
+        "offer_page_details": "Wir prüfen den Zustand Ihres Dachs und beraten zu passenden Maßnahmen.",
+    },
+    "Physiotherapie-Praxis": {
+        "section_hero_title": "Bewegung zurückgewinnen.",
+        "section_hero_subtitle": "Persönliche Therapie für mehr Gesundheit und Lebensqualität.",
+        "section_services": "Krankengymnastik, manuelle Therapie, Lymphdrainage und individuelle Trainingsberatung",
+        "section_about_text": "Wir begleiten Sie mit fachlicher Kompetenz und einem ganzheitlichen Blick auf Ihre Gesundheit.",
+        "offer_page_name": "Erstberatung",
+        "offer_page_price": "persönlich und individuell",
+        "offer_page_details": "Gemeinsam entwickeln wir den passenden Weg zu mehr Beweglichkeit.",
+    },
+}
+
+
+def apply_industry_content_preset() -> None:
+    """Übernimmt die Inhalte der im Formular gewählten Branche."""
+    industry = str(st.session_state.get("industry_content_preset", ""))
+    preset = INDUSTRY_CONTENT_PRESETS.get(industry)
+    if preset:
+        st.session_state.update(preset)
+        st.session_state.industry_preset_applied = industry
+
+
+def render_industry_content_preset_ui() -> None:
+    """Rendert die formularbasierte Branchenauswahl für Website-Inhalte."""
+    st.subheader("Branche wählen und Website-Inhalte vorbereiten", anchor=False)
+    st.write("Wählen Sie Ihre Branche. Texte für Startseite, Leistungen, Über uns und Angebot werden automatisch vorbereitet.")
+    industry = st.selectbox(
+        "Was ist Ihr Betrieb?",
+        ["Bitte wählen..."] + list(INDUSTRY_CONTENT_PRESETS),
+        key="industry_content_preset",
+        on_change=apply_industry_content_preset,
+    )
+    if industry != "Bitte wählen..." and st.session_state.get("industry_preset_applied") == industry:
+        st.success(f"Die Inhalte für „{industry}“ wurden vorbereitet.")
+
+
 def render_transformer_test_ui() -> None:
     """Rendert den manuellen Test für die Transformer-Textoptimierung."""
     st.divider()
@@ -3482,6 +3545,8 @@ with new_tab:
         on_change=apply_design_use_case,
     )
     render_website_recommendation_ui()
+    st.divider()
+    render_industry_content_preset_ui()
     st.divider()
     creation_mode = st.segmented_control(
         "Wie möchten Sie starten?",
