@@ -27,7 +27,7 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
         html='<section id="template-editor"></section>',
         css="""
         #template-editor { font-family: Georgia, serif; }
-        .template-shell { position: relative; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); background: var(--background); color: var(--text); }
+        .template-shell { position: relative; overflow: visible; border: 1px solid var(--border); border-radius: var(--radius); background: var(--background); color: var(--text); }
         .template-header { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 18px 28px; border-bottom: 1px solid var(--border); font-family: ui-sans-serif, sans-serif; }
         .template-nav { display: flex; justify-content: flex-end; gap: 16px; flex-wrap: wrap; font-size: 12px; }
         .template-nav button { border: 0; padding: 0; background: transparent; color: inherit; cursor: pointer; font: inherit; }
@@ -48,7 +48,7 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
         .template-footer { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 28px; padding: 34px 28px 20px; border-top: 1px solid var(--border); font-family: ui-sans-serif, sans-serif; }
         .template-footer h2 { margin: 0; font-size: 15px; } .template-footer p, .template-footer a { color: var(--muted); font-size: 13px; line-height: 1.6; text-decoration: none; }
         .template-footer a:hover { color: var(--accent); } .template-footer-legal { grid-column: 1 / -1; margin: 0; padding-top: 16px; border-top: 1px solid var(--border); }
-        .template-chatbot { position: fixed; right: 18px; bottom: 18px; z-index: 100; font-family: ui-sans-serif, sans-serif; }
+        .template-chatbot { position: fixed; right: 18px; bottom: 18px; z-index: 2147483647; font-family: ui-sans-serif, sans-serif; }
         .template-chatbot-toggle { width: 56px; height: 56px; border: 0; border-radius: 50%; background: var(--accent); color: var(--accent-text); cursor: pointer; font: 700 13px ui-sans-serif, sans-serif; box-shadow: 0 10px 28px rgba(15, 23, 42, .24); }
         .template-chatbot-panel { display: none; width: min(300px, calc(100vw - 44px)); margin: 0 0 10px auto; padding: 18px; background: var(--background); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 16px 38px rgba(15, 23, 42, .22); }
         .template-chatbot-panel.is-open { display: block; }
