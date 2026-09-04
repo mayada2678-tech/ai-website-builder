@@ -1652,10 +1652,12 @@ def ensure_multi_page_navigation(html: str) -> str:
 
 
 def queue_html_update(html: str) -> None:
-    """Plant ein sicheres HTML-Update für den nächsten Durchlauf."""
+    """Übernimmt einen vollständigen HTML-Entwurf für Vorschau und Veröffentlichung."""
     index_html = require_complete_html(html)
     st.session_state.site_pages = {"index.html": index_html}
     st.session_state.pending_html = index_html
+    st.session_state.generated_html = index_html
+    st.session_state.html_editor = index_html
 
 
 def build_website_zip() -> bytes:
