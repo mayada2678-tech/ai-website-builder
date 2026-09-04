@@ -4005,9 +4005,6 @@ if st.session_state.live_url:
 
     st.caption(f"Live-Link: {st.session_state.live_url}")
 
-st.divider()
-render_saas_preview_and_testing_window()
-
 if (
     st.session_state.generated_html
     and st.session_state.get("creation_mode") != "Professionelle Vorlage"
