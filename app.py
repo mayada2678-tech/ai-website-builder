@@ -896,7 +896,7 @@ def confirm_stripe_checkout(user_id: int) -> bool:
 
 
 def render_payment_ui(user_id: int, user_email: str) -> None:
-    """Zeigt die Zahlung für die Veröffentlichung, ohne Freischaltung vor Zahlung."""
+    """Zeigt den Stripe-Payment-Link für die Veröffentlichungsfreigabe."""
     st.subheader("Veröffentlichung freischalten")
     st.caption("Nach bestätigter Zahlung kann die Website mit Wunsch-URL und eigener Domain veröffentlicht werden.")
     st.link_button(
@@ -906,26 +906,6 @@ def render_payment_ui(user_id: int, user_email: str) -> None:
         type="primary",
         width="stretch",
     )
-    stripe_configured = bool(
-        STRIPE_SECRET_KEY and STRIPE_PRICE_ID and STRIPE_SUCCESS_URL
-    )
-    if not stripe_configured:
-        st.warning("Zahlung ist noch nicht eingerichtet. Hinterlegen Sie stripe_secret_key, stripe_price_id und stripe_success_url in den Streamlit-Secrets.")
-    if st.button(
-        "Abonnement abschließen",
-        icon=":material/payment:",
-        type="primary",
-        disabled=not stripe_configured,
-        key="create_stripe_checkout",
-        width="stretch",
-    ):
-        try:
-            st.session_state.stripe_checkout_url = create_stripe_checkout_session(user_id, user_email)
-        except ValueError as error:
-            st.error(str(error))
-    checkout_url = str(st.session_state.get("stripe_checkout_url", ""))
-    if checkout_url:
-        st.link_button("Sicher bezahlen", checkout_url, icon=":material/open_in_new:", type="primary", width="stretch")
 
 
 initialize_database()
