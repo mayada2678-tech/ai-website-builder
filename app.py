@@ -110,7 +110,6 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
             }
             const hero = create('div', 'template-hero');
             const copy = create('div', '');
-            copy.append(create('p', 'template-eyebrow', 'Professionelle Markenwebsite'));
             const fields = [['heading', 'h3', 'template-heading'], ['description', 'p', 'template-description'], ['buttonText', 'button', 'template-button']];
             const changed = {};
             fields.forEach(([key, tag, className]) => {
