@@ -3059,15 +3059,28 @@ def render_domain_and_deployment_ui() -> None:
         "Die Website wird auf Vercel veröffentlicht. Die finale Adresse wird nach "
         "der erfolgreichen Vercel-Antwort angezeigt."
     )
-    st.download_button(
-        "Website-Paket als ZIP herunterladen",
-        data=build_website_zip(),
-        file_name="kunden-website.zip",
-        mime="application/zip",
+    st.divider()
+    st.subheader("Veröffentlichung mit Chatbot", anchor=False)
+    st.caption("Das Paket enthält den aktuellen Website-Entwurf einschließlich des konfigurierten Chatbots.")
+    if st.button(
+        "Vercel-ZIP-Paket mit Chatbot generieren",
         icon=":material/folder_zip:",
-        key="download_website_zip",
+        key="generate_chatbot_website_zip",
         width="stretch",
-    )
+    ):
+        with st.spinner("Website-Paket wird erstellt ..."):
+            st.session_state.finished_website_zip = build_website_zip()
+        st.success("Das Website-Paket ist bereit zum Download.")
+    if st.session_state.get("finished_website_zip"):
+        st.download_button(
+            "Website mit Chatbot herunterladen (ZIP)",
+            data=st.session_state.finished_website_zip,
+            file_name="kunden-website-mit-chatbot.zip",
+            mime="application/zip",
+            icon=":material/download:",
+            key="download_website_zip",
+            width="stretch",
+        )
     if domain_type == "Vercel-Projektadresse":
         if st.button(
             "Jetzt auf Vercel veröffentlichen",
