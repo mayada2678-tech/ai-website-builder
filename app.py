@@ -7,7 +7,7 @@ import re
 import secrets
 import sqlite3
 import zipfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from html import escape
 from pathlib import Path
 from urllib.parse import urlparse
@@ -622,10 +622,20 @@ def initialize_database() -> None:
                 email TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
                 token_balance REAL DEFAULT 5.00,
-                is_subscribed INTEGER DEFAULT 0
+                is_subscribed INTEGER DEFAULT 0,
+                created_at TEXT NOT NULL
             )
             """
         )
+        columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(users)")
+        }
+        if "created_at" not in columns:
+            connection.execute("ALTER TABLE users ADD COLUMN created_at TEXT")
+            connection.execute(
+                "UPDATE users SET created_at = ? WHERE created_at IS NULL",
+                (datetime.now(timezone.utc).isoformat(),),
+            )
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS websites (
@@ -694,8 +704,8 @@ def register_user(email: str, password: str) -> None:
     try:
         with sqlite3.connect(DATABASE_PATH) as connection:
             connection.execute(
-                "INSERT INTO users (email, password_hash) VALUES (?, ?)",
-                (normalized_email, hash_password(password)),
+                "INSERT INTO users (email, password_hash, created_at) VALUES (?, ?, ?)",
+                (normalized_email, hash_password(password), datetime.now(timezone.utc).isoformat()),
             )
     except sqlite3.IntegrityError as error:
         raise ValueError("Zu dieser E-Mail-Adresse existiert bereits ein Konto.") from error
@@ -818,25 +828,37 @@ def get_support_requests(user_id: int | None = None) -> list[tuple]:
         ).fetchall()
 
 
-def get_user_status(user_id: int) -> dict[str, float | bool]:
-    """Liest Guthaben und Premium-Status des angemeldeten Nutzers."""
+TRIAL_DURATION = timedelta(hours=24)
+
+
+def get_user_status(user_id: int) -> dict[str, float | bool | int]:
+    """Liest Premium- und 24-Stunden-Teststatus des angemeldeten Nutzers."""
     with sqlite3.connect(DATABASE_PATH) as connection:
         user = connection.execute(
-            "SELECT token_balance, is_subscribed FROM users WHERE id = ?",
+            "SELECT token_balance, is_subscribed, created_at FROM users WHERE id = ?",
             (user_id,),
         ).fetchone()
 
     if user is None:
-        return {"balance": 0.0, "subscribed": False}
-    return {"balance": float(user[0]), "subscribed": bool(user[1])}
+        return {"balance": 0.0, "subscribed": False, "trial_active": False, "trial_remaining_hours": 0}
+    try:
+        created_at = datetime.fromisoformat(user[2]).astimezone(timezone.utc)
+    except (TypeError, ValueError):
+        created_at = datetime.now(timezone.utc) - TRIAL_DURATION
+    remaining = max(timedelta(), created_at + TRIAL_DURATION - datetime.now(timezone.utc))
+    return {
+        "balance": float(user[0]),
+        "subscribed": bool(user[1]),
+        "trial_active": remaining > timedelta(),
+        "trial_remaining_hours": max(0, int(remaining.total_seconds() // 3600) + (1 if remaining else 0)),
+    }
 
 
 def deduct_tokens(user_id: int, amount: float = 0.05) -> bool:
-    """Bucht Guthaben atomar ab und sperrt Free-Nutzer ohne ausreichendes Guthaben."""
+    """Erlaubt Generierungen waehrend der 24-Stunden-Testphase oder mit Premium."""
     with sqlite3.connect(DATABASE_PATH) as connection:
-        connection.execute("BEGIN IMMEDIATE")
         user = connection.execute(
-            "SELECT token_balance, is_subscribed FROM users WHERE id = ?",
+            "SELECT is_subscribed, created_at FROM users WHERE id = ?",
             (user_id,),
         ).fetchone()
 
@@ -844,24 +866,16 @@ def deduct_tokens(user_id: int, amount: float = 0.05) -> bool:
             return False
         if user[1]:
             return True
-        if float(user[0]) < amount:
+        try:
+            created_at = datetime.fromisoformat(user[1]).astimezone(timezone.utc)
+        except (TypeError, ValueError):
             return False
-
-        connection.execute(
-            "UPDATE users SET token_balance = token_balance - ? WHERE id = ?",
-            (amount, user_id),
-        )
-        return True
+        return datetime.now(timezone.utc) < created_at + TRIAL_DURATION
 
 
 def refund_tokens(user_id: int, amount: float = 0.05) -> None:
-    """Erstattet Guthaben, wenn die KI-Anfrage nicht ausgeführt werden konnte."""
-    with sqlite3.connect(DATABASE_PATH) as connection:
-        connection.execute(
-            "UPDATE users SET token_balance = token_balance + ? "
-            "WHERE id = ? AND is_subscribed = 0",
-            (amount, user_id),
-        )
+    """Kompatibilitaetsfunktion: Die kostenlose Testphase verbraucht kein Guthaben."""
+    return None
 
 
 def activate_premium_demo(user_id: int) -> None:
@@ -878,6 +892,11 @@ def create_stripe_checkout_session(user_id: int, user_email: str) -> str:
     if not STRIPE_SECRET_KEY or not STRIPE_PRICE_ID or not STRIPE_SUCCESS_URL:
         raise ValueError("Stripe ist noch nicht eingerichtet.")
 
+    separator = "&" if "?" in STRIPE_SUCCESS_URL else "?"
+    success_url = (
+        f"{STRIPE_SUCCESS_URL}{separator}checkout_session_id={{CHECKOUT_SESSION_ID}}"
+        "&publish=1"
+    )
     response = requests.post(
         "https://api.stripe.com/v1/checkout/sessions",
         auth=(STRIPE_SECRET_KEY, ""),
@@ -887,7 +906,7 @@ def create_stripe_checkout_session(user_id: int, user_email: str) -> str:
             "client_reference_id": str(user_id),
             "line_items[0][price]": STRIPE_PRICE_ID,
             "line_items[0][quantity]": "1",
-            "success_url": f"{STRIPE_SUCCESS_URL}?checkout_session_id={{CHECKOUT_SESSION_ID}}",
+            "success_url": success_url,
             "cancel_url": STRIPE_SUCCESS_URL,
         },
         timeout=30,
@@ -930,13 +949,6 @@ def render_payment_ui(user_id: int, user_email: str) -> None:
         "Mit Premium veröffentlichen Sie Websites mit Wunsch-URL und eigener Domain. "
         f"Das Abonnement wird für {user_email} abgeschlossen."
     )
-    st.link_button(
-        "Mit Stripe abonnieren",
-        STRIPE_PAYMENT_LINK,
-        icon=":material/payment:",
-        type="primary",
-        width="stretch",
-    )
     if STRIPE_SECRET_KEY and STRIPE_PRICE_ID and STRIPE_SUCCESS_URL:
         if st.button(
             "Stripe Checkout öffnen",
@@ -958,6 +970,11 @@ def render_payment_ui(user_id: int, user_email: str) -> None:
                 icon=":material/lock:",
                 width="stretch",
             )
+    else:
+        st.error(
+            "Der kontogebundene Stripe Checkout ist noch nicht eingerichtet. "
+            "Hinterlegen Sie stripe_secret_key, stripe_price_id und stripe_success_url."
+        )
 
 
 initialize_database()
@@ -1006,6 +1023,7 @@ DEFAULT_STATE = {
     "deployment_id": "",
     "project_name": "ai-website-builder",
     "stripe_checkout_url": "",
+    "publish_after_checkout": False,
     "delete_confirmation": False,
     "show_botpress_chatbot": True,
     "chat_messages": [
@@ -1598,17 +1616,22 @@ if st.session_state.user_id is None:
 
 current_user_id = int(st.session_state.user_id)
 user_info = get_user_status(current_user_id)
+return_to_publish = st.query_params.get("publish") == "1"
 if not user_info["subscribed"] and confirm_stripe_checkout(current_user_id):
+    st.session_state.publish_after_checkout = return_to_publish
     st.success("Zahlung bestätigt. Die Veröffentlichung ist jetzt freigeschaltet.")
     st.rerun()
 
-if not user_info["subscribed"] and user_info["balance"] <= 0:
-    st.error(t("balance_empty"))
-    st.info(t("premium_info"))
+if not user_info["subscribed"] and not user_info["trial_active"]:
+    st.warning(
+        "Ihre kostenlose 24-Stunden-Testphase ist abgelaufen. Mit Premium können Sie "
+        "weiter Websites erstellen und veröffentlichen."
+    )
     render_payment_ui(current_user_id, st.session_state.user_email)
-
-if not user_info["subscribed"] and user_info["balance"] < 1.00:
-    st.warning(t("low_balance", balance=user_info["balance"]))
+elif not user_info["subscribed"]:
+    st.info(
+        f"Kostenlose Testphase aktiv: noch etwa {user_info['trial_remaining_hours']} Stunden."
+    )
 
 
 def clean_html(html: str) -> str:
@@ -2124,7 +2147,8 @@ def ask_ai_for_html(system_instruction: str, user_instruction: str) -> str:
     """Fordert vollständigen HTML-Code von OpenAI an."""
     if not deduct_tokens(current_user_id):
         raise ValueError(
-            "Ihr KI-Guthaben reicht für diese Anfrage nicht aus."
+            "Ihre kostenlose 24-Stunden-Testphase ist abgelaufen. Bitte schließen Sie "
+            "Premium ab, um weitere Websites mit KI zu erstellen."
         )
 
     try:
@@ -3405,6 +3429,21 @@ def render_domain_and_deployment_ui() -> None:
         render_payment_ui(current_user_id, st.session_state.user_email)
         return
 
+    if (
+        st.session_state.get("publish_after_checkout")
+        and domain_type == "Vercel-Projektadresse"
+    ):
+        st.session_state.publish_after_checkout = False
+        st.session_state.project_name = safe_project_name(requested_name or "")
+        with st.status("Zahlung bestätigt. Vercel veröffentlicht Ihre Website ...", expanded=True) as status:
+            try:
+                publish_website()
+                status.update(label="Ihre Website wurde veröffentlicht.", state="complete")
+                st.rerun()
+            except ValueError as error:
+                status.update(label="Veröffentlichung fehlgeschlagen", state="error")
+                st.error(str(error))
+
     st.caption(
         "Die Website wird auf Vercel veröffentlicht. Die finale Adresse wird nach "
         "der erfolgreichen Vercel-Antwort angezeigt."
@@ -4007,14 +4046,13 @@ with st.sidebar:
         if user_info["subscribed"]:
             st.badge(t("premium_active"), icon=":material/workspace_premium:", color="green")
         else:
-            st.caption(t("balance", balance=user_info["balance"]))
-            st.link_button(
-                "Premium-Abonnement",
-                STRIPE_PAYMENT_LINK,
-                icon=":material/payment:",
-                type="primary",
-                width="stretch",
+            st.caption(
+                "Kostenlose Testphase: noch etwa "
+                f"{user_info['trial_remaining_hours']} Stunden"
+                if user_info["trial_active"]
+                else "Kostenlose Testphase abgelaufen"
             )
+            st.caption("Premium kann im Bereich Veröffentlichung sicher abgeschlossen werden.")
 
         if st.button(t("logout"), icon=":material/logout:", width="stretch"):
             st.session_state.clear()
