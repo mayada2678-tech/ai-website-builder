@@ -131,9 +131,11 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
                     chatbotForm.append(chatbotInput, chatbotSend);
                     chatbotForm.onsubmit = event => { event.preventDefault(); const question = chatbotInput.value.trim(); if (!question) return; chatbotAnswer.textContent = `Danke für Ihre Frage: „${question}“. ${data.chatbotKnowledge || `${data.companyName} meldet sich gerne bei Ihnen.`}`; chatbotInput.value = ''; };
                     chatbotPanel.append(create('h2', '', data.chatbotName || `${data.companyName} Assistent`), chatbotAnswer, chatbotForm);
-                    const chatbotToggle = create('button', 'template-chatbot-toggle', 'Chat');
+                    const chatbotToggle = create('button', 'template-chatbot-toggle', '🤖');
                     chatbotToggle.type = 'button';
                     chatbotToggle.setAttribute('aria-label', 'Chatbot öffnen');
+                    chatbotToggle.title = 'Chatbot öffnen';
+                    chatbotToggle.style.fontSize = '28px';
                     chatbotToggle.style.background = data.chatbotColor || data.accentColor;
                     chatbotToggle.style.borderRadius = data.chatbotRadius || '50%';
                     chatbotToggle.onclick = () => chatbotPanel.classList.toggle('is-open');
@@ -185,9 +187,11 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
                 chatbotForm.append(chatbotInput, chatbotSend);
                 chatbotForm.onsubmit = event => { event.preventDefault(); const question = chatbotInput.value.trim(); if (!question) return; chatbotAnswer.textContent = `Danke für Ihre Frage: „${question}“. ${data.chatbotKnowledge || `${data.companyName} meldet sich gerne bei Ihnen.`}`; chatbotInput.value = ''; };
                 chatbotPanel.append(create('h2', '', data.chatbotName || `${data.companyName} Assistent`), chatbotAnswer, chatbotForm);
-                const chatbotToggle = create('button', 'template-chatbot-toggle', 'Chat');
+                const chatbotToggle = create('button', 'template-chatbot-toggle', '🤖');
                 chatbotToggle.type = 'button';
                 chatbotToggle.setAttribute('aria-label', 'Chatbot öffnen');
+                chatbotToggle.title = 'Chatbot öffnen';
+                chatbotToggle.style.fontSize = '28px';
                 chatbotToggle.style.background = data.chatbotColor || data.accentColor;
                 chatbotToggle.style.borderRadius = data.chatbotRadius || '50%';
                 chatbotToggle.onclick = () => chatbotPanel.classList.toggle('is-open');
@@ -2567,7 +2571,7 @@ def render_template_preview(
             "chatbotName": str(st.session_state.get("customer_chatbot_name", "")).strip(),
             "chatbotColor": str(st.session_state.get("customer_chatbot_color", "#2563EB")),
             "chatbotRadius": {"Rund (Kreis)": "50%", "Eckig mit Rundung": "8px", "Quadratisch": "0"}.get(str(st.session_state.get("customer_chatbot_shape", "Rund (Kreis)")), "50%"),
-            "showCustomerChatbot": component_key == "full_draft_template_preview",
+            "showCustomerChatbot": True,
             "multiPage": st.session_state.get("page_structure") == "Mehrseitige Website",
             "businessEmail": str(st.session_state.get("client_business_email", "")).strip()
             or "Ihre Kontakt-E-Mail",
