@@ -6,6 +6,7 @@ import json
 import re
 import secrets
 import sqlite3
+import time
 import zipfile
 from datetime import datetime, timedelta, timezone
 from html import escape
@@ -3275,6 +3276,35 @@ def get_public_url(deployment: dict) -> str:
 
     raise ValueError("Vercel hat keine öffentliche Deployment-URL geliefert.")
 
+
+def wait_for_vercel_deployment(deployment_id: str, timeout_seconds: int = 90) -> dict:
+    """Wartet auf den abschließenden Vercel-Status vor der Weiterleitung."""
+    deadline = time.monotonic() + timeout_seconds
+    headers = {"Authorization": f"Bearer {VERCEL_TOKEN}"}
+
+    while time.monotonic() < deadline:
+        try:
+            response = requests.get(
+                f"https://api.vercel.com/v13/deployments/{deployment_id}",
+                headers=headers,
+                timeout=20,
+            )
+        except requests.RequestException as error:
+            raise ValueError(f"Vercel-Status konnte nicht geprüft werden: {error}") from error
+
+        if response.status_code != 200:
+            raise ValueError(f"Vercel-Statusprüfung fehlgeschlagen: HTTP {response.status_code}.")
+
+        deployment = response.json()
+        state = str(deployment.get("readyState", "")).upper()
+        if state == "READY":
+            return deployment
+        if state in {"ERROR", "CANCELED"}:
+            raise ValueError("Vercel konnte die Website nicht veröffentlichen.")
+        time.sleep(2)
+
+    raise ValueError("Vercel benötigt länger als erwartet. Bitte öffnen Sie den Live-Link in wenigen Minuten.")
+
 def delete_published_website() -> None:
     """Löscht nur das letzte Deployment aus der aktuellen Sitzung."""
     deployment_id = st.session_state.deployment_id
@@ -3382,6 +3412,8 @@ def publish_website() -> None:
 
     if not deployment_id or not deployment_url:
         raise ValueError(f"Unvollständige Vercel-Antwort: {deployment}")
+
+    deployment = wait_for_vercel_deployment(deployment_id)
 
     # project_name hier NICHT verändern: Es gehört zum Streamlit-Textfeld.
     st.session_state.live_url = get_public_url(deployment)
