@@ -2098,9 +2098,11 @@ def build_customer_chatbot_widget(
         if re.fullmatch(r"#[0-9a-fA-F]{6}", chatbot_color)
         else "#2563EB"
     )
-    chatbot_side = "left:20px;right:auto;" if st.session_state.get("customer_chatbot_position") == "Unten links" else "right:20px;left:auto;"
+    is_left_aligned = st.session_state.get("customer_chatbot_position") == "Unten links"
+    chatbot_side = "left:20px;right:auto;" if is_left_aligned else "right:20px;left:auto;"
+    panel_side = "left:0;right:auto;" if is_left_aligned else "right:0;left:auto;"
     chatbot_behavior = "fixed" if st.session_state.get("customer_chatbot_fixed", True) else "relative"
-    return f'''<aside class="customer-chatbot" style="position:{chatbot_behavior};{chatbot_side}bottom:20px;z-index:10000"><button id="customer-chat-toggle" type="button" aria-expanded="false" aria-label="{chatbot_name} öffnen" style="background:{chatbot_color};color:#fff;border:0;border-radius:50%;width:56px;height:56px;cursor:pointer;font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,.24)">Chat</button><section id="customer-chat-panel" hidden style="position:absolute;right:0;bottom:68px;width:min(330px,calc(100vw - 40px));padding:18px;background:#fff;color:#111827;border:1px solid #d1d5db;border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.22)"><strong>{chatbot_name}</strong><p id="customer-chat-answer" style="margin:10px 0;color:#374151">Hallo! Wie können wir helfen?</p><form id="customer-chat-form" style="display:flex;gap:6px"><input id="customer-chat-input" aria-label="Frage eingeben" placeholder="Frage eingeben..." required style="min-width:0;flex:1;padding:8px"><button type="submit" style="border:0;background:{chatbot_color};color:#fff;padding:8px 12px;cursor:pointer">Senden</button></form></section></aside>
+    return f'''<aside class="customer-chatbot" style="position:{chatbot_behavior};{chatbot_side}bottom:20px;z-index:10000"><button id="customer-chat-toggle" type="button" aria-expanded="false" aria-label="{chatbot_name} öffnen" title="{chatbot_name} öffnen" style="display:grid;place-items:center;background:{chatbot_color};color:#fff;border:0;border-radius:50%;width:64px;height:64px;cursor:pointer;font-size:32px;line-height:1;box-shadow:0 6px 18px rgba(0,0,0,.24)"><span aria-hidden="true">🤖</span></button><section id="customer-chat-panel" hidden style="position:absolute;{panel_side}bottom:76px;width:min(330px,calc(100vw - 40px));padding:18px;background:#fff;color:#111827;border:1px solid #d1d5db;border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.22)"><strong>{chatbot_name}</strong><p id="customer-chat-answer" style="margin:10px 0;color:#374151">Hallo! Wie können wir helfen?</p><form id="customer-chat-form" style="display:flex;gap:6px"><input id="customer-chat-input" aria-label="Frage eingeben" placeholder="Frage eingeben..." required style="min-width:0;flex:1;padding:8px"><button type="submit" style="border:0;background:{chatbot_color};color:#fff;padding:8px 12px;cursor:pointer">Senden</button></form></section></aside>
 <script>(() => {{
     const toggle = document.getElementById('customer-chat-toggle');
     const panel = document.getElementById('customer-chat-panel');
@@ -2108,6 +2110,7 @@ def build_customer_chatbot_widget(
     const input = document.getElementById('customer-chat-input');
     const answer = document.getElementById('customer-chat-answer');
     const fallback = {json.dumps(chatbot_knowledge, ensure_ascii=False)};
+    if (!toggle || !panel || !form || !input || !answer) return;
     toggle.onclick = () => {{ panel.hidden = !panel.hidden; toggle.setAttribute('aria-expanded', String(!panel.hidden)); if (!panel.hidden) input.focus(); }};
     form.onsubmit = async (event) => {{
         event.preventDefault();
