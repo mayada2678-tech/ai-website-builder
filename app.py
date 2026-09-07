@@ -12,7 +12,7 @@ import zipfile
 from datetime import datetime, timedelta, timezone
 from html import escape
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 import requests
 import streamlit as st
@@ -3378,6 +3378,44 @@ def delete_published_website() -> None:
     st.session_state.deployment_id = ""
     st.session_state.published_html = ""
 
+
+def delete_previous_vercel_deployment(deployment_reference: str) -> None:
+    """Löscht ein älteres Deployment anhand seiner Vercel-URL oder Deployment-ID."""
+    reference = deployment_reference.strip()
+    if not reference:
+        raise ValueError("Geben Sie die Vercel-URL oder Deployment-ID der alten Website ein.")
+
+    parsed_url = urlparse(reference if "://" in reference else f"https://{reference}")
+    deployment_lookup = parsed_url.netloc or reference
+    headers = {"Authorization": f"Bearer {VERCEL_TOKEN}"}
+    try:
+        lookup_response = requests.get(
+            f"https://api.vercel.com/v13/deployments/{quote(deployment_lookup, safe='')}",
+            headers=headers,
+            timeout=30,
+        )
+    except requests.RequestException as error:
+        raise ValueError(f"Vercel konnte nicht erreicht werden: {error}") from error
+
+    if lookup_response.status_code != 200:
+        raise ValueError("Die alte Vercel-Veröffentlichung wurde nicht gefunden oder gehört nicht zu diesem Konto.")
+
+    deployment_id = str(lookup_response.json().get("id", "")).strip()
+    if not deployment_id:
+        raise ValueError("Vercel hat keine Deployment-ID für diese Veröffentlichung geliefert.")
+
+    try:
+        delete_response = requests.delete(
+            f"https://api.vercel.com/v13/deployments/{deployment_id}",
+            headers=headers,
+            timeout=60,
+        )
+    except requests.RequestException as error:
+        raise ValueError(f"Vercel konnte nicht erreicht werden: {error}") from error
+
+    if delete_response.status_code not in (200, 202, 204):
+        raise ValueError(f"Vercel HTTP {delete_response.status_code}: {delete_response.text}")
+
     
 def publish_website() -> None:
     """Veröffentlicht den aktuellen HTML-Entwurf auf Vercel."""
@@ -3668,6 +3706,37 @@ def render_domain_and_deployment_ui() -> None:
                 delete_published_website()
                 status.update(
                     label="Die veröffentlichte Website wurde entfernt.",
+                    state="complete",
+                )
+                st.rerun()
+            except ValueError as error:
+                status.update(label="Löschen fehlgeschlagen", state="error")
+                st.error(str(error))
+
+    st.divider()
+    st.subheader("Alte Veröffentlichung löschen", anchor=False)
+    old_deployment_reference = st.text_input(
+        "Vercel-URL oder Deployment-ID der alten Website",
+        placeholder="z. B. meine-seite-abc123.vercel.app",
+        key="old_deployment_reference",
+    )
+    old_deployment_confirmed = st.checkbox(
+        "Ich möchte diese alte Veröffentlichung endgültig löschen.",
+        key="old_deployment_delete_confirmation",
+    )
+    if st.button(
+        "Alte veröffentlichte Seite löschen",
+        icon=":material/delete_forever:",
+        type="secondary",
+        disabled=not old_deployment_reference.strip() or not old_deployment_confirmed,
+        key="delete_old_published_site",
+        width="stretch",
+    ):
+        with st.status("Alte Veröffentlichung wird entfernt ...", expanded=True) as status:
+            try:
+                delete_previous_vercel_deployment(old_deployment_reference)
+                status.update(
+                    label="Die alte veröffentlichte Website wurde entfernt.",
                     state="complete",
                 )
                 st.rerun()
