@@ -3423,10 +3423,10 @@ def delete_previous_vercel_deployment(deployment_reference: str) -> None:
         raise ValueError(f"Vercel HTTP {delete_response.status_code}: {delete_response.text}")
 
 
-def configure_vercel_chatbot_environment(project_id: str) -> None:
+def configure_vercel_chatbot_environment(project_id: str) -> str:
     """Hinterlegt den serverseitigen Chatbot-Schlüssel im Kundenprojekt."""
     if not HF_API_KEY:
-        return
+        return "HF_API_KEY ist nicht in den Streamlit-Secrets hinterlegt. Der Kundenchatbot verwendet Branchenwissen als Rückfallantwort."
 
     headers = {
         "Authorization": f"Bearer {VERCEL_TOKEN}",
@@ -3446,12 +3446,20 @@ def configure_vercel_chatbot_environment(project_id: str) -> None:
             timeout=30,
         )
     except requests.RequestException as error:
-        raise ValueError(f"Vercel-Chatbot-Konfiguration konnte nicht gesetzt werden: {error}") from error
+        return f"Die automatische Chatbot-Konfiguration konnte Vercel nicht erreichen: {error}"
 
     if response.status_code in (200, 201):
-        return
+        return ""
     if response.status_code != 409:
-        raise ValueError(f"Vercel-Chatbot-Konfiguration fehlgeschlagen: HTTP {response.status_code}.")
+        try:
+            details = response.json().get("error", {}).get("message", "")
+        except ValueError:
+            details = ""
+        detail_suffix = f" Vercel meldet: {details}" if details else ""
+        return (
+            f"Die automatische Chatbot-Konfiguration ist fehlgeschlagen (HTTP {response.status_code})."
+            f" Die Website wurde trotzdem veröffentlicht; der Chatbot verwendet Branchenwissen als Rückfallantwort.{detail_suffix}"
+        )
 
     try:
         environment_variables = requests.get(
@@ -3471,10 +3479,14 @@ def configure_vercel_chatbot_environment(project_id: str) -> None:
             timeout=30,
         )
     except (requests.RequestException, StopIteration, ValueError) as error:
-        raise ValueError("Die bestehende Vercel-Chatbot-Konfiguration konnte nicht aktualisiert werden.") from error
+        return "Die bestehende Vercel-Chatbot-Konfiguration konnte nicht aktualisiert werden. Die Website wurde trotzdem veröffentlicht; der Chatbot verwendet Branchenwissen als Rückfallantwort."
 
     if update_response.status_code != 200:
-        raise ValueError(f"Vercel-Chatbot-Konfiguration fehlgeschlagen: HTTP {update_response.status_code}.")
+        return (
+            f"Die Aktualisierung der Vercel-Chatbot-Konfiguration ist fehlgeschlagen (HTTP {update_response.status_code}). "
+            "Die Website wurde trotzdem veröffentlicht; der Chatbot verwendet Branchenwissen als Rückfallantwort."
+        )
+    return ""
 
     
 def publish_website() -> None:
@@ -3610,7 +3622,7 @@ def publish_website() -> None:
 
     project_id = str(deployment.get("projectId", "")).strip()
     if project_id:
-        configure_vercel_chatbot_environment(project_id)
+        st.session_state.chatbot_environment_warning = configure_vercel_chatbot_environment(project_id)
 
     deployment = wait_for_vercel_deployment(deployment_id)
 
@@ -3628,6 +3640,12 @@ def render_domain_and_deployment_ui() -> None:
     if not st.session_state.generated_html:
         st.info("Erstellen oder laden Sie zuerst eine Website, bevor Sie sie veröffentlichen.")
         return
+
+    chatbot_environment_warning = str(
+        st.session_state.get("chatbot_environment_warning", "")
+    ).strip()
+    if chatbot_environment_warning:
+        st.warning(chatbot_environment_warning)
 
     if st.session_state.get("creation_mode") == "Professionelle Vorlage":
         if st.button(
