@@ -1,4 +1,5 @@
 import base64
+import asyncio
 import hashlib
 import hmac
 import io
@@ -15,7 +16,10 @@ from urllib.parse import urlparse
 
 import requests
 import streamlit as st
+from fastmcp import Client
 from openai import OpenAI
+
+from mcp_server import mcp as website_mcp_server
 
 
 st.set_page_config(
@@ -3277,6 +3281,24 @@ def get_public_url(deployment: dict) -> str:
     raise ValueError("Vercel hat keine öffentliche Deployment-URL geliefert.")
 
 
+def check_custom_domain_with_mcp(domain_name: str) -> dict[str, str | bool]:
+    """Calls the local MCP domain tool and returns its structured result."""
+    async def run_check() -> dict[str, str | bool]:
+        async with Client(website_mcp_server) as client:
+            result = await client.call_tool(
+                "check_domain_availability", {"domain_name": domain_name}
+            )
+            content = result.structured_content
+            if not isinstance(content, dict):
+                raise ValueError("Der MCP-Server hat kein gültiges Domain-Ergebnis geliefert.")
+            return content
+
+    try:
+        return asyncio.run(run_check())
+    except Exception as error:
+        raise ValueError(f"Die MCP-Domainprüfung ist fehlgeschlagen: {error}") from error
+
+
 def wait_for_vercel_deployment(deployment_id: str, timeout_seconds: int = 90) -> dict:
     """Wartet auf den abschließenden Vercel-Status vor der Weiterleitung."""
     deadline = time.monotonic() + timeout_seconds
@@ -3469,6 +3491,24 @@ def render_domain_and_deployment_ui() -> None:
             st.caption(
                 f"Geplante Domain: {custom_domain.strip()}"
             )
+        if st.button(
+            "Eigene Domain per MCP prüfen",
+            icon=":material/domain_verification:",
+            disabled=not custom_domain.strip(),
+            key="check_custom_domain_with_mcp",
+            width="stretch",
+        ):
+            with st.spinner("MCP prüft die Domain ..."):
+                try:
+                    domain_check = check_custom_domain_with_mcp(custom_domain)
+                    if domain_check.get("available"):
+                        st.success(str(domain_check["message"]))
+                    elif domain_check.get("status") == "registered":
+                        st.warning(str(domain_check["message"]))
+                    else:
+                        st.error(str(domain_check["message"]))
+                except ValueError as error:
+                    st.error(str(error))
 
     if not user_info["subscribed"] and not user_info["trial_active"]:
         st.warning(
