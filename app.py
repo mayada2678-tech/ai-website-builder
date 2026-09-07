@@ -3416,6 +3416,60 @@ def delete_previous_vercel_deployment(deployment_reference: str) -> None:
     if delete_response.status_code not in (200, 202, 204):
         raise ValueError(f"Vercel HTTP {delete_response.status_code}: {delete_response.text}")
 
+
+def configure_vercel_chatbot_environment(project_id: str) -> None:
+    """Hinterlegt den serverseitigen Chatbot-Schlüssel im Kundenprojekt."""
+    if not HF_API_KEY:
+        return
+
+    headers = {
+        "Authorization": f"Bearer {VERCEL_TOKEN}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "key": "HF_API_KEY",
+        "value": HF_API_KEY,
+        "type": "encrypted",
+        "target": ["production", "preview", "development"],
+    }
+    try:
+        response = requests.post(
+            f"https://api.vercel.com/v10/projects/{project_id}/env",
+            headers=headers,
+            json=payload,
+            timeout=30,
+        )
+    except requests.RequestException as error:
+        raise ValueError(f"Vercel-Chatbot-Konfiguration konnte nicht gesetzt werden: {error}") from error
+
+    if response.status_code in (200, 201):
+        return
+    if response.status_code != 409:
+        raise ValueError(f"Vercel-Chatbot-Konfiguration fehlgeschlagen: HTTP {response.status_code}.")
+
+    try:
+        environment_variables = requests.get(
+            f"https://api.vercel.com/v9/projects/{project_id}/env",
+            headers=headers,
+            timeout=30,
+        )
+        existing_variables = environment_variables.json().get("envs", [])
+        existing_key = next(
+            item.get("id") for item in existing_variables
+            if item.get("key") == "HF_API_KEY"
+        )
+        update_response = requests.patch(
+            f"https://api.vercel.com/v9/projects/{project_id}/env/{existing_key}",
+            headers=headers,
+            json=payload,
+            timeout=30,
+        )
+    except (requests.RequestException, StopIteration, ValueError) as error:
+        raise ValueError("Die bestehende Vercel-Chatbot-Konfiguration konnte nicht aktualisiert werden.") from error
+
+    if update_response.status_code != 200:
+        raise ValueError(f"Vercel-Chatbot-Konfiguration fehlgeschlagen: HTTP {update_response.status_code}.")
+
     
 def publish_website() -> None:
     """Veröffentlicht den aktuellen HTML-Entwurf auf Vercel."""
@@ -3499,6 +3553,10 @@ def publish_website() -> None:
 
     if not deployment_id or not deployment_url:
         raise ValueError(f"Unvollständige Vercel-Antwort: {deployment}")
+
+    project_id = str(deployment.get("projectId", "")).strip()
+    if project_id:
+        configure_vercel_chatbot_environment(project_id)
 
     deployment = wait_for_vercel_deployment(deployment_id)
 
