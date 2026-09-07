@@ -1557,6 +1557,15 @@ def get_help_response(prompt: str) -> str:
     coach_response = get_project_coach_response(prompt)
     if coach_response:
         return coach_response
+    if any(word in question for word in ("url", "link", "adresse", "live-link", "live link")):
+        live_url = str(st.session_state.get("live_url", "")).strip()
+        if live_url:
+            return f"Ihre veröffentlichte Website erreichen Sie hier: {live_url}"
+        return "Ihre Live-URL erscheint nach der erfolgreichen Vercel-Veröffentlichung im Bereich „Aktuelle Veröffentlichung“. Dort können Sie die veröffentlichte Seite direkt laden."
+    if any(word in question for word in ("aktiv", "aktivier", "freischalt", "abo", "abonnement", "bezahlt", "zahlung")):
+        if st.session_state.get("live_url"):
+            return "Ihr Konto ist für die Veröffentlichung aktiv; Ihre Live-URL wird im Bereich „Aktuelle Veröffentlichung“ angezeigt."
+        return "Während der ersten 24 Stunden ist die Veröffentlichung kostenlos aktiviert. Danach aktivieren Sie Premium über den Bereich „Veröffentlichung und Liveschaltung“. Nach bestätigter Zahlung wird die Website automatisch veröffentlicht."
     if any(word in question for word in ("veröffent", "veroeffent", "publish", "publicar", "pubblic", "vercel", "domain", "نشر", "بڵاو", "प्रकाश")):
         return texts["publish"]
     if any(word in question for word in ("vorschau", "test", "prüf", "pruef", "preview", "vista", "anteprima", "معاين", "پیشاندان", "प्रीव्यू")):
@@ -1783,7 +1792,8 @@ def build_chat_api_route(chatbot_knowledge: str) -> str:
         )
         knowledge_json = json.dumps(knowledge, ensure_ascii=False)
         return f'''const CHATBOT_KNOWLEDGE = {knowledge_json};
-const MODEL_URL = "https://router.huggingface.co/hf-inference/models/HuggingFaceH4/zephyr-7b-beta";
+    const MODEL_URL = "https://router.huggingface.co/hf-inference/models/HuggingFaceH4/zephyr-7b-beta";
+    const FALLBACK_ANSWER = "Vielen Dank für Ihre Frage. " + CHATBOT_KNOWLEDGE;
 
 export default async function handler(request, response) {{
     if (request.method !== "POST") {{
@@ -1798,7 +1808,7 @@ export default async function handler(request, response) {{
 
     const apiKey = process.env.HF_API_KEY;
     if (!apiKey) {{
-        return response.status(500).json({{ error: "Der Chatbot ist noch nicht konfiguriert." }});
+        return response.status(200).json({{ answer: FALLBACK_ANSWER }});
     }}
 
     const prompt = `<|system|>Du bist ein freundlicher KI-Mitarbeiter. Antworte auf Deutsch, präzise und in höchstens zwei Sätzen. Nutze ausschließlich diese Firmendaten: ${{CHATBOT_KNOWLEDGE}} Wenn die Antwort dort nicht steht, verweise auf die Kontaktmöglichkeiten der Website.</s><|user|>${{question}}</s><|assistant|>`;
@@ -1810,13 +1820,13 @@ export default async function handler(request, response) {{
         }});
         const data = await hfResponse.json();
         if (!hfResponse.ok) {{
-            return response.status(502).json({{ error: data.error || "Die KI-Antwort ist momentan nicht verfügbar." }});
+            return response.status(200).json({{ answer: FALLBACK_ANSWER }});
         }}
         const generated = Array.isArray(data) ? data[0]?.generated_text : data.generated_text;
         const answer = typeof generated === "string" ? generated.split("<|assistant|>").pop().trim() : "";
         return response.status(200).json({{ answer: answer || "Bitte kontaktieren Sie uns direkt für diese Auskunft." }});
     }} catch (error) {{
-        return response.status(502).json({{ error: "Die KI-Antwort ist momentan nicht verfügbar." }});
+        return response.status(200).json({{ answer: FALLBACK_ANSWER }});
     }}
 }}
 '''
