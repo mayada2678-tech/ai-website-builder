@@ -247,6 +247,16 @@ st.markdown(
         outline: 2px solid #22d3ee;
         outline-offset: 2px;
     }
+    .st-key-delete_published_site_from_domain_center > button:not(:disabled) {
+        background: #facc15;
+        border-color: #facc15;
+        color: #1f2937;
+    }
+    .st-key-delete_published_site_from_domain_center > button:not(:disabled):hover {
+        background: #eab308;
+        border-color: #eab308;
+        color: #111827;
+    }
     [data-testid="stTextInput"] input,
     [data-testid="stSelectbox"] [data-baseweb="select"] > div {
         min-height: 2.65rem;
@@ -3596,12 +3606,15 @@ def render_domain_and_deployment_ui() -> None:
                 "serverseitige Vercel-Domain-API-Integration."
             )
 
+    st.divider()
+    st.subheader("Aktuelle Veröffentlichung", anchor=False)
     if st.session_state.deployment_id:
-        st.divider()
-        st.subheader("Aktuelle Veröffentlichung", anchor=False)
         st.success(f"Ihre Website ist live: {st.session_state.live_url}")
-        action_column, delete_column = st.columns(2)
-        with action_column:
+    else:
+        st.info("Noch keine Website veröffentlicht. Nach der Veröffentlichung können Sie sie hier laden oder löschen.")
+    action_column, delete_column = st.columns(2)
+    with action_column:
+        if st.session_state.deployment_id:
             st.link_button(
                 "Veröffentlichte Seite laden",
                 st.session_state.live_url,
@@ -3609,35 +3622,44 @@ def render_domain_and_deployment_ui() -> None:
                 key="open_published_site_from_domain_center",
                 width="stretch",
             )
-        with delete_column:
-            delete_confirmed = st.checkbox(
-                "Löschen bestätigen",
-                key="delete_published_site_confirmation",
-            )
-            delete_requested = st.button(
-                "Veröffentlichte Website löschen",
-                icon=":material/delete:",
-                type="secondary",
-                disabled=not delete_confirmed,
-                key="delete_published_site_from_domain_center",
+        else:
+            st.button(
+                "Veröffentlichte Seite laden",
+                icon=":material/open_in_new:",
+                disabled=True,
+                key="open_published_site_disabled",
                 width="stretch",
             )
-        st.caption(
-            "Entfernt nur das aktuelle Vercel-Deployment. Der gespeicherte Entwurf und "
-            "das lokale Website-Paket bleiben erhalten."
+    with delete_column:
+        delete_confirmed = st.checkbox(
+            "Löschen bestätigen",
+            key="delete_published_site_confirmation",
+            disabled=not st.session_state.deployment_id,
         )
-        if delete_requested:
-            with st.status("Veröffentlichung wird entfernt ...", expanded=True) as status:
-                try:
-                    delete_published_website()
-                    status.update(
-                        label="Die veröffentlichte Website wurde entfernt.",
-                        state="complete",
-                    )
-                    st.rerun()
-                except ValueError as error:
-                    status.update(label="Löschen fehlgeschlagen", state="error")
-                    st.error(str(error))
+        delete_requested = st.button(
+            "Veröffentlichte Website löschen",
+            icon=":material/delete:",
+            type="secondary",
+            disabled=not st.session_state.deployment_id or not delete_confirmed,
+            key="delete_published_site_from_domain_center",
+            width="stretch",
+        )
+    st.caption(
+        "Entfernt nur das aktuelle Vercel-Deployment. Der gespeicherte Entwurf und "
+        "das lokale Website-Paket bleiben erhalten."
+    )
+    if delete_requested:
+        with st.status("Veröffentlichung wird entfernt ...", expanded=True) as status:
+            try:
+                delete_published_website()
+                status.update(
+                    label="Die veröffentlichte Website wurde entfernt.",
+                    state="complete",
+                )
+                st.rerun()
+            except ValueError as error:
+                status.update(label="Löschen fehlgeschlagen", state="error")
+                st.error(str(error))
 
 
 def render_customer_service_ui(user_id: int, user_email: str) -> None:
