@@ -2571,7 +2571,7 @@ def render_template_preview(
             "chatbotName": str(st.session_state.get("customer_chatbot_name", "")).strip(),
             "chatbotColor": str(st.session_state.get("customer_chatbot_color", "#2563EB")),
             "chatbotRadius": {"Rund (Kreis)": "50%", "Eckig mit Rundung": "8px", "Quadratisch": "0"}.get(str(st.session_state.get("customer_chatbot_shape", "Rund (Kreis)")), "50%"),
-            "showCustomerChatbot": True,
+            "showCustomerChatbot": component_key == "full_draft_template_preview",
             "multiPage": st.session_state.get("page_structure") == "Mehrseitige Website",
             "businessEmail": str(st.session_state.get("client_business_email", "")).strip()
             or "Ihre Kontakt-E-Mail",
