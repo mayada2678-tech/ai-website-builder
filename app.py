@@ -3422,9 +3422,10 @@ def render_domain_and_deployment_ui() -> None:
                 f"Geplante Domain: {custom_domain.strip()}"
             )
 
-    if not user_info["subscribed"]:
+    if not user_info["subscribed"] and not user_info["trial_active"]:
         st.warning(
-            "Prüfen Sie Ihren Entwurf und die gewünschte Adresse. Nach bestätigter Zahlung wird die Veröffentlichung freigeschaltet."
+            "Ihre kostenlose 24-Stunden-Testphase ist abgelaufen. Mit Premium können Sie "
+            "Ihre Website veröffentlichen."
         )
         render_payment_ui(current_user_id, st.session_state.user_email)
         return
@@ -3444,10 +3445,16 @@ def render_domain_and_deployment_ui() -> None:
                 status.update(label="Veröffentlichung fehlgeschlagen", state="error")
                 st.error(str(error))
 
-    st.caption(
-        "Die Website wird auf Vercel veröffentlicht. Die finale Adresse wird nach "
-        "der erfolgreichen Vercel-Antwort angezeigt."
-    )
+    if user_info["subscribed"]:
+        st.caption(
+            "Premium ist aktiv. Die Website wird auf Vercel veröffentlicht. Die finale "
+            "Adresse wird nach der erfolgreichen Vercel-Antwort angezeigt."
+        )
+    else:
+        st.info(
+            f"Kostenlose Testphase aktiv: noch etwa {user_info['trial_remaining_hours']} Stunden. "
+            "Sie können Ihre Website jetzt live schalten."
+        )
     st.divider()
     st.subheader("Veröffentlichung mit Chatbot", anchor=False)
     st.caption("Das Paket enthält den aktuellen Website-Entwurf einschließlich des konfigurierten Chatbots.")
