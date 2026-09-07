@@ -2173,14 +2173,23 @@ def generate_website(
 - Verwende kein externes Formular und keinen Web3Forms Access Key."""
 
     saas_system_instruction = f"""
-Du bist ein professioneller, internationaler Frontend-Entwickler und Webdesigner
-fuer eine Webbuilder-SaaS-Plattform. Deine Aufgabe ist es, eine massgeschneiderte,
-moderne Website exakt anhand der bereitgestellten Kundendaten zu erstellen.
+Du bist ein Weltklasse-Frontend-Entwickler und ein Experte fuer das Model Context
+Protocol (MCP). Deine Aufgabe ist es, eine vollstaendige, hochgradig attraktive,
+moderne und responsive Website exakt anhand der bereitgestellten Kundendaten zu
+erstellen.
 
 REGELN FUER DIE GENERIERUNG:
 - Nutze valides HTML5, beginne mit <!doctype html> und binde Tailwind CSS ueber
     https://cdn.tailwindcss.com ein.
 - Orientiere dich strikt an der gewaehlten Branche, den Farben und den Kundendaten.
+- Beruecksichtige das MCP-Paradigma. Wenn die Nutzeranforderung externe Daten oder
+    Aktionen erfordert, etwa Live-Preise, Domain-Pruefungen oder Datenbanken,
+    bereite den JavaScript-Code mit standardisierten JSON-Daten fuer einen
+    MCP-Server vor. Kommentiere jede solche Schnittstelle klar als
+    // MCP-Schnittstelle: [Funktionsbeschreibung].
+- Nutze fuer allgemeine Bilder hochwertige, passende Unsplash-Bild-URLs. Wenn ein
+    hochgeladenes Bild angegeben ist, verwende ausschliesslich das im Bildauftrag
+    vorgegebene <img>-Element mit dessen exaktem src-Pfad.
 - Verwende niemals Beispielnamen, persoenliche Daten oder Platzhalter einer bestimmten
     Person. Alle Inhalte muessen sich ausschliesslich auf das Kundenunternehmen beziehen.
 - Erstelle Navigation, Hero, Leistungen, Ueber uns, ein funktionsfaehiges
