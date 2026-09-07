@@ -3899,6 +3899,16 @@ INDUSTRY_CONTENT_PRESETS = {
 
 OTHER_INDUSTRY_OPTION = "Andere Branche oder Kleingewerbe"
 
+INDUSTRY_TEMPLATE_MAP = {
+    "Kfz-Meisterwerkstatt": "Automobil und KFZ-Gewerbe",
+    "Friseursalon": "Formale Agentur oder Kanzlei",
+    "Dachdeckerfachbetrieb": "GmbH und Corporate Unternehmen",
+    "Physiotherapie-Praxis": "Formale Agentur oder Kanzlei",
+    "Restaurant": "Restaurant und Gastronomie",
+    "Café und Bäckerei": "Cafe und Baeckerei",
+    "Onlineshop": "Supermarkt und Einzelhandel",
+}
+
 
 def build_generic_industry_preset(industry: str) -> dict[str, str]:
     """Erstellt einen sofort nutzbaren Entwurf für nicht vorgegebene Branchen."""
@@ -3923,7 +3933,13 @@ def build_generic_industry_preset(industry: str) -> dict[str, str]:
 def get_configured_chatbot_knowledge() -> str:
     """Kombiniert Branchenwissen mit den strukturierten Firmendaten des Kunden."""
     industry = str(st.session_state.get("industry_content_preset", ""))
-    industry = industry if industry in INDUSTRY_CONTENT_PRESETS else "Kfz-Meisterwerkstatt"
+    custom_industry = str(st.session_state.get("custom_industry_name", "")).strip()
+    if industry == OTHER_INDUSTRY_OPTION and custom_industry:
+        industry = custom_industry
+    elif industry not in INDUSTRY_CONTENT_PRESETS:
+        industry = "Kfz-Meisterwerkstatt"
+    company_name = str(st.session_state.get("client_company_name", "")).strip()
+    description = str(st.session_state.get("template_custom_description", "")).strip()
     fields = (
         ("Öffnungszeiten", "client_chatbot_hours"),
         ("Kontaktwege", "client_chatbot_contact"),
@@ -3935,7 +3951,13 @@ def get_configured_chatbot_knowledge() -> str:
         for label, key in fields
         if str(st.session_state.get(key, "")).strip()
     ]
-    return "\n".join([f"Branche: {industry}.", *business_details])
+    context = [f"Branche: {industry}."]
+    if company_name:
+        context.append(f"Unternehmen: {company_name}.")
+    if description:
+        context.append(f"Unternehmensbeschreibung: {description}")
+    context.extend(business_details)
+    return "\n".join(context)
 
 
 def apply_industry_content_preset() -> None:
@@ -3949,6 +3971,16 @@ def apply_industry_content_preset() -> None:
     )
     if preset:
         st.session_state.update(preset)
+        st.session_state.client_chatbot_services = str(
+            preset.get("section_services", "")
+        )
+        template_name = INDUSTRY_TEMPLATE_MAP.get(industry)
+        if template_name:
+            st.session_state.template_name = template_name
+        st.session_state.template_preview_page = "start"
+        st.session_state.template_preview_template = st.session_state.get(
+            "template_name", ""
+        )
         st.session_state.industry_preset_applied = custom_industry or industry
 
 
