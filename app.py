@@ -3598,23 +3598,35 @@ def render_domain_and_deployment_ui() -> None:
 
     if st.session_state.deployment_id:
         st.divider()
-        st.subheader("Veröffentlichung entfernen", anchor=False)
+        st.subheader("Aktuelle Veröffentlichung", anchor=False)
+        st.success(f"Ihre Website ist live: {st.session_state.live_url}")
+        action_column, delete_column = st.columns(2)
+        with action_column:
+            st.link_button(
+                "Veröffentlichte Seite laden",
+                st.session_state.live_url,
+                icon=":material/open_in_new:",
+                key="open_published_site_from_domain_center",
+                width="stretch",
+            )
+        with delete_column:
+            delete_confirmed = st.checkbox(
+                "Löschen bestätigen",
+                key="delete_published_site_confirmation",
+            )
+            delete_requested = st.button(
+                "Veröffentlichte Website löschen",
+                icon=":material/delete:",
+                type="secondary",
+                disabled=not delete_confirmed,
+                key="delete_published_site_from_domain_center",
+                width="stretch",
+            )
         st.caption(
             "Entfernt nur das aktuelle Vercel-Deployment. Der gespeicherte Entwurf und "
             "das lokale Website-Paket bleiben erhalten."
         )
-        st.checkbox(
-            "Ich bestätige das Löschen der veröffentlichten Website.",
-            key="delete_published_site_confirmation",
-        )
-        if st.button(
-            "Veröffentlichte Website löschen",
-            icon=":material/delete:",
-            type="secondary",
-            disabled=not st.session_state.get("delete_published_site_confirmation", False),
-            key="delete_published_site_from_domain_center",
-            width="stretch",
-        ):
+        if delete_requested:
             with st.status("Veröffentlichung wird entfernt ...", expanded=True) as status:
                 try:
                     delete_published_website()
