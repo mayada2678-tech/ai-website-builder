@@ -1787,6 +1787,24 @@ def build_chat_api_route(chatbot_knowledge: str) -> str:
     const MODEL_URL = "https://router.huggingface.co/hf-inference/models/HuggingFaceH4/zephyr-7b-beta";
     const FALLBACK_ANSWER = "Vielen Dank für Ihre Frage. " + CHATBOT_KNOWLEDGE;
 
+function findDetail(label) {{
+    const match = CHATBOT_KNOWLEDGE.match(new RegExp(label + ":\\s*([^\\n]+)", "i"));
+    return match ? match[1].trim() : "";
+}}
+
+function targetedAnswer(question) {{
+    const normalized = question.toLowerCase();
+    const contact = findDetail("Kontaktwege");
+    const hours = findDetail("Öffnungszeiten");
+    const services = findDetail("Preise und Leistungen");
+    const emergency = findDetail("Notfall und Bereitschaft");
+    if (/(kontakt|telefon|e-mail|mail|erreich)/.test(normalized) && contact) return `Sie erreichen uns: ${{contact}}`;
+    if (/(öffnungs|uhrzeit|geöffnet|termin|wann)/.test(normalized) && hours) return `Unsere Öffnungszeiten bzw. Terminzeiten: ${{hours}}`;
+    if (/(leistung|service|angebot|preis|kosten|behandlung)/.test(normalized) && services) return `Unsere Leistungen: ${{services}}`;
+    if (/(notfall|dringend|bereit|panne)/.test(normalized) && emergency) return emergency;
+    return "";
+}}
+
 export default async function handler(request, response) {{
     response.setHeader("Access-Control-Allow-Origin", "*");
     response.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -1802,6 +1820,11 @@ export default async function handler(request, response) {{
     const question = typeof request.body?.question === "string" ? request.body.question.trim() : "";
     if (!question || question.length > 800) {{
         return response.status(400).json({{ error: "Bitte senden Sie eine gültige Frage." }});
+    }}
+
+    const directAnswer = targetedAnswer(question);
+    if (directAnswer) {{
+        return response.status(200).json({{ answer: directAnswer }});
     }}
 
     const apiKey = process.env.HF_API_KEY;
@@ -2137,7 +2160,7 @@ def build_customer_chatbot_widget(
     chatbot_side = "left:20px;right:auto;" if is_left_aligned else "right:20px;left:auto;"
     panel_side = "left:0;right:auto;" if is_left_aligned else "right:0;left:auto;"
     chatbot_behavior = "fixed" if st.session_state.get("customer_chatbot_fixed", True) else "relative"
-    return f'''<aside class="customer-chatbot" style="position:{chatbot_behavior};{chatbot_side}bottom:20px;z-index:10000"><button id="customer-chat-toggle" type="button" aria-expanded="false" aria-label="{chatbot_name} öffnen" title="{chatbot_name} öffnen" style="display:grid;place-items:center;background:{chatbot_color};color:#fff;border:0;border-radius:50%;width:64px;height:64px;cursor:pointer;font-size:32px;line-height:1;box-shadow:0 6px 18px rgba(0,0,0,.24)"><span aria-hidden="true">🤖</span></button><section id="customer-chat-panel" hidden style="box-sizing:border-box;position:absolute;{panel_side}bottom:76px;width:min(330px,calc(100vw - 40px));padding:18px;background:#fff;color:#111827;border:1px solid #d1d5db;border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.22)"><strong>{chatbot_name}</strong><p id="customer-chat-answer" style="margin:10px 0;color:#374151">Hallo! Wie können wir helfen?</p><form id="customer-chat-form" style="display:flex;gap:6px;align-items:center"><input id="customer-chat-input" aria-label="Frage eingeben" placeholder="Frage eingeben..." required style="width:0;min-width:0;flex:1;padding:8px"><button type="submit" style="flex:0 0 auto;white-space:nowrap;border:0;background:{chatbot_color};color:#fff;padding:8px 12px;cursor:pointer">Senden</button></form></section></aside>
+    return f'''<style>#customer-chatbot{{font-family:Arial,sans-serif}}#customer-chatbot [hidden]{{display:none!important}}#customer-chat-panel{{box-sizing:border-box;position:absolute;{panel_side}bottom:76px;width:min(360px,calc(100vw - 32px));overflow:hidden;background:#fff;color:#172033;border:1px solid #dbe2ea;border-radius:8px;box-shadow:0 18px 48px rgba(15,23,42,.24)}}#customer-chat-header{{display:flex;align-items:center;gap:10px;padding:15px 16px;background:{chatbot_color};color:#fff}}#customer-chat-header strong{{display:block;font-size:15px}}#customer-chat-header span{{font-size:12px;opacity:.9}}#customer-chat-answer{{min-height:52px;margin:16px;padding:12px;background:#f3f6f9;border-radius:6px;color:#334155;font-size:14px;line-height:1.5}}#customer-chat-form{{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:0 16px 16px}}#customer-chat-input{{min-width:0;border:1px solid #cbd5e1;border-radius:5px;padding:11px 12px;font:inherit}}#customer-chat-send{{border:0;border-radius:5px;background:{chatbot_color};color:#fff;padding:10px 14px;font:700 14px Arial,sans-serif;cursor:pointer;white-space:nowrap}}#customer-chat-send:focus-visible,#customer-chat-input:focus-visible,#customer-chat-toggle:focus-visible{{outline:3px solid #fbbf24;outline-offset:2px}}@media(max-width:420px){{#customer-chat-form{{grid-template-columns:1fr}}#customer-chat-send{{width:100%}}}}</style><aside id="customer-chatbot" class="customer-chatbot" style="position:{chatbot_behavior};{chatbot_side}bottom:20px;z-index:10000"><button id="customer-chat-toggle" type="button" aria-expanded="false" aria-label="{chatbot_name} öffnen" title="{chatbot_name} öffnen" style="display:grid;place-items:center;background:{chatbot_color};color:#fff;border:0;border-radius:50%;width:64px;height:64px;cursor:pointer;font-size:32px;line-height:1;box-shadow:0 6px 18px rgba(0,0,0,.24)"><span aria-hidden="true">🤖</span></button><section id="customer-chat-panel" hidden role="dialog" aria-label="Chat mit {chatbot_name}"><div id="customer-chat-header"><span aria-hidden="true" style="font-size:24px">🤖</span><div><strong>{chatbot_name}</strong><span>Online · Persönliche Auskunft</span></div></div><p id="customer-chat-answer">Guten Tag. Wobei dürfen wir Sie unterstützen?</p><form id="customer-chat-form"><input id="customer-chat-input" aria-label="Frage eingeben" placeholder="Ihre Frage eingeben" required><button id="customer-chat-send" type="submit">Senden</button></form></section></aside>
 <script>(() => {{
     const toggle = document.getElementById('customer-chat-toggle');
     const panel = document.getElementById('customer-chat-panel');
@@ -4205,7 +4228,7 @@ def get_configured_chatbot_knowledge() -> str:
     if industry == OTHER_INDUSTRY_OPTION and custom_industry:
         industry = custom_industry
     elif industry not in INDUSTRY_CONTENT_PRESETS:
-        industry = "Kfz-Meisterwerkstatt"
+        industry = "Allgemeiner Kundenservice"
     company_name = str(st.session_state.get("client_company_name", "")).strip()
     description = str(st.session_state.get("template_custom_description", "")).strip()
     fields = (
