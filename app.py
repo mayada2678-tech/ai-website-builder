@@ -1059,6 +1059,7 @@ DEFAULT_STATE = {
     "project_name": "ai-website-builder",
     "stripe_checkout_url": "",
     "publish_after_checkout": False,
+    "pending_live_redirect": "",
     "delete_confirmation": False,
     "show_botpress_chatbot": True,
     "chat_messages": [
@@ -3602,6 +3603,13 @@ def render_domain_and_deployment_ui() -> None:
     """Rendert die Premium-geschuetzte Konfiguration fuer die Vercel-Veröffentlichung."""
     st.header("Veröffentlichung und Liveschaltung")
 
+    pending_live_redirect = str(
+        st.session_state.get("pending_live_redirect", "")
+    ).strip()
+    if pending_live_redirect:
+        st.session_state.pending_live_redirect = ""
+        redirect_to_published_website(pending_live_redirect)
+
     if not st.session_state.generated_html:
         st.info("Erstellen oder laden Sie zuerst eine Website, bevor Sie sie veröffentlichen.")
         return
@@ -3688,7 +3696,7 @@ def render_domain_and_deployment_ui() -> None:
             try:
                 publish_website()
                 status.update(label="Ihre Website wurde veröffentlicht.", state="complete")
-                redirect_to_published_website(st.session_state.live_url)
+                st.session_state.pending_live_redirect = st.session_state.live_url
                 st.rerun()
             except ValueError as error:
                 status.update(label="Veröffentlichung fehlgeschlagen", state="error")
@@ -3739,7 +3747,7 @@ def render_domain_and_deployment_ui() -> None:
                 try:
                     publish_website()
                     status.update(label="Die Website wurde veröffentlicht.", state="complete")
-                    redirect_to_published_website(st.session_state.live_url)
+                    st.session_state.pending_live_redirect = st.session_state.live_url
                     st.rerun()
                 except ValueError as error:
                     status.update(label="Veröffentlichung fehlgeschlagen", state="error")
