@@ -1768,10 +1768,12 @@ def inject_configured_customer_chatbot(html: str) -> str:
     return re.sub(r"(?i)</body\s*>", f"{widget}</body>", html_without_existing_widget, count=1)
 
 
-def queue_html_update(html: str) -> None:
-    """Übernimmt einen vollständigen HTML-Entwurf für Vorschau und Veröffentlichung."""
+def queue_html_update(html: str, reset_site_pages: bool = False) -> None:
+    """Stores an updated page while preserving the adopted template page set."""
     index_html = inject_configured_customer_chatbot(require_complete_html(html))
-    st.session_state.site_pages = {"index.html": index_html}
+    site_pages = {} if reset_site_pages else dict(st.session_state.site_pages)
+    site_pages["index.html"] = index_html
+    st.session_state.site_pages = site_pages
     st.session_state.pending_html = index_html
     st.session_state.generated_html = index_html
     st.session_state.html_editor = index_html
@@ -4776,7 +4778,10 @@ with new_tab:
                         {"Rund (Kreis)": "50%", "Eckig mit Rundung": "8px", "Quadratisch": "0"}.get(str(st.session_state.get("customer_chatbot_shape", "Rund (Kreis)")), "50%"),
                         str(st.session_state.get("template_sections_text", "")),
                     )
-                    queue_html_update(html)
+                    queue_html_update(html, reset_site_pages=True)
+                    st.session_state.site_pages["styles.css"] = (
+                        build_customized_template_styles()
+                    )
                     if page_structure == "Mehrseitige Website":
                         st.session_state.site_pages.update(
                             build_customized_template_pages(
