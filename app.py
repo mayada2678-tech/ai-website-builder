@@ -2113,10 +2113,12 @@ def build_customer_chatbot_widget(
 ) -> str:
     """Erstellt ein lokales Chat-Widget für die exportierte Kundenwebsite."""
     chatbot_name = escape(chatbot_name.strip() or "Kundenservice")
-    chatbot_knowledge = escape(
-        chatbot_knowledge.strip()
-        or "Vielen Dank für Ihre Nachricht. Wir melden uns gerne persönlich bei Ihnen."
+    chatbot_knowledge = chatbot_knowledge.strip() or (
+        "Vielen Dank für Ihre Nachricht. Wir melden uns gerne persönlich bei Ihnen."
     )
+    chatbot_knowledge_base64 = base64.b64encode(
+        chatbot_knowledge.encode("utf-8")
+    ).decode("ascii")
     chatbot_color = (
         chatbot_color
         if re.fullmatch(r"#[0-9a-fA-F]{6}", chatbot_color)
@@ -2133,7 +2135,7 @@ def build_customer_chatbot_widget(
     const form = document.getElementById('customer-chat-form');
     const input = document.getElementById('customer-chat-input');
     const answer = document.getElementById('customer-chat-answer');
-    const fallback = {json.dumps(chatbot_knowledge, ensure_ascii=False)};
+    const fallback = decodeURIComponent(escape(atob('{chatbot_knowledge_base64}')));
     if (!toggle || !panel || !form || !input || !answer) return;
     toggle.onclick = () => {{ panel.hidden = !panel.hidden; toggle.setAttribute('aria-expanded', String(!panel.hidden)); if (!panel.hidden) input.focus(); }};
     form.onsubmit = async (event) => {{
