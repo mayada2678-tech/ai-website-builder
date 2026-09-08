@@ -355,6 +355,9 @@ VERCEL_DEPLOYMENTS_URL = (
     "?skipAutoDetectionConfirmation=1"
 )
 DATABASE_PATH = Path(__file__).with_name("saas_platform.db")
+EMAIL_PATTERN = re.compile(
+    r"[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}"
+)
 TEMPLATES = {
     "Automobil und KFZ-Gewerbe": {
         "icon": ":material/directions_car:",
@@ -714,7 +717,7 @@ def register_user(email: str, password: str) -> None:
     """Legt ein lokales Nutzerkonto an."""
     normalized_email = email.strip().lower()
 
-    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", normalized_email):
+    if not EMAIL_PATTERN.fullmatch(normalized_email):
         raise ValueError("Bitte gib eine gueltige E-Mail-Adresse ein.")
     if len(password) < 8:
         raise ValueError("Das Passwort muss mindestens 8 Zeichen haben.")
@@ -2287,7 +2290,7 @@ def generate_website(
         st.session_state.get("client_web3forms_access_key", "")
     ).strip()
 
-    if business_email and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", business_email):
+    if business_email and not EMAIL_PATTERN.fullmatch(business_email):
         raise ValueError("Bitte gib eine gueltige geschäftliche E-Mail-Adresse ein.")
     if not business_email or not company_name:
         raise ValueError(
@@ -4752,7 +4755,7 @@ with new_tab:
                 try:
                     company_name = str(st.session_state.client_company_name).strip()
                     business_email = str(st.session_state.client_business_email).strip()
-                    if not company_name or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", business_email):
+                    if not company_name or not EMAIL_PATTERN.fullmatch(business_email):
                         raise ValueError("Bitte geben Sie Unternehmensname und eine gültige geschäftliche E-Mail-Adresse ein.")
                     background_color = BACKGROUND_PRESET_COLORS[
                         st.session_state.template_background_preset
