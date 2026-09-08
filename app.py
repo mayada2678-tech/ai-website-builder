@@ -3365,6 +3365,72 @@ def check_custom_domain_with_mcp(domain_name: str) -> dict[str, str | bool]:
         raise ValueError(f"Die MCP-Domainprüfung ist fehlgeschlagen: {error}") from error
 
 
+def update_draft_with_mcp_tool(tool_name: str, arguments: dict[str, str]) -> str:
+    """Runs a local MCP content tool and returns its updated customer HTML."""
+    async def run_tool() -> dict[str, str]:
+        async with Client(website_mcp_server) as client:
+            result = await client.call_tool(tool_name, arguments)
+            content = result.structured_content
+            if not isinstance(content, dict) or not isinstance(content.get("html"), str):
+                raise ValueError("Der MCP-Server hat keinen gültigen HTML-Entwurf geliefert.")
+            return content
+
+    try:
+        result = asyncio.run(run_tool())
+    except Exception as error:
+        raise ValueError(f"Die MCP-Inhaltsbearbeitung ist fehlgeschlagen: {error}") from error
+    return str(result["html"])
+
+
+def render_mcp_content_tools_ui() -> None:
+    """Rendert MCP-Aktionen für die Struktur und SEO des aktuellen Entwurfs."""
+    st.subheader("MCP-Inhaltswerkzeuge", anchor=False)
+    st.caption("Erweitern oder optimieren Sie den aktuellen Entwurf. Die Änderung wird erst mit Veröffentlichung live.")
+    if not st.session_state.generated_html:
+        st.info("Erstellen oder laden Sie zuerst einen Website-Entwurf.")
+        return
+
+    reviews_column, seo_column = st.columns(2)
+    with reviews_column:
+        if st.button(
+            "Kundenbewertungen einfügen",
+            icon=":material/format_quote:",
+            key="mcp_insert_testimonials",
+            width="stretch",
+        ):
+            try:
+                updated_html = update_draft_with_mcp_tool(
+                    "inject_section_into_html",
+                    {"html": st.session_state.generated_html, "section_type": "testimonials"},
+                )
+                queue_html_update(updated_html)
+                st.success("Kundenbewertungen wurden in den Entwurf eingefügt.")
+                st.rerun()
+            except ValueError as error:
+                st.error(str(error))
+    with seo_column:
+        if st.button(
+            "SEO für Google optimieren",
+            icon=":material/travel_explore:",
+            key="mcp_optimize_seo",
+            width="stretch",
+        ):
+            try:
+                updated_html = update_draft_with_mcp_tool(
+                    "optimize_seo_and_content",
+                    {
+                        "html": st.session_state.generated_html,
+                        "industry": str(st.session_state.get("industry_content_preset", "")),
+                        "company_name": str(st.session_state.get("client_company_name", "")),
+                    },
+                )
+                queue_html_update(updated_html)
+                st.success("SEO-Daten wurden im Entwurf aktualisiert.")
+                st.rerun()
+            except ValueError as error:
+                st.error(str(error))
+
+
 def wait_for_vercel_deployment(deployment_id: str, timeout_seconds: int = 90) -> dict:
     """Wartet auf den abschließenden Vercel-Status vor der Weiterleitung."""
     deadline = time.monotonic() + timeout_seconds
@@ -4769,6 +4835,8 @@ with manage_tab:
                     st.error(str(error))
 
 with service_tab:
+    render_mcp_content_tools_ui()
+    st.divider()
     render_customer_service_ui(current_user_id, st.session_state.user_email)
     render_transformer_test_ui()
 
