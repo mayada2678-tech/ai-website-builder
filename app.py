@@ -1050,6 +1050,7 @@ DEFAULT_STATE = {
     "client_chatbot_emergency": "",
     "customer_chatbot_color": "#2563EB",
     "customer_chatbot_shape": "Rund (Kreis)",
+    "customer_chatbot_figure": "Freundlicher Roboter",
     "customer_chatbot_name": "Kundenservice-Assistent",
     "customer_chatbot_position": "Unten rechts",
     "customer_chatbot_fixed": True,
@@ -2156,11 +2157,19 @@ def build_customer_chatbot_widget(
         if re.fullmatch(r"#[0-9a-fA-F]{6}", chatbot_color)
         else "#2563EB"
     )
+    chatbot_figure = {
+        "Freundlicher Roboter": "🤖",
+        "Salon-Stylistin": "✂",
+        "Werkstatt-Profi": "🔧",
+        "Praxis-Begleitung": "✚",
+        "Gastronomie-Service": "☕",
+        "Shop-Beratung": "🛍",
+    }.get(str(st.session_state.get("customer_chatbot_figure", "")), "🤖")
     is_left_aligned = st.session_state.get("customer_chatbot_position") == "Unten links"
     chatbot_side = "left:20px;right:auto;" if is_left_aligned else "right:20px;left:auto;"
     panel_side = "left:0;right:auto;" if is_left_aligned else "right:0;left:auto;"
     chatbot_behavior = "fixed" if st.session_state.get("customer_chatbot_fixed", True) else "relative"
-    return f'''<style>#customer-chatbot{{font-family:Arial,sans-serif}}#customer-chatbot [hidden]{{display:none!important}}#customer-chat-panel{{box-sizing:border-box;position:absolute;{panel_side}bottom:76px;width:min(360px,calc(100vw - 32px));overflow:hidden;background:#fff;color:#172033;border:1px solid #dbe2ea;border-radius:8px;box-shadow:0 18px 48px rgba(15,23,42,.24)}}#customer-chat-header{{display:flex;align-items:center;gap:10px;padding:15px 16px;background:{chatbot_color};color:#fff}}#customer-chat-header strong{{display:block;font-size:15px}}#customer-chat-header span{{font-size:12px;opacity:.9}}#customer-chat-answer{{min-height:52px;margin:16px;padding:12px;background:#f3f6f9;border-radius:6px;color:#334155;font-size:14px;line-height:1.5}}#customer-chat-form{{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:0 16px 16px}}#customer-chat-input{{min-width:0;border:1px solid #cbd5e1;border-radius:5px;padding:11px 12px;font:inherit}}#customer-chat-send{{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:104px;border:0;border-radius:5px;background:{chatbot_color};color:#fff;padding:10px 14px;font:700 14px Arial,sans-serif;cursor:pointer;white-space:nowrap;box-shadow:0 2px 5px rgba(15,23,42,.18);transition:filter .15s ease,transform .15s ease}}#customer-chat-send:hover{{filter:brightness(.92);transform:translateY(-1px)}}#customer-chat-send:disabled{{cursor:wait;opacity:.72;transform:none}}#customer-chat-send:focus-visible,#customer-chat-input:focus-visible,#customer-chat-toggle:focus-visible{{outline:3px solid #fbbf24;outline-offset:2px}}@media(max-width:420px){{#customer-chat-form{{grid-template-columns:1fr}}#customer-chat-send{{width:100%}}}}</style><aside id="customer-chatbot" class="customer-chatbot" style="position:{chatbot_behavior};{chatbot_side}bottom:20px;z-index:10000"><button id="customer-chat-toggle" type="button" aria-expanded="false" aria-label="{chatbot_name} öffnen" title="{chatbot_name} öffnen" style="display:grid;place-items:center;background:{chatbot_color};color:#fff;border:0;border-radius:50%;width:64px;height:64px;cursor:pointer;font-size:32px;line-height:1;box-shadow:0 6px 18px rgba(0,0,0,.24)"><span aria-hidden="true">🤖</span></button><section id="customer-chat-panel" hidden role="dialog" aria-label="Chat mit {chatbot_name}"><div id="customer-chat-header"><span aria-hidden="true" style="font-size:24px">🤖</span><div><strong>{chatbot_name}</strong><span>Online · Persönliche Auskunft</span></div></div><p id="customer-chat-answer">Guten Tag. Wobei dürfen wir Sie unterstützen?</p><form id="customer-chat-form"><input id="customer-chat-input" aria-label="Frage eingeben" placeholder="Ihre Frage eingeben" required><button id="customer-chat-send" type="submit"><span aria-hidden="true">➤</span><span>Senden</span></button></form></section></aside>
+    return f'''<style>#customer-chatbot{{font-family:Arial,sans-serif}}#customer-chatbot [hidden]{{display:none!important}}#customer-chat-panel{{box-sizing:border-box;position:absolute;{panel_side}bottom:76px;width:min(360px,calc(100vw - 32px));overflow:hidden;background:#fff;color:#172033;border:1px solid #dbe2ea;border-radius:8px;box-shadow:0 18px 48px rgba(15,23,42,.24)}}#customer-chat-header{{display:flex;align-items:center;gap:10px;padding:15px 16px;background:{chatbot_color};color:#fff}}#customer-chat-header strong{{display:block;font-size:15px}}#customer-chat-header span{{font-size:12px;opacity:.9}}#customer-chat-answer{{min-height:52px;margin:16px;padding:12px;background:#f3f6f9;border-radius:6px;color:#334155;font-size:14px;line-height:1.5}}#customer-chat-form{{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:0 16px 16px}}#customer-chat-input{{min-width:0;border:1px solid #cbd5e1;border-radius:5px;padding:11px 12px;font:inherit}}#customer-chat-send{{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:104px;border:0;border-radius:5px;background:{chatbot_color};color:#fff;padding:10px 14px;font:700 14px Arial,sans-serif;cursor:pointer;white-space:nowrap;box-shadow:0 2px 5px rgba(15,23,42,.18);transition:filter .15s ease,transform .15s ease}}#customer-chat-send:hover{{filter:brightness(.92);transform:translateY(-1px)}}#customer-chat-send:disabled{{cursor:wait;opacity:.72;transform:none}}#customer-chat-send:focus-visible,#customer-chat-input:focus-visible,#customer-chat-toggle:focus-visible{{outline:3px solid #fbbf24;outline-offset:2px}}@media(max-width:420px){{#customer-chat-form{{grid-template-columns:1fr}}#customer-chat-send{{width:100%}}}}</style><aside id="customer-chatbot" class="customer-chatbot" style="position:{chatbot_behavior};{chatbot_side}bottom:20px;z-index:10000"><button id="customer-chat-toggle" type="button" aria-expanded="false" aria-label="{chatbot_name} öffnen" title="{chatbot_name} öffnen" style="display:grid;place-items:center;background:{chatbot_color};color:#fff;border:0;border-radius:50%;width:64px;height:64px;cursor:pointer;font-size:32px;line-height:1;box-shadow:0 6px 18px rgba(0,0,0,.24)"><span aria-hidden="true">{chatbot_figure}</span></button><section id="customer-chat-panel" hidden role="dialog" aria-label="Chat mit {chatbot_name}"><div id="customer-chat-header"><span aria-hidden="true" style="font-size:24px">{chatbot_figure}</span><div><strong>{chatbot_name}</strong><span>Online · Persönliche Auskunft</span></div></div><p id="customer-chat-answer">Guten Tag. Wobei dürfen wir Sie unterstützen?</p><form id="customer-chat-form"><input id="customer-chat-input" aria-label="Frage eingeben" placeholder="Ihre Frage eingeben" required><button id="customer-chat-send" type="submit"><span aria-hidden="true">➤</span><span>Senden</span></button></form></section></aside>
 <script>(() => {{
     const toggle = document.getElementById('customer-chat-toggle');
     const panel = document.getElementById('customer-chat-panel');
@@ -2458,7 +2467,7 @@ def render_client_contact_ui() -> None:
             placeholder="z. B. Notdienst unter +49 171 123456",
             key="client_chatbot_emergency",
         )
-    color_column, shape_column, name_column = st.columns(3)
+    color_column, shape_column, figure_column, name_column = st.columns(4)
     with color_column:
         st.color_picker(
             "Chat-Designfarbe",
@@ -2470,6 +2479,12 @@ def render_client_contact_ui() -> None:
             "Form des Chat-Icons",
             ["Rund (Kreis)", "Eckig mit Rundung", "Quadratisch"],
             key="customer_chatbot_shape",
+        )
+    with figure_column:
+        st.selectbox(
+            "Chatbot-Figur",
+            ["Freundlicher Roboter", "Salon-Stylistin", "Werkstatt-Profi", "Praxis-Begleitung", "Gastronomie-Service", "Shop-Beratung"],
+            key="customer_chatbot_figure",
         )
     with name_column:
         st.text_input(
@@ -4354,6 +4369,15 @@ def apply_industry_content_preset() -> None:
         st.session_state.client_chatbot_emergency = chatbot_emergency
         st.session_state.customer_chatbot_color = "#2563EB"
         st.session_state.customer_chatbot_shape = "Rund (Kreis)"
+        st.session_state.customer_chatbot_figure = {
+            "Friseursalon": "Salon-Stylistin",
+            "Kfz-Meisterwerkstatt": "Werkstatt-Profi",
+            "Dachdeckerfachbetrieb": "Werkstatt-Profi",
+            "Physiotherapie-Praxis": "Praxis-Begleitung",
+            "Restaurant": "Gastronomie-Service",
+            "Café und Bäckerei": "Gastronomie-Service",
+            "Onlineshop": "Shop-Beratung",
+        }.get(industry, "Freundlicher Roboter")
         st.session_state.customer_chatbot_position = "Unten rechts"
         st.session_state.customer_chatbot_fixed = True
         template_name = INDUSTRY_TEMPLATE_MAP.get(industry)
