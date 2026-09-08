@@ -2057,6 +2057,17 @@ def build_customized_template_html(
     radius = "0" if border_style == "sharp" else "10px"
     text_color = contrast_text_color(background_color)
     muted_color = "#334155" if is_light_color(background_color) else "#cbd5e1"
+    template_styles = {
+        "Automobil und KFZ-Gewerbe": "header{border-bottom:4px solid var(--accent)}.hero{grid-template-columns:1fr 1fr}.card{border-radius:0}",
+        "GmbH und Corporate Unternehmen": "header{border-bottom:1px solid var(--accent)}.hero{grid-template-columns:1.25fr .75fr}.card{border-top-width:1px}",
+        "Cafe und Baeckerei": "header{background:color-mix(in srgb,var(--accent) 12%,var(--background))}.hero{grid-template-columns:.9fr 1.1fr}.card{border-radius:18px}",
+        "Restaurant und Gastronomie": "header{background:#17120d;color:#f8e7bd}.hero{grid-template-columns:.85fr 1.15fr}.card{border-color:#d4a74a;border-radius:2px}",
+        "Formale Agentur oder Kanzlei": "header{border-bottom:1px solid var(--text)}.hero{grid-template-columns:1.35fr .65fr}.card{border-left:3px solid var(--accent);border-top:0;border-radius:0}",
+        "Schule und Bildung": "header{background:color-mix(in srgb,var(--accent) 10%,var(--background))}.cards{gap:24px}.card{border-radius:14px}",
+        "Bibliothek": "header{border-bottom:1px solid var(--accent)}.hero{grid-template-columns:1.2fr .8fr}.card{border-radius:4px}",
+        "Supermarkt und Einzelhandel": "header{background:var(--accent);color:#111827}.hero{grid-template-columns:1fr 1fr}.card{border-top-width:5px;border-radius:0}",
+    }
+    template_style = template_styles.get(template_name, "")
     image_html = '<div class="image-placeholder">Bild oder Logo hochladen</div>'
     if image_file is not None:
         image_name = save_uploaded_image(image_file, "vorlagen-hero")
@@ -2100,7 +2111,7 @@ def build_customized_template_html(
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{company_name}</title>
 <link rel="stylesheet" href="styles.css">
-<style>:root {{ --background: {background_color}; --accent: {accent_color}; --text: {text_color}; --muted: {muted_color}; --radius: {radius}; }}</style></head>
+<style>:root {{ --background: {background_color}; --accent: {accent_color}; --text: {text_color}; --muted: {muted_color}; --radius: {radius}; }} {template_style}</style></head>
 <body><header><strong>{company_name}</strong><nav>{navigation}</nav></header>
 <main><section class="container hero" id="hero"><div><span class="eyebrow">{escape(template_name)}</span><h1>{slogan}</h1><p>{description}</p><a class="button" href="{button_target}">{button_text}</a></div>{image_html}</section>
 <section class="band"><div class="container" id="leistungen"><span class="eyebrow">Leistungen und Vorteile</span><h2>Kompetent. Persönlich. Verlässlich.</h2><div class="cards">{section_cards_html}</div></div></section>
