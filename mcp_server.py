@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from difflib import get_close_matches
 import re
-from html import escape
 
 import requests
+from bs4 import BeautifulSoup, Tag
 from fastmcp import FastMCP
 
 
@@ -20,9 +20,24 @@ DOMAIN_PATTERN = re.compile(
 
 def require_html_document(html: str) -> str:
     """Validates that a tool receives a complete editable HTML document."""
-    if not isinstance(html, str) or not re.search(r"(?is)<html\b[^>]*>.*</html\s*>", html):
+    if not isinstance(html, str) or not html.strip():
         raise ValueError("Es wird eine vollständige HTML-Datei benötigt.")
-    return html
+    soup = BeautifulSoup(html, "html.parser")
+    if soup.html is None:
+        raise ValueError("Es wird eine vollständige HTML-Datei benötigt.")
+    return str(soup)
+
+
+def get_or_create_head(soup: BeautifulSoup) -> Tag:
+    """Returns the head element, creating it before body when necessary."""
+    if soup.head is not None:
+        return soup.head
+    head = soup.new_tag("head")
+    if soup.body is not None:
+        soup.body.insert_before(head)
+    else:
+        soup.html.insert(0, head)
+    return head
 
 
 def normalize_section_type(section_type: str) -> str:
@@ -54,7 +69,8 @@ def inject_section_into_html(html: str, section_type: str = "testimonials") -> d
     """Adds a customer-review section before the closing main area of a customer page."""
     document = require_html_document(html)
     normalize_section_type(section_type)
-    if 'id="kundenbewertungen"' in document:
+    soup = BeautifulSoup(document, "html.parser")
+    if soup.find(id="kundenbewertungen") is not None:
         return {"html": document, "message": "Der Bereich Kundenbewertungen ist bereits vorhanden."}
 
     section = '''<section id="kundenbewertungen" class="customer-testimonials" aria-labelledby="kundenbewertungen-title">
@@ -78,29 +94,43 @@ def inject_section_into_html(html: str, section_type: str = "testimonials") -> d
 .customer-testimonials blockquote p { margin: 0; line-height: 1.6; }.customer-testimonials footer { margin-top: 16px; font-weight: 700; }
 @media (max-width: 700px) { .customer-testimonials__grid { grid-template-columns: 1fr; } }
 </style>'''
-    updated_html, count = re.subn(r"(?is)</main\s*>", f"{section}</main>", document, count=1)
-    if not count:
-        updated_html = re.sub(r"(?is)</body\s*>", f"{section}</body>", document, count=1)
-    return {"html": updated_html, "message": "Kundenbewertungen wurden in den Entwurf eingefügt."}
+    section_soup = BeautifulSoup(section, "html.parser")
+    target = soup.main or soup.body
+    if target is None:
+        raise ValueError("Die HTML-Datei enthält keinen bearbeitbaren Body-Bereich.")
+    for element in list(section_soup.contents):
+        target.append(element)
+    return {"html": str(soup), "message": "Kundenbewertungen wurden in den Entwurf eingefügt."}
 
 
 @mcp.tool()
 def optimize_seo_and_content(html: str, industry: str, company_name: str) -> dict[str, str]:
     """Improves the title, meta description, and first heading of a customer HTML page."""
     document = require_html_document(html)
-    clean_industry = escape(industry.strip() or "Dienstleistungen")
-    clean_company = escape(company_name.strip() or "Unser Unternehmen")
+    soup = BeautifulSoup(document, "html.parser")
+    clean_industry = industry.strip() or "Dienstleistungen"
+    clean_company = company_name.strip() or "Unser Unternehmen"
     title = f"{clean_company} | {clean_industry}"
     description = f"{clean_company}: professionelle Leistungen rund um {clean_industry}. Persönliche Beratung und direkte Kontaktaufnahme."
-    document = re.sub(r"(?is)<title>.*?</title>", f"<title>{title}</title>", document, count=1)
-    meta_tag = f'<meta name="description" content="{description}">'
-    if re.search(r'(?is)<meta\s+name=["\']description["\'][^>]*>', document):
-        document = re.sub(r'(?is)<meta\s+name=["\']description["\'][^>]*>', meta_tag, document, count=1)
-    else:
-        document = re.sub(r"(?is)</head\s*>", f"{meta_tag}</head>", document, count=1)
+    head = get_or_create_head(soup)
+    title_tag = head.find("title")
+    if title_tag is None:
+        title_tag = soup.new_tag("title")
+        head.append(title_tag)
+    title_tag.string = title
+    meta_tag = head.find("meta", attrs={"name": "description"})
+    if meta_tag is None:
+        meta_tag = soup.new_tag("meta")
+        meta_tag["name"] = "description"
+        head.append(meta_tag)
+    meta_tag["content"] = description
     seo_heading = f"{clean_industry} bei {clean_company}"
-    document = re.sub(r"(?is)<h1\b[^>]*>.*?</h1>", f"<h1>{seo_heading}</h1>", document, count=1)
-    return {"html": document, "message": "SEO-Titel, Meta-Beschreibung und Hauptüberschrift wurden optimiert."}
+    heading = soup.find("h1")
+    if heading is None:
+        heading = soup.new_tag("h1")
+        (soup.body or soup.html).insert(0, heading)
+    heading.string = seo_heading
+    return {"html": str(soup), "message": "SEO-Titel, Meta-Beschreibung und Hauptüberschrift wurden optimiert."}
 
 
 @mcp.tool()
