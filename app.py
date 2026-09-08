@@ -882,7 +882,7 @@ def deduct_tokens(user_id: int, amount: float = 0.05) -> bool:
 
         if user is None:
             return False
-        if user[1]:
+        if user[0]:
             return True
         try:
             created_at = datetime.fromisoformat(user[1]).astimezone(timezone.utc)
