@@ -1099,6 +1099,27 @@ def t(key: str, **values: object) -> str:
     return text.format(**values)
 
 
+AUTHENTICATION_COPY = {
+    "de": {
+        "workflow": "KI-gestützter Website-Workflow",
+        "plan": "**Planen** Sie Struktur, Inhalte und Markenauftritt.",
+        "review": "**Prüfen** Sie Ihr Ergebnis in einer Live-Vorschau.",
+        "publish": "**Veröffentlichen** Sie fertige Entwürfe direkt auf Vercel.",
+        "workspace": "Ihr Arbeitsbereich",
+        "workspace_hint": "Melden Sie sich an oder erstellen Sie ein neues Konto.",
+        "privacy": "Ihre Entwürfe, Einstellungen und Bearbeitungen bleiben Ihrem Konto zugeordnet.",
+    },
+    "en": {
+        "workflow": "AI-powered website workflow",
+        "plan": "**Plan** your structure, content, and brand presence.",
+        "review": "**Review** your result in a live preview.",
+        "publish": "**Publish** finished drafts directly to Vercel.",
+        "workspace": "Your workspace",
+        "workspace_hint": "Log in or create a new account.",
+        "privacy": "Your drafts, settings, and edits remain associated with your account.",
+    },
+}
+
 HELP_CHAT_TEXTS = {
     "de": {
         "title": "Hilfe-Chat", "input": "Schreiben Sie Ihre Frage",
@@ -1472,23 +1493,30 @@ if st.session_state.pending_html:
 
 def show_authentication() -> None:
     """Rendert Anmeldung und Registrierung, bevor der Builder erreichbar ist."""
+    authentication_copy = AUTHENTICATION_COPY.get(
+        str(st.session_state.app_language), AUTHENTICATION_COPY["en"]
+    )
     with st.container(border=True, key="authentication_shell"):
         intro_column, form_column = st.columns((1.05, 0.95), gap="large")
 
         with intro_column:
-            st.badge("KI-gestützter Website-Workflow", icon=":material/auto_awesome:", color="blue")
+            st.badge(
+                authentication_copy["workflow"],
+                icon=":material/auto_awesome:",
+                color="blue",
+            )
             st.title(t("auth_title"), anchor=False)
             st.write(t("auth_subtitle"))
             st.space("small")
-            st.markdown(":material/check_circle: **Planen** Sie Struktur, Inhalte und Markenauftritt.")
-            st.markdown(":material/visibility: **Prüfen** Sie Ihr Ergebnis in einer Live-Vorschau.")
-            st.markdown(":material/rocket_launch: **Veröffentlichen** Sie fertige Entwürfe direkt auf Vercel.")
+            st.markdown(f":material/check_circle: {authentication_copy['plan']}")
+            st.markdown(f":material/visibility: {authentication_copy['review']}")
+            st.markdown(f":material/rocket_launch: {authentication_copy['publish']}")
             st.space("small")
-            st.caption("Ihre Entwürfe, Einstellungen und Bearbeitungen bleiben Ihrem Konto zugeordnet.")
+            st.caption(authentication_copy["privacy"])
 
         with form_column:
-            st.subheader("Ihr Arbeitsbereich", anchor=False)
-            st.caption("Melden Sie sich an oder erstellen Sie ein neues Konto.")
+            st.subheader(authentication_copy["workspace"], anchor=False)
+            st.caption(authentication_copy["workspace_hint"])
             login_tab, register_tab = st.tabs([t("login"), t("register")])
 
             with login_tab:
