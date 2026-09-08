@@ -203,23 +203,6 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
         """,
 )
 
-PUBLISHED_WEBSITE_REDIRECT = st.components.v2.component(
-    "published_website_redirect",
-    html='<span id="published-website-redirect"></span>',
-    js="""
-    export default function(component) {
-        const url = component.data?.url;
-        if (url) window.location.assign(url);
-    }
-    """,
-)
-
-
-def redirect_to_published_website(url: str) -> None:
-    """Leitet nach einem erfolgreichen Vercel-Deployment zur Kundenwebsite weiter."""
-    PUBLISHED_WEBSITE_REDIRECT(data={"url": url}, key=f"published-{url}")
-
-
 st.markdown(
     """
     <style>
