@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from difflib import get_close_matches
 import re
+import time
 
 import requests
 from bs4 import BeautifulSoup, Tag
@@ -16,6 +17,8 @@ DOMAIN_PATTERN = re.compile(
     r"(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$",
     re.IGNORECASE,
 )
+DOMAIN_CACHE_TTL_SECONDS = 300
+domain_cache: dict[str, tuple[float, dict[str, str | bool]]] = {}
 
 
 def require_html_document(html: str) -> str:
@@ -148,36 +151,45 @@ def check_domain_availability(domain_name: str) -> dict[str, str | bool]:
             "message": "Bitte geben Sie eine gültige Domain wie beispiel.de ein.",
         }
 
+    cached_result = domain_cache.get(normalized_domain)
+    if cached_result and time.monotonic() - cached_result[0] < DOMAIN_CACHE_TTL_SECONDS:
+        return cached_result[1]
+
     try:
         response = requests.get(RDAP_URL.format(domain_name=normalized_domain), timeout=10)
     except requests.RequestException:
-        return {
+        result = {
             "domain": normalized_domain,
             "available": False,
             "status": "unknown",
             "message": "Die Domain-Prüfung ist momentan nicht erreichbar.",
         }
+        domain_cache[normalized_domain] = (time.monotonic(), result)
+        return result
 
     if response.status_code == 404:
-        return {
+        result = {
             "domain": normalized_domain,
             "available": True,
             "status": "not_registered",
             "message": f"Für {normalized_domain} wurde kein RDAP-Eintrag gefunden.",
         }
-    if response.status_code == 200:
-        return {
+    elif response.status_code == 200:
+        result = {
             "domain": normalized_domain,
             "available": False,
             "status": "registered",
             "message": f"{normalized_domain} ist bereits registriert.",
         }
-    return {
-        "domain": normalized_domain,
-        "available": False,
-        "status": "unknown",
-        "message": "Der Registrierungsstatus konnte nicht zuverlässig ermittelt werden.",
-    }
+    else:
+        result = {
+            "domain": normalized_domain,
+            "available": False,
+            "status": "unknown",
+            "message": "Der Registrierungsstatus konnte nicht zuverlässig ermittelt werden.",
+        }
+    domain_cache[normalized_domain] = (time.monotonic(), result)
+    return result
 
 
 if __name__ == "__main__":
