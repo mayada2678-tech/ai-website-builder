@@ -2128,7 +2128,7 @@ def build_customer_chatbot_widget(
     chatbot_side = "left:20px;right:auto;" if is_left_aligned else "right:20px;left:auto;"
     panel_side = "left:0;right:auto;" if is_left_aligned else "right:0;left:auto;"
     chatbot_behavior = "fixed" if st.session_state.get("customer_chatbot_fixed", True) else "relative"
-    return f'''<aside class="customer-chatbot" style="position:{chatbot_behavior};{chatbot_side}bottom:20px;z-index:10000"><button id="customer-chat-toggle" type="button" aria-expanded="false" aria-label="{chatbot_name} öffnen" title="{chatbot_name} öffnen" style="display:grid;place-items:center;background:{chatbot_color};color:#fff;border:0;border-radius:50%;width:64px;height:64px;cursor:pointer;font-size:32px;line-height:1;box-shadow:0 6px 18px rgba(0,0,0,.24)"><span aria-hidden="true">🤖</span></button><section id="customer-chat-panel" hidden style="position:absolute;{panel_side}bottom:76px;width:min(330px,calc(100vw - 40px));padding:18px;background:#fff;color:#111827;border:1px solid #d1d5db;border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.22)"><strong>{chatbot_name}</strong><p id="customer-chat-answer" style="margin:10px 0;color:#374151">Hallo! Wie können wir helfen?</p><form id="customer-chat-form" style="display:flex;gap:6px"><input id="customer-chat-input" aria-label="Frage eingeben" placeholder="Frage eingeben..." required style="min-width:0;flex:1;padding:8px"><button type="submit" style="border:0;background:{chatbot_color};color:#fff;padding:8px 12px;cursor:pointer">Senden</button></form></section></aside>
+    return f'''<aside class="customer-chatbot" style="position:{chatbot_behavior};{chatbot_side}bottom:20px;z-index:10000"><button id="customer-chat-toggle" type="button" aria-expanded="false" aria-label="{chatbot_name} öffnen" title="{chatbot_name} öffnen" style="display:grid;place-items:center;background:{chatbot_color};color:#fff;border:0;border-radius:50%;width:64px;height:64px;cursor:pointer;font-size:32px;line-height:1;box-shadow:0 6px 18px rgba(0,0,0,.24)"><span aria-hidden="true">🤖</span></button><section id="customer-chat-panel" hidden style="box-sizing:border-box;position:absolute;{panel_side}bottom:76px;width:min(330px,calc(100vw - 40px));padding:18px;background:#fff;color:#111827;border:1px solid #d1d5db;border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.22)"><strong>{chatbot_name}</strong><p id="customer-chat-answer" style="margin:10px 0;color:#374151">Hallo! Wie können wir helfen?</p><form id="customer-chat-form" style="display:flex;gap:6px;align-items:center"><input id="customer-chat-input" aria-label="Frage eingeben" placeholder="Frage eingeben..." required style="width:0;min-width:0;flex:1;padding:8px"><button type="submit" style="flex:0 0 auto;white-space:nowrap;border:0;background:{chatbot_color};color:#fff;padding:8px 12px;cursor:pointer">Senden</button></form></section></aside>
 <script>(() => {{
     const toggle = document.getElementById('customer-chat-toggle');
     const panel = document.getElementById('customer-chat-panel');
@@ -3435,54 +3435,49 @@ def configure_vercel_chatbot_environment(project_id: str) -> str:
         "target": ["production", "preview", "development"],
     }
     try:
-        response = requests.post(
-            f"https://api.vercel.com/v10/projects/{project_id}/env",
-            headers=headers,
-            json=payload,
-            timeout=30,
-        )
-    except requests.RequestException as error:
-        return f"Die automatische Chatbot-Konfiguration konnte Vercel nicht erreichen: {error}"
-
-    if response.status_code in (200, 201):
-        return ""
-    if response.status_code != 409:
-        try:
-            details = response.json().get("error", {}).get("message", "")
-        except ValueError:
-            details = ""
-        detail_suffix = f" Vercel meldet: {details}" if details else ""
-        return (
-            f"Die automatische Chatbot-Konfiguration ist fehlgeschlagen (HTTP {response.status_code})."
-            f" Die Website wurde trotzdem veröffentlicht; der Chatbot verwendet Branchenwissen als Rückfallantwort.{detail_suffix}"
-        )
-
-    try:
         environment_variables = requests.get(
             f"https://api.vercel.com/v9/projects/{project_id}/env",
             headers=headers,
             timeout=30,
         )
+        environment_variables.raise_for_status()
         existing_variables = environment_variables.json().get("envs", [])
         existing_key = next(
-            item.get("id") for item in existing_variables
-            if item.get("key") == "HF_API_KEY"
+            (
+                str(item.get("id", ""))
+                for item in existing_variables
+                if item.get("key") == "HF_API_KEY"
+            ),
+            "",
         )
-        update_response = requests.patch(
-            f"https://api.vercel.com/v9/projects/{project_id}/env/{existing_key}",
-            headers=headers,
-            json=payload,
-            timeout=30,
-        )
-    except (requests.RequestException, StopIteration, ValueError) as error:
-        return "Die bestehende Vercel-Chatbot-Konfiguration konnte nicht aktualisiert werden. Die Website wurde trotzdem veröffentlicht; der Chatbot verwendet Branchenwissen als Rückfallantwort."
+        if existing_key:
+            response = requests.patch(
+                f"https://api.vercel.com/v9/projects/{project_id}/env/{existing_key}",
+                headers=headers,
+                json=payload,
+                timeout=30,
+            )
+        else:
+            response = requests.post(
+                f"https://api.vercel.com/v10/projects/{project_id}/env",
+                headers=headers,
+                json=payload,
+                timeout=30,
+            )
+    except requests.RequestException as error:
+        return f"Die automatische Chatbot-Konfiguration konnte Vercel nicht erreichen: {error}"
 
-    if update_response.status_code != 200:
-        return (
-            f"Die Aktualisierung der Vercel-Chatbot-Konfiguration ist fehlgeschlagen (HTTP {update_response.status_code}). "
-            "Die Website wurde trotzdem veröffentlicht; der Chatbot verwendet Branchenwissen als Rückfallantwort."
-        )
-    return ""
+    if response.status_code in (200, 201):
+        return ""
+    try:
+        details = response.json().get("error", {}).get("message", "")
+    except ValueError:
+        details = ""
+    detail_suffix = f" Vercel meldet: {details}" if details else ""
+    return (
+        f"Die automatische Chatbot-Konfiguration ist fehlgeschlagen (HTTP {response.status_code})."
+        f" Die Website wurde trotzdem veröffentlicht; der Chatbot verwendet Branchenwissen als Rückfallantwort.{detail_suffix}"
+    )
 
     
 def publish_website() -> None:
@@ -4236,9 +4231,24 @@ def apply_industry_content_preset() -> None:
     )
     if preset:
         st.session_state.update(preset)
-        st.session_state.client_chatbot_services = str(
-            preset.get("section_services", "")
+        chatbot_defaults = {
+            "Kfz-Meisterwerkstatt": ("Werkstatt-Assistent", "Mo-Fr: 08:00-18:00 Uhr", "Telefonisch oder per E-Mail während der Öffnungszeiten", "Für Pannen außerhalb der Öffnungszeiten wenden Sie sich bitte an einen Pannendienst."),
+            "Friseursalon": ("Salon-Assistent", "Di-Fr: 09:00-18:00 Uhr, Sa: 09:00-14:00 Uhr", "Termine telefonisch oder per E-Mail vereinbaren", "Für kurzfristige Termine kontaktieren Sie den Salon direkt."),
+            "Dachdeckerfachbetrieb": ("Dachservice-Assistent", "Mo-Fr: 07:00-17:00 Uhr", "Telefonisch oder per E-Mail", "Bei akuten Sturmschäden kontaktieren Sie uns telefonisch."),
+            "Physiotherapie-Praxis": ("Praxis-Assistent", "Mo-Fr: 08:00-18:00 Uhr", "Termine telefonisch oder per E-Mail", "Bei akuten Beschwerden wenden Sie sich bitte an den ärztlichen Notdienst."),
+            "Restaurant": ("Genusszeit-Assistent", "Di-So: 12:00-22:00 Uhr", "Reservierungen telefonisch oder per E-Mail", "Für kurzfristige Reservierungen rufen Sie uns bitte direkt an."),
+            "Café und Bäckerei": ("Café-Assistent", "Mo-Sa: 07:00-18:00 Uhr, So: 08:00-16:00 Uhr", "Vorbestellungen telefonisch oder per E-Mail", "Für tagesaktuelle Bestellungen kontaktieren Sie uns direkt."),
+            "Onlineshop": ("Shop-Assistent", "Mo-Fr: 09:00-17:00 Uhr", "Kundenservice per E-Mail", "Bei dringenden Bestellfragen schreiben Sie uns bitte mit Bestellnummer."),
+        }
+        chatbot_name, chatbot_hours, chatbot_contact, chatbot_emergency = chatbot_defaults.get(
+            industry,
+            ("Kundenservice-Assistent", "Öffnungszeiten nach Vereinbarung", "Kontakt per E-Mail", "Für dringende Anliegen kontaktieren Sie uns direkt."),
         )
+        st.session_state.customer_chatbot_name = chatbot_name
+        st.session_state.client_chatbot_hours = chatbot_hours
+        st.session_state.client_chatbot_contact = chatbot_contact
+        st.session_state.client_chatbot_services = str(preset.get("section_services", ""))
+        st.session_state.client_chatbot_emergency = chatbot_emergency
         template_name = INDUSTRY_TEMPLATE_MAP.get(industry)
         if template_name:
             st.session_state.template_name = template_name
