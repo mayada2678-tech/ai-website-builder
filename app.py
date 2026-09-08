@@ -3430,6 +3430,28 @@ def update_draft_with_mcp_tool(tool_name: str, arguments: dict[str, str]) -> str
     return str(result["html"])
 
 
+def get_industry_chatbot_profile_with_mcp(industry: str) -> dict[str, str]:
+    """Loads editable chatbot defaults from the local MCP server."""
+    async def run_tool() -> dict[str, str]:
+        async with Client(website_mcp_server) as client:
+            result = await client.call_tool(
+                "get_industry_chatbot_profile", {"industry": industry}
+            )
+            content = result.structured_content
+            if not isinstance(content, dict):
+                raise ValueError("Der MCP-Server hat kein Chatbot-Profil geliefert.")
+            return {
+                key: str(value).strip()
+                for key, value in content.items()
+                if isinstance(value, str)
+            }
+
+    try:
+        return asyncio.run(run_tool())
+    except Exception:
+        return {}
+
+
 def render_mcp_content_tools_ui() -> None:
     """Rendert MCP-Aktionen für die Struktur und SEO des aktuellen Entwurfs."""
     st.subheader("MCP-Inhaltswerkzeuge", anchor=False)
@@ -4392,6 +4414,7 @@ def apply_industry_content_preset() -> None:
     )
     if preset:
         st.session_state.update(preset)
+        mcp_chatbot_profile = get_industry_chatbot_profile_with_mcp(industry)
         chatbot_defaults = {
             "Kfz-Meisterwerkstatt": ("Werkstatt-Assistent", "Mo-Fr: 08:00-18:00 Uhr", "Telefonisch oder per E-Mail während der Öffnungszeiten", "Für Pannen außerhalb der Öffnungszeiten wenden Sie sich bitte an einen Pannendienst."),
             "Friseursalon": ("Salon-Assistent", "Di-Fr: 09:00-18:00 Uhr, Sa: 09:00-14:00 Uhr", "Termine telefonisch oder per E-Mail vereinbaren", "Für kurzfristige Termine kontaktieren Sie den Salon direkt."),
@@ -4405,11 +4428,22 @@ def apply_industry_content_preset() -> None:
             industry,
             ("Kundenservice-Assistent", "Öffnungszeiten nach Vereinbarung", "Kontakt per E-Mail", "Für dringende Anliegen kontaktieren Sie uns direkt."),
         )
-        st.session_state.customer_chatbot_name = chatbot_name
-        st.session_state.client_chatbot_hours = chatbot_hours
-        st.session_state.client_chatbot_contact = chatbot_contact
-        st.session_state.client_chatbot_services = str(preset.get("section_services", ""))
-        st.session_state.client_chatbot_emergency = chatbot_emergency
+        st.session_state.customer_chatbot_name = (
+            mcp_chatbot_profile.get("name") or chatbot_name
+        )
+        st.session_state.client_chatbot_hours = (
+            mcp_chatbot_profile.get("hours") or chatbot_hours
+        )
+        st.session_state.client_chatbot_contact = (
+            mcp_chatbot_profile.get("contact") or chatbot_contact
+        )
+        st.session_state.client_chatbot_services = (
+            mcp_chatbot_profile.get("services")
+            or str(preset.get("section_services", ""))
+        )
+        st.session_state.client_chatbot_emergency = (
+            mcp_chatbot_profile.get("emergency") or chatbot_emergency
+        )
         st.session_state.customer_chatbot_color = "#2563EB"
         st.session_state.customer_chatbot_shape = "Rund (Kreis)"
         st.session_state.customer_chatbot_figure = {
