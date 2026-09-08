@@ -106,6 +106,14 @@ def normalize_section_type(section_type: str) -> str:
         "kundenbewertung": "testimonials",
         "kundenstimmen": "testimonials",
         "rezensionen": "testimonials",
+        "faq": "faq",
+        "fragen": "faq",
+        "haeufigefragen": "faq",
+        "häufigefragen": "faq",
+        "calltoaction": "call_to_action",
+        "cta": "call_to_action",
+        "kontaktaufruf": "call_to_action",
+        "anfrage": "call_to_action",
     }
     if normalized in aliases:
         return aliases[normalized]
@@ -113,8 +121,8 @@ def normalize_section_type(section_type: str) -> str:
     if close_match:
         return aliases[close_match[0]]
     raise ValueError(
-        "Der gewünschte Bereich wurde nicht erkannt. Verwenden Sie zum Beispiel "
-        "Kundenbewertungen, Kundenstimmen oder Testimonials."
+        "Der gewünschte Bereich wurde nicht erkannt. Verwenden Sie Kundenbewertungen, "
+        "häufige Fragen oder einen Kontaktaufruf."
     )
 
 
@@ -135,14 +143,15 @@ def get_industry_chatbot_profile(industry: str) -> dict[str, str]:
 
 @mcp.tool()
 def inject_section_into_html(html: str, section_type: str = "testimonials") -> dict[str, str]:
-    """Adds a customer-review section before the closing main area of a customer page."""
+    """Adds a selected professional content section to a customer page."""
     document = require_html_document(html)
-    normalize_section_type(section_type)
+    normalized_type = normalize_section_type(section_type)
     soup = BeautifulSoup(document, "html.parser")
-    if soup.find(id="kundenbewertungen") is not None:
-        return {"html": document, "message": "Der Bereich Kundenbewertungen ist bereits vorhanden."}
-
-    section = '''<section id="kundenbewertungen" class="customer-testimonials" aria-labelledby="kundenbewertungen-title">
+    sections = {
+        "testimonials": (
+            "kundenbewertungen",
+            "Kundenbewertungen",
+            '''<section id="kundenbewertungen" class="customer-testimonials" aria-labelledby="kundenbewertungen-title">
   <div class="customer-testimonials__inner">
     <p class="customer-testimonials__eyebrow">Kundenstimmen</p>
     <h2 id="kundenbewertungen-title">Was Kunden über uns sagen</h2>
@@ -163,13 +172,40 @@ def inject_section_into_html(html: str, section_type: str = "testimonials") -> d
 .customer-testimonials blockquote p { margin: 0; line-height: 1.6; }.customer-testimonials footer { margin-top: 16px; font-weight: 700; }
 @media (max-width: 700px) { .customer-testimonials__grid { grid-template-columns: 1fr; } }
 </style>'''
+    ),
+    "faq": (
+        "haeufige-fragen",
+        "Häufige Fragen",
+        '''<section id="haeufige-fragen" class="customer-faq" aria-labelledby="haeufige-fragen-title">
+    <div class="customer-faq__inner">
+        <p>Gut informiert</p><h2 id="haeufige-fragen-title">Häufige Fragen</h2>
+        <details><summary>Wie kann ich Kontakt aufnehmen?</summary><p>Nutzen Sie die Kontaktmöglichkeiten auf dieser Website. Wir melden uns zeitnah bei Ihnen.</p></details>
+        <details><summary>Wie läuft eine Anfrage ab?</summary><p>Beschreiben Sie kurz Ihr Anliegen. Gemeinsam klären wir den passenden nächsten Schritt.</p></details>
+        <details><summary>Erhalte ich eine persönliche Beratung?</summary><p>Ja. Wir nehmen uns Zeit für Ihre Fragen und beraten Sie individuell.</p></details>
+    </div>
+</section>
+<style>.customer-faq{padding:72px 24px;background:#f8fafc;color:#172033}.customer-faq__inner{max-width:860px;margin:0 auto}.customer-faq__inner>p{margin:0;color:#2563eb;font-weight:700;text-transform:uppercase}.customer-faq h2{margin:8px 0 24px;font-size:clamp(1.8rem,4vw,2.7rem)}.customer-faq details{padding:18px 0;border-top:1px solid #cbd5e1}.customer-faq summary{cursor:pointer;font-weight:700}.customer-faq details p{margin:12px 0 0;line-height:1.6}</style>'''
+    ),
+    "call_to_action": (
+        "kontaktaufruf",
+        "Kontaktaufruf",
+        '''<section id="kontaktaufruf" class="customer-cta" aria-labelledby="kontaktaufruf-title">
+    <div><p>Persönlich für Sie da</p><h2 id="kontaktaufruf-title">Lassen Sie uns über Ihr Anliegen sprechen.</h2><p>Kontaktieren Sie uns direkt. Wir klären Ihre Fragen und besprechen den passenden nächsten Schritt.</p><a href="#kontakt">Kontakt aufnehmen</a></div>
+</section>
+<style>.customer-cta{padding:72px 24px;background:#172033;color:#fff;text-align:center}.customer-cta div{max-width:720px;margin:0 auto}.customer-cta p{line-height:1.6}.customer-cta div>p:first-child{color:#93c5fd;font-weight:700;text-transform:uppercase}.customer-cta h2{margin:10px 0;font-size:clamp(2rem,5vw,3.2rem)}.customer-cta a{display:inline-block;margin-top:12px;padding:12px 18px;background:#fff;color:#172033;text-decoration:none;font-weight:700;border-radius:6px}</style>'''
+    ),
+    }
+    section_id, section_label, section = sections[normalized_type]
+    if soup.find(id=section_id) is not None:
+        return {"html": document, "message": f"Der Bereich {section_label} ist bereits vorhanden."}
+
     section_soup = BeautifulSoup(section, "html.parser")
     target = soup.main or soup.body
     if target is None:
         raise ValueError("Die HTML-Datei enthält keinen bearbeitbaren Body-Bereich.")
     for element in list(section_soup.contents):
         target.append(element)
-    return {"html": str(soup), "message": "Kundenbewertungen wurden in den Entwurf eingefügt."}
+    return {"html": str(soup), "message": f"{section_label} wurde in den Entwurf eingefügt."}
 
 
 @mcp.tool()

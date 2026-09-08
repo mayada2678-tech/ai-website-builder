@@ -1840,12 +1840,16 @@ function targetedAnswer(question) {{
     const hours = findDetail("Öffnungszeiten");
     const services = findDetail("Preise und Leistungen", "Typische Leistungen dieser Branche");
     const emergency = findDetail("Notfall und Bereitschaft");
+    const company = findDetail("Unternehmen");
+    const description = findDetail("Unternehmensbeschreibung");
     const hasVerifiedPrices = CHATBOT_KNOWLEDGE.includes("Preise und Leistungen:");
     if (/(kontakt|telefon|e-mail|mail|erreich)/.test(normalized) && contact) return `Sie erreichen uns: ${{contact}}`;
     if (/(öffnungs|uhrzeit|geöffnet|termin|wann)/.test(normalized) && hours) return `Unsere Öffnungszeiten bzw. Terminzeiten: ${{hours}}`;
     if (/(preis|kosten)/.test(normalized) && !hasVerifiedPrices) return "Konkrete Preise liegen uns nicht vor. Bitte fragen Sie direkt über die Kontaktmöglichkeiten der Website an.";
-    if (/(leistung|service|angebot|behandlung)/.test(normalized) && services) return `Unsere Leistungen: ${{services}}`;
+    if (/(preis|kosten)/.test(normalized) && services) return `Zu Preisen und Leistungen: ${{services}}`;
+    if (/(leistung|service|angebot|behandlung)/.test(normalized) && services) return `Wir bieten unter anderem: ${{services}}`;
     if (/(notfall|dringend|bereit|panne)/.test(normalized) && emergency) return emergency;
+    if (/(über euch|über sie|unternehmen|firma|wer seid|wer sind sie)/.test(normalized) && description) return company ? `${{company}}: ${{description}}` : description;
     if (/(hallo|guten tag|hilfe|was machen sie|wer sind sie)/.test(normalized) && services) return `Gerne helfe ich weiter. Wir bieten unter anderem ${{services}}.`;
     return "Bitte kontaktieren Sie uns direkt über die Kontaktmöglichkeiten der Website. Dort erhalten Sie eine verlässliche Auskunft zu Ihrem Anliegen.";
 }}
@@ -2234,10 +2238,14 @@ def build_customer_chatbot_widget(
         const contact = detail(['Kontaktwege']);
         const hours = detail(['Öffnungszeiten']);
         const services = detail(['Preise und Leistungen', 'Typische Leistungen dieser Branche']);
+        const company = detail(['Unternehmen']);
+        const description = detail(['Unternehmensbeschreibung']);
         if (/(kontakt|telefon|e-mail|mail|erreich)/.test(normalized) && contact) return `Sie erreichen uns: ${{contact}}`;
         if (/(öffnungs|uhrzeit|geöffnet|termin|wann)/.test(normalized) && hours) return `Unsere Öffnungszeiten bzw. Terminzeiten: ${{hours}}`;
         if (/(preis|kosten)/.test(normalized) && !fallback.includes('Preise und Leistungen:')) return 'Konkrete Preise liegen uns nicht vor. Bitte fragen Sie direkt über die Website an.';
-        if (/(leistung|service|angebot|behandlung)/.test(normalized) && services) return `Unsere Leistungen: ${{services}}`;
+        if (/(preis|kosten)/.test(normalized) && services) return `Zu Preisen und Leistungen: ${{services}}`;
+        if (/(leistung|service|angebot|behandlung)/.test(normalized) && services) return `Wir bieten unter anderem: ${{services}}`;
+        if (/(über euch|über sie|unternehmen|firma|wer seid|wer sind sie)/.test(normalized) && description) return company ? `${{company}}: ${{description}}` : description;
         return 'Bitte kontaktieren Sie uns direkt über die Kontaktmöglichkeiten der Website. Dort erhalten Sie eine verlässliche Auskunft.';
     }};
     if (!toggle || !panel || !form || !input || !answer || !sendButton) return;
@@ -3489,21 +3497,34 @@ def render_mcp_content_tools_ui() -> None:
         st.info("Erstellen oder laden Sie zuerst einen Website-Entwurf.")
         return
 
-    reviews_column, seo_column = st.columns(2)
-    with reviews_column:
+    section_column, seo_column = st.columns(2)
+    with section_column:
+        section_options = {
+            "Kundenbewertungen": "testimonials",
+            "Häufige Fragen": "faq",
+            "Kontaktaufruf": "call_to_action",
+        }
+        selected_section_label = st.selectbox(
+            "Bereich ergänzen",
+            list(section_options),
+            key="mcp_section_type",
+        )
         if st.button(
-            "Kundenbewertungen einfügen",
-            icon=":material/format_quote:",
-            key="mcp_insert_testimonials",
+            "Bereich per MCP einfügen",
+            icon=":material/add_circle:",
+            key="mcp_insert_section",
             width="stretch",
         ):
             try:
                 updated_html = update_draft_with_mcp_tool(
                     "inject_section_into_html",
-                    {"html": st.session_state.generated_html, "section_type": "testimonials"},
+                    {
+                        "html": st.session_state.generated_html,
+                        "section_type": section_options[selected_section_label],
+                    },
                 )
                 queue_html_update(updated_html)
-                st.success("Kundenbewertungen wurden in den Entwurf eingefügt.")
+                st.success(f"{selected_section_label} wurden in den Entwurf eingefügt.")
                 st.rerun()
             except ValueError as error:
                 st.error(str(error))
@@ -4402,6 +4423,8 @@ def get_configured_chatbot_knowledge() -> str:
         industry = "Allgemeiner Kundenservice"
     company_name = str(st.session_state.get("client_company_name", "")).strip()
     description = str(st.session_state.get("template_custom_description", "")).strip()
+    business_email = str(st.session_state.get("client_business_email", "")).strip()
+    business_phone = str(st.session_state.get("client_business_phone", "")).strip()
     fields = (
         ("Öffnungszeiten", "client_chatbot_hours"),
         ("Kontaktwege", "client_chatbot_contact"),
@@ -4418,6 +4441,16 @@ def get_configured_chatbot_knowledge() -> str:
         context.append(f"Unternehmen: {company_name}.")
     if description:
         context.append(f"Unternehmensbeschreibung: {description}")
+    if business_email or business_phone:
+        contact_details = " | ".join(
+            detail
+            for detail in (
+                f"E-Mail: {business_email}" if business_email else "",
+                f"Telefon: {business_phone}" if business_phone else "",
+            )
+            if detail
+        )
+        context.append(f"Kontaktwege: {contact_details}")
     if business_details:
         context.extend(business_details)
     else:
