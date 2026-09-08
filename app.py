@@ -1044,6 +1044,15 @@ DEFAULT_STATE = {
     "publish_after_checkout": False,
     "delete_confirmation": False,
     "show_botpress_chatbot": True,
+    "client_chatbot_hours": "",
+    "client_chatbot_contact": "",
+    "client_chatbot_services": "",
+    "client_chatbot_emergency": "",
+    "customer_chatbot_color": "#2563EB",
+    "customer_chatbot_shape": "Rund (Kreis)",
+    "customer_chatbot_name": "Kundenservice-Assistent",
+    "customer_chatbot_position": "Unten rechts",
+    "customer_chatbot_fixed": True,
     "chat_messages": [
         {
             "role": "assistant",
@@ -2146,8 +2155,8 @@ def build_customer_chatbot_widget(
         input.value = '';
         try {{
             const result = await fetch('/api/chat', {{ method: 'POST', headers: {{ 'Content-Type': 'application/json' }}, body: JSON.stringify({{ question }}) }});
-            const data = await result.json();
-            answer.textContent = data.answer || fallback;
+            const data = await result.json().catch(() => ({{}}));
+            answer.textContent = result.ok && data.answer ? data.answer : fallback;
         }} catch (error) {{
             answer.textContent = fallback;
         }}
@@ -2388,7 +2397,7 @@ def render_client_contact_ui() -> None:
             key="client_web3forms_access_key",
         )
     industry = str(st.session_state.get("industry_content_preset", ""))
-    industry_knowledge = industry if industry in INDUSTRY_CONTENT_PRESETS else "Kfz-Meisterwerkstatt"
+    industry_knowledge = industry if industry in INDUSTRY_CONTENT_PRESETS else "Allgemeiner Kundenservice"
     st.subheader("Kunden-Chatbot konfigurieren", anchor=False)
     st.info(
         f"Der Chatbot erhält automatisch Basiswissen über die Branche: {industry_knowledge}. "
@@ -2436,7 +2445,6 @@ def render_client_contact_ui() -> None:
     with name_column:
         st.text_input(
             "Name des Chatbots",
-            value="Werkstatt-Assistent",
             key="customer_chatbot_name",
         )
     position_column, behavior_column = st.columns(2)
@@ -4249,6 +4257,10 @@ def apply_industry_content_preset() -> None:
         st.session_state.client_chatbot_contact = chatbot_contact
         st.session_state.client_chatbot_services = str(preset.get("section_services", ""))
         st.session_state.client_chatbot_emergency = chatbot_emergency
+        st.session_state.customer_chatbot_color = "#2563EB"
+        st.session_state.customer_chatbot_shape = "Rund (Kreis)"
+        st.session_state.customer_chatbot_position = "Unten rechts"
+        st.session_state.customer_chatbot_fixed = True
         template_name = INDUSTRY_TEMPLATE_MAP.get(industry)
         if template_name:
             st.session_state.template_name = template_name
