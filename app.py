@@ -3491,55 +3491,11 @@ def configure_vercel_chatbot_environment(project_id: str) -> str:
     
 def publish_website() -> None:
     """Veröffentlicht den aktuellen HTML-Entwurf auf Vercel."""
-    if st.session_state.get("creation_mode") == "Professionelle Vorlage":
-        company_name = str(st.session_state.get("client_company_name", "")).strip()
-        business_email = str(st.session_state.get("client_business_email", "")).strip()
-        if not company_name or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", business_email):
-            raise ValueError("Bitte geben Sie Unternehmensname und eine gültige geschäftliche E-Mail-Adresse ein.")
-
-        background_color = BACKGROUND_PRESET_COLORS[
-            st.session_state.get("template_background_preset", "Weiß")
-        ]
-        is_multi_page = st.session_state.get("page_structure") == "Mehrseitige Website"
-        template_html = build_customized_template_html(
-            str(st.session_state.get("template_name", "Professionelle Vorlage")),
-            background_color,
-            str(st.session_state.get("template_accent_color", "#38BDF8")),
-            str(st.session_state.get("template_border_style", "rounded")),
-            company_name,
-            business_email,
-            str(st.session_state.get("template_hero_heading", "")).strip()
-            or str(st.session_state.get("client_company_slogan", "")),
-            str(st.session_state.get("client_business_phone", "")),
-            str(st.session_state.get("template_custom_description", "")),
-            st.session_state.get("initial_image"),
-            str(st.session_state.get("template_button_text", "")),
-            str(st.session_state.get("template_footer_text", "")),
-            is_multi_page,
-            get_configured_chatbot_knowledge(),
-            str(st.session_state.get("customer_chatbot_name", "")),
-            str(st.session_state.get("customer_chatbot_color", "#2563EB")),
-            {"Rund (Kreis)": "50%", "Eckig mit Rundung": "8px", "Quadratisch": "0"}.get(
-                str(st.session_state.get("customer_chatbot_shape", "Rund (Kreis)")), "50%"
-            ),
-            str(st.session_state.get("template_sections_text", "")),
-        )
-        queue_html_update(template_html)
-        if is_multi_page:
-            st.session_state.site_pages.update(
-                build_customized_template_pages(
-                    company_name,
-                    business_email,
-                    background_color,
-                    str(st.session_state.get("template_accent_color", "#38BDF8")),
-                    str(st.session_state.get("template_custom_description", "")),
-                    get_configured_chatbot_knowledge(),
-                    str(st.session_state.get("customer_chatbot_name", "")),
-                    str(st.session_state.get("customer_chatbot_color", "#2563EB")),
-                )
-            )
-
-    html = require_complete_html(st.session_state.generated_html)
+    html = inject_configured_customer_chatbot(
+        require_complete_html(st.session_state.generated_html)
+    )
+    st.session_state.generated_html = html
+    st.session_state.html_editor = html
     requested_project_name = str(st.session_state.project_name).strip()
     project_name = (
         safe_project_name(requested_project_name)
@@ -3550,6 +3506,15 @@ def publish_website() -> None:
 
     site_pages = dict(st.session_state.site_pages) or {"index.html": html}
     site_pages["index.html"] = html
+    site_pages = {
+        file_name: (
+            inject_configured_customer_chatbot(require_complete_html(page_content))
+            if file_name.endswith(".html")
+            else page_content
+        )
+        for file_name, page_content in site_pages.items()
+    }
+    st.session_state.site_pages = site_pages
     site_pages = add_vercel_chat_api(site_pages)
     files = [
         {
