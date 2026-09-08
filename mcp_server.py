@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from difflib import get_close_matches
 import re
 from html import escape
 
@@ -24,12 +25,35 @@ def require_html_document(html: str) -> str:
     return html
 
 
+def normalize_section_type(section_type: str) -> str:
+    """Maps similar section labels to supported MCP section types."""
+    normalized = re.sub(r"[^a-zäöüß]", "", section_type.strip().lower())
+    aliases = {
+        "testimonials": "testimonials",
+        "testimonial": "testimonials",
+        "bewertungen": "testimonials",
+        "bewertung": "testimonials",
+        "kundenbewertungen": "testimonials",
+        "kundenbewertung": "testimonials",
+        "kundenstimmen": "testimonials",
+        "rezensionen": "testimonials",
+    }
+    if normalized in aliases:
+        return aliases[normalized]
+    close_match = get_close_matches(normalized, aliases, n=1, cutoff=0.72)
+    if close_match:
+        return aliases[close_match[0]]
+    raise ValueError(
+        "Der gewünschte Bereich wurde nicht erkannt. Verwenden Sie zum Beispiel "
+        "Kundenbewertungen, Kundenstimmen oder Testimonials."
+    )
+
+
 @mcp.tool()
 def inject_section_into_html(html: str, section_type: str = "testimonials") -> dict[str, str]:
     """Adds a customer-review section before the closing main area of a customer page."""
     document = require_html_document(html)
-    if section_type.strip().lower() not in {"testimonials", "bewertungen", "kundenbewertungen"}:
-        raise ValueError("Aktuell wird nur der Bereich Kundenbewertungen unterstützt.")
+    normalize_section_type(section_type)
     if 'id="kundenbewertungen"' in document:
         return {"html": document, "message": "Der Bereich Kundenbewertungen ist bereits vorhanden."}
 
