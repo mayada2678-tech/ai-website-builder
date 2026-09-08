@@ -1821,22 +1821,28 @@ def build_chat_api_route(chatbot_knowledge: str) -> str:
     const MODEL_URL = "https://router.huggingface.co/hf-inference/models/HuggingFaceH4/zephyr-7b-beta";
     const FALLBACK_ANSWER = "Vielen Dank für Ihre Frage. " + CHATBOT_KNOWLEDGE;
 
-function findDetail(label) {{
-    const match = CHATBOT_KNOWLEDGE.match(new RegExp(label + ":\\s*([^\\n]+)", "i"));
-    return match ? match[1].trim() : "";
+function findDetail(...labels) {{
+    for (const label of labels) {{
+        const match = CHATBOT_KNOWLEDGE.match(new RegExp(label + ":\\s*([^\\n]+)", "i"));
+        if (match) return match[1].trim();
+    }}
+    return "";
 }}
 
 function targetedAnswer(question) {{
     const normalized = question.toLowerCase();
     const contact = findDetail("Kontaktwege");
     const hours = findDetail("Öffnungszeiten");
-    const services = findDetail("Preise und Leistungen");
+    const services = findDetail("Preise und Leistungen", "Typische Leistungen dieser Branche");
     const emergency = findDetail("Notfall und Bereitschaft");
+    const hasVerifiedPrices = CHATBOT_KNOWLEDGE.includes("Preise und Leistungen:");
     if (/(kontakt|telefon|e-mail|mail|erreich)/.test(normalized) && contact) return `Sie erreichen uns: ${{contact}}`;
     if (/(öffnungs|uhrzeit|geöffnet|termin|wann)/.test(normalized) && hours) return `Unsere Öffnungszeiten bzw. Terminzeiten: ${{hours}}`;
-    if (/(leistung|service|angebot|preis|kosten|behandlung)/.test(normalized) && services) return `Unsere Leistungen: ${{services}}`;
+    if (/(preis|kosten)/.test(normalized) && !hasVerifiedPrices) return "Konkrete Preise liegen uns nicht vor. Bitte fragen Sie direkt über die Kontaktmöglichkeiten der Website an.";
+    if (/(leistung|service|angebot|behandlung)/.test(normalized) && services) return `Unsere Leistungen: ${{services}}`;
     if (/(notfall|dringend|bereit|panne)/.test(normalized) && emergency) return emergency;
-    return "";
+    if (/(hallo|guten tag|hilfe|was machen sie|wer sind sie)/.test(normalized) && services) return `Gerne helfe ich weiter. Wir bieten unter anderem ${{services}}.`;
+    return "Bitte kontaktieren Sie uns direkt über die Kontaktmöglichkeiten der Website. Dort erhalten Sie eine verlässliche Auskunft zu Ihrem Anliegen.";
 }}
 
 export default async function handler(request, response) {{
@@ -2211,6 +2217,24 @@ def build_customer_chatbot_widget(
     const answer = document.getElementById('customer-chat-answer');
     const sendButton = document.getElementById('customer-chat-send');
     const fallback = decodeURIComponent(escape(atob('{chatbot_knowledge_base64}')));
+    const fallbackAnswer = (question) => {{
+        const normalized = question.toLowerCase();
+        const detail = (labels) => {{
+            for (const label of labels) {{
+                const match = fallback.match(new RegExp(label + ':\\s*([^\\n]+)', 'i'));
+                if (match) return match[1].trim();
+            }}
+            return '';
+        }};
+        const contact = detail(['Kontaktwege']);
+        const hours = detail(['Öffnungszeiten']);
+        const services = detail(['Preise und Leistungen', 'Typische Leistungen dieser Branche']);
+        if (/(kontakt|telefon|e-mail|mail|erreich)/.test(normalized) && contact) return `Sie erreichen uns: ${{contact}}`;
+        if (/(öffnungs|uhrzeit|geöffnet|termin|wann)/.test(normalized) && hours) return `Unsere Öffnungszeiten bzw. Terminzeiten: ${{hours}}`;
+        if (/(preis|kosten)/.test(normalized) && !fallback.includes('Preise und Leistungen:')) return 'Konkrete Preise liegen uns nicht vor. Bitte fragen Sie direkt über die Website an.';
+        if (/(leistung|service|angebot|behandlung)/.test(normalized) && services) return `Unsere Leistungen: ${{services}}`;
+        return 'Bitte kontaktieren Sie uns direkt über die Kontaktmöglichkeiten der Website. Dort erhalten Sie eine verlässliche Auskunft.';
+    }};
     if (!toggle || !panel || !form || !input || !answer || !sendButton) return;
     toggle.onclick = () => {{ panel.hidden = !panel.hidden; toggle.setAttribute('aria-expanded', String(!panel.hidden)); if (!panel.hidden) input.focus(); }};
     form.onsubmit = async (event) => {{
@@ -2224,9 +2248,9 @@ def build_customer_chatbot_widget(
         try {{
             const result = await fetch('/api/chat', {{ method: 'POST', headers: {{ 'Content-Type': 'application/json' }}, body: JSON.stringify({{ question }}) }});
             const data = await result.json().catch(() => ({{}}));
-            answer.textContent = result.ok && data.answer ? data.answer : fallback;
+            answer.textContent = result.ok && data.answer ? data.answer : fallbackAnswer(question);
         }} catch (error) {{
-            answer.textContent = fallback;
+            answer.textContent = fallbackAnswer(question);
         }} finally {{
             sendButton.disabled = false;
             sendButton.removeAttribute('aria-busy');
