@@ -1796,7 +1796,12 @@ def inject_configured_customer_chatbot(html: str) -> str:
     ).replace('border-radius:50%;width:56px', (
         f'border-radius:{shape_to_radius.get(str(st.session_state.get("customer_chatbot_shape", "Rund (Kreis)")), "50%")};width:56px'
     ))
-    return re.sub(r"(?i)</body\s*>", f"{widget}</body>", html_without_existing_widget, count=1)
+    return re.sub(
+        r"(?i)</body\s*>",
+        lambda _match: f"{widget}</body>",
+        html_without_existing_widget,
+        count=1,
+    )
 
 
 def queue_html_update(html: str, reset_site_pages: bool = False) -> None:
