@@ -19,6 +19,57 @@ DOMAIN_PATTERN = re.compile(
 )
 DOMAIN_CACHE_TTL_SECONDS = 300
 domain_cache: dict[str, tuple[float, dict[str, str | bool]]] = {}
+CHATBOT_INDUSTRY_PROFILES = {
+    "Kfz-Meisterwerkstatt": {
+        "name": "Werkstatt-Assistent",
+        "hours": "Mo-Fr: 08:00-18:00 Uhr",
+        "contact": "Telefonisch oder per E-Mail während der Öffnungszeiten",
+        "services": "Meisterhafte Kfz-Reparaturen, präziser Reifenwechsel und umfassender Autoservice",
+        "emergency": "Für Pannen außerhalb der Öffnungszeiten wenden Sie sich bitte an einen Pannendienst.",
+    },
+    "Friseursalon": {
+        "name": "Salon-Assistent",
+        "hours": "Di-Fr: 09:00-18:00 Uhr, Sa: 09:00-14:00 Uhr",
+        "contact": "Termine telefonisch oder per E-Mail vereinbaren",
+        "services": "Moderne Haarschnitte, brillante Colorationen und individuelles Styling",
+        "emergency": "Für kurzfristige Termine kontaktieren Sie den Salon direkt.",
+    },
+    "Dachdeckerfachbetrieb": {
+        "name": "Dachservice-Assistent",
+        "hours": "Mo-Fr: 07:00-17:00 Uhr",
+        "contact": "Telefonisch oder per E-Mail",
+        "services": "Dachsanierung, Neueindeckung, Abdichtung und Reparatur",
+        "emergency": "Bei akuten Sturmschäden kontaktieren Sie uns telefonisch.",
+    },
+    "Physiotherapie-Praxis": {
+        "name": "Praxis-Assistent",
+        "hours": "Mo-Fr: 08:00-18:00 Uhr",
+        "contact": "Termine telefonisch oder per E-Mail",
+        "services": "Krankengymnastik, manuelle Therapie, Lymphdrainage und Trainingsberatung",
+        "emergency": "Bei akuten Beschwerden wenden Sie sich bitte an den ärztlichen Notdienst.",
+    },
+    "Restaurant": {
+        "name": "Genusszeit-Assistent",
+        "hours": "Di-So: 12:00-22:00 Uhr",
+        "contact": "Reservierungen telefonisch oder per E-Mail",
+        "services": "Saisonale Küche, Tischreservierung, Gruppen und Feiern",
+        "emergency": "Für kurzfristige Reservierungen rufen Sie uns bitte direkt an.",
+    },
+    "Café und Bäckerei": {
+        "name": "Café-Assistent",
+        "hours": "Mo-Sa: 07:00-18:00 Uhr, So: 08:00-16:00 Uhr",
+        "contact": "Vorbestellungen telefonisch oder per E-Mail",
+        "services": "Kaffeespezialitäten, Frühstück, frische Backwaren und hausgemachte Kuchen",
+        "emergency": "Für tagesaktuelle Bestellungen kontaktieren Sie uns direkt.",
+    },
+    "Onlineshop": {
+        "name": "Shop-Assistent",
+        "hours": "Mo-Fr: 09:00-17:00 Uhr",
+        "contact": "Kundenservice per E-Mail",
+        "services": "Produktauswahl, sicherer Onlinekauf, Versand und Kundenservice",
+        "emergency": "Bei dringenden Bestellfragen schreiben Sie uns bitte mit Bestellnummer.",
+    },
+}
 
 
 def require_html_document(html: str) -> str:
@@ -65,6 +116,21 @@ def normalize_section_type(section_type: str) -> str:
         "Der gewünschte Bereich wurde nicht erkannt. Verwenden Sie zum Beispiel "
         "Kundenbewertungen, Kundenstimmen oder Testimonials."
     )
+
+
+@mcp.tool()
+def get_industry_chatbot_profile(industry: str) -> dict[str, str]:
+    """Returns safe, editable default knowledge for a customer chatbot industry."""
+    profile = CHATBOT_INDUSTRY_PROFILES.get(industry.strip())
+    if profile is not None:
+        return dict(profile)
+    return {
+        "name": "Kundenservice-Assistent",
+        "hours": "Öffnungszeiten nach Vereinbarung",
+        "contact": "Kontakt per E-Mail",
+        "services": "Individuelle Leistungen und persönliche Beratung",
+        "emergency": "Für dringende Anliegen kontaktieren Sie uns direkt.",
+    }
 
 
 @mcp.tool()
