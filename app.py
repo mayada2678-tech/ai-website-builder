@@ -4367,7 +4367,17 @@ def get_configured_chatbot_knowledge() -> str:
         context.append(f"Unternehmen: {company_name}.")
     if description:
         context.append(f"Unternehmensbeschreibung: {description}")
-    context.extend(business_details)
+    if business_details:
+        context.extend(business_details)
+    else:
+        industry_preset = INDUSTRY_CONTENT_PRESETS.get(industry, {})
+        default_services = str(industry_preset.get("section_services", "")).strip()
+        if default_services:
+            context.append(f"Typische Leistungen dieser Branche: {default_services}.")
+        context.append(
+            "Standardhinweis: Öffnungszeiten, Preise und konkrete Verfügbarkeiten "
+            "liegen nicht vor. Verweise dafür auf die Kontaktmöglichkeiten der Website."
+        )
     return "\n".join(context)
 
 
