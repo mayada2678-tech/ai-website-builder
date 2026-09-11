@@ -3698,26 +3698,35 @@ def get_industry_chatbot_profile_with_mcp(industry: str) -> dict[str, str]:
 
 def render_mcp_content_tools_ui() -> None:
     """Rendert MCP-Aktionen für die Struktur und SEO des aktuellen Entwurfs."""
-    st.subheader("MCP-Inhaltswerkzeuge", anchor=False)
-    st.caption("Erweitern oder optimieren Sie den aktuellen Entwurf. Die Änderung wird erst mit Veröffentlichung live.")
+    language = str(st.session_state.app_language)
+    copy = {
+        "de": ["MCP-Inhaltswerkzeuge", "Erweitern oder optimieren Sie den aktuellen Entwurf. Die Änderung wird erst mit Veröffentlichung live.", "Erstellen oder laden Sie zuerst einen Website-Entwurf.", "Bereich ergänzen", "Kundenbewertungen", "Häufige Fragen", "Kontaktaufruf", "Bereich per MCP einfügen", "{section} wurde in den Entwurf eingefügt.", "SEO für Google optimieren", "SEO-Daten wurden im Entwurf aktualisiert."],
+        "en": ["MCP content tools", "Extend or optimize the current draft. Changes only go live when published.", "Create or load a website draft first.", "Add section", "Customer reviews", "Frequently asked questions", "Contact call to action", "Insert section with MCP", "{section} was added to the draft.", "Optimize SEO for Google", "SEO data was updated in the draft."],
+        "ar": ["أدوات محتوى MCP", "وسّع المسودة الحالية أو حسّنها. لا تظهر التغييرات للعامة إلا بعد النشر.", "أنشئ مسودة موقع أو حمّلها أولاً.", "إضافة قسم", "آراء العملاء", "الأسئلة الشائعة", "دعوة للتواصل", "إضافة القسم باستخدام MCP", "تمت إضافة قسم «{section}» إلى المسودة.", "تحسين SEO لمحرك Google", "تم تحديث بيانات SEO في المسودة."],
+        "ku": ["ئامرازەکانی ناوەڕۆکی MCP", "ڕەشنووسەکە فراوان یان باشتر بکە. گۆڕانکارییەکان تەنها دوای بڵاوکردنەوە دەردەکەون.", "سەرەتا ڕەشنووسی وێبگەیەک دروست بکە یان باری بکە.", "زیادکردنی بەش", "هەڵسەنگاندنی کڕیاران", "پرسیارە باوەکان", "بانگهێشتی پەیوەندی", "زیادکردنی بەش بە MCP", "بەشی «{section}» زیاد کرا بۆ ڕەشنووسەکە.", "باشترکردنی SEO بۆ Google", "زانیاری SEO لە ڕەشنووسەکە نوێ کرایەوە."],
+    }.get(language)
+    if copy is None:
+        copy = ["MCP content tools", "Extend or optimize the current draft. Changes only go live when published.", "Create or load a website draft first.", "Add section", "Customer reviews", "Frequently asked questions", "Contact call to action", "Insert section with MCP", "{section} was added to the draft.", "Optimize SEO for Google", "SEO data was updated in the draft."]
+    st.subheader(copy[0], anchor=False)
+    st.caption(copy[1])
     if not st.session_state.generated_html:
-        st.info("Erstellen oder laden Sie zuerst einen Website-Entwurf.")
+        st.info(copy[2])
         return
 
     section_column, seo_column = st.columns(2)
     with section_column:
         section_options = {
-            "Kundenbewertungen": "testimonials",
-            "Häufige Fragen": "faq",
-            "Kontaktaufruf": "call_to_action",
+            copy[4]: "testimonials",
+            copy[5]: "faq",
+            copy[6]: "call_to_action",
         }
         selected_section_label = st.selectbox(
-            "Bereich ergänzen",
+            copy[3],
             list(section_options),
             key="mcp_section_type",
         )
         if st.button(
-            "Bereich per MCP einfügen",
+            copy[7],
             icon=":material/add_circle:",
             key="mcp_insert_section",
             width="stretch",
@@ -3731,13 +3740,13 @@ def render_mcp_content_tools_ui() -> None:
                     },
                 )
                 queue_html_update(updated_html)
-                st.success(f"{selected_section_label} wurden in den Entwurf eingefügt.")
+                st.success(copy[8].format(section=selected_section_label))
                 st.rerun()
             except ValueError as error:
                 st.error(str(error))
     with seo_column:
         if st.button(
-            "SEO für Google optimieren",
+            copy[9],
             icon=":material/travel_explore:",
             key="mcp_optimize_seo",
             width="stretch",
@@ -3752,7 +3761,7 @@ def render_mcp_content_tools_ui() -> None:
                     },
                 )
                 queue_html_update(updated_html)
-                st.success("SEO-Daten wurden im Entwurf aktualisiert.")
+                st.success(copy[10])
                 st.rerun()
             except ValueError as error:
                 st.error(str(error))
@@ -4335,49 +4344,60 @@ def render_domain_and_deployment_ui() -> None:
 
 def render_customer_service_ui(user_id: int, user_email: str) -> None:
     """Ermöglicht Kunden Feedback und nachvollziehbare Supportanfragen."""
-    st.header("Kundenservice")
-    st.caption(
-        "Melden Sie einen Fehler, eine Frage oder Feedback. Beschreiben Sie den betroffenen "
-        "Bereich und die Schritte möglichst genau, damit wir schnell helfen können."
-    )
+    language = str(st.session_state.app_language)
+    copy = {
+        "de": ["Kundenservice", "Melden Sie einen Fehler, eine Frage oder Feedback. Beschreiben Sie den betroffenen Bereich und die Schritte möglichst genau, damit wir schnell helfen können.", "Anliegen", "Betroffener App-Bereich", "Kurzer Betreff", "z. B. Vorschau lädt nach Bild-Upload nicht", "Was ist passiert oder welches Feedback möchten Sie geben?", "Beschreiben Sie das gewünschte Ergebnis und was stattdessen passiert ist.", "Schritte bis zum Problem (optional)", "1. Vorlage wählen\n2. Bild hochladen\n3. Vorschau öffnen", "Anfrage an Kundenservice senden", "Bitte geben Sie einen kurzen Betreff mit mindestens 4 Zeichen ein.", "Bitte beschreiben Sie Ihr Anliegen mit mindestens 15 Zeichen.", "Ihre Anfrage wurde gespeichert. Der Kundenservice kann sie jetzt prüfen.", "Meine Anfragen", "Sie haben noch keine Anfrage gesendet.", "Bereich", "Gesendet", "Kundenservice-Inbox", "Noch keine Kundenanfragen vorhanden.", "Kunde"],
+        "en": ["Customer service", "Report an error, ask a question, or share feedback. Describe the affected area and steps precisely so we can help quickly.", "Request type", "Affected app area", "Short subject", "e.g. Preview does not load after image upload", "What happened or what feedback would you like to share?", "Describe the expected result and what happened instead.", "Steps leading to the issue (optional)", "1. Choose template\n2. Upload image\n3. Open preview", "Send request to customer service", "Enter a subject with at least 4 characters.", "Describe your request using at least 15 characters.", "Your request was saved and can now be reviewed.", "My requests", "You have not sent any requests yet.", "Area", "Sent", "Customer service inbox", "No customer requests yet.", "Customer"],
+        "ar": ["خدمة العملاء", "أبلغ عن خطأ أو اطرح سؤالاً أو أرسل ملاحظاتك. صف القسم المتأثر والخطوات بدقة حتى نتمكن من مساعدتك سريعاً.", "نوع الطلب", "القسم المتأثر في التطبيق", "موضوع مختصر", "مثال: المعاينة لا تعمل بعد رفع الصورة", "ماذا حدث أو ما الملاحظات التي تريد إرسالها؟", "صف النتيجة المتوقعة وما حدث بدلاً منها.", "خطوات الوصول إلى المشكلة (اختياري)", "1. اختر القالب\n2. ارفع الصورة\n3. افتح المعاينة", "إرسال الطلب إلى خدمة العملاء", "يرجى كتابة موضوع من 4 أحرف على الأقل.", "يرجى وصف طلبك باستخدام 15 حرفاً على الأقل.", "تم حفظ طلبك ويمكن لخدمة العملاء مراجعته الآن.", "طلباتي", "لم ترسل أي طلب بعد.", "القسم", "تاريخ الإرسال", "صندوق طلبات خدمة العملاء", "لا توجد طلبات عملاء بعد.", "العميل"],
+        "ku": ["خزمەتگوزاری کڕیار", "هەڵەیەک ڕاپۆرت بکە، پرسیارێک بکە یان بۆچوون بنێرە. بەش و هەنگاوە پەیوەندیدارەکان بە وردی باس بکە بۆ ئەوەی زوو یارمەتیت بدەین.", "جۆری داواکاری", "بەشی پەیوەندیداری ئەپ", "بابەتی کورت", "بۆ نموونە: پێشبینین دوای بارکردنی وێنە کار ناکات", "چی ڕوویدا یان چ بۆچوونێکت هەیە؟", "ئەنجامی چاوەڕوانکراو و ئەوەی لە جیاتی ڕوویدا باس بکە.", "هەنگاوەکانی گەیشتن بە کێشەکە (ئارەزوومەندانە)", "1. قاڵب هەڵبژێرە\n2. وێنە بار بکە\n3. پێشبینین بکەرەوە", "ناردنی داواکاری بۆ خزمەتگوزاری کڕیار", "تکایە بابەتێک بە لانیکەم 4 پیت بنووسە.", "تکایە داواکارییەکەت بە لانیکەم 15 پیت باس بکە.", "داواکارییەکەت پاشەکەوت کرا و ئێستا دەتوانرێت پشکنین بکرێت.", "داواکارییەکانم", "هێشتا هیچ داواکارییەکت نەناردووە.", "بەش", "نێردراوە", "سندووقی خزمەتگوزاری کڕیار", "هێشتا هیچ داواکارییەکی کڕیار نییە.", "کڕیار"],
+    }.get(language)
+    if copy is None:
+        copy = ["Customer service", "Report an error, ask a question, or share feedback.", "Request type", "Affected app area", "Short subject", "e.g. Preview does not load", "What happened?", "Describe the expected result and what happened instead.", "Steps (optional)", "1. Choose template\n2. Upload image\n3. Open preview", "Send request", "Enter a subject with at least 4 characters.", "Describe your request using at least 15 characters.", "Your request was saved.", "My requests", "You have not sent any requests yet.", "Area", "Sent", "Customer service inbox", "No customer requests yet.", "Customer"]
+    request_types = ["Fehler melden", "Frage zur Nutzung", "Idee oder Feedback"]
+    app_areas = ["Website planen", "Vorlage und Design", "Bilder und Inhalte", "Vorschau und Editor", "Veröffentlichung", "Anmeldung oder Konto", "Andere Funktion"]
+    option_labels = {
+        "ar": dict(zip(request_types + app_areas, ["الإبلاغ عن خطأ", "سؤال حول الاستخدام", "فكرة أو ملاحظة", "تخطيط الموقع", "القالب والتصميم", "الصور والمحتوى", "المعاينة والمحرر", "النشر", "تسجيل الدخول أو الحساب", "وظيفة أخرى"])),
+        "ku": dict(zip(request_types + app_areas, ["ڕاپۆرتکردنی هەڵە", "پرسیار دەربارەی بەکارهێنان", "بیرۆکە یان بۆچوون", "پلانکردنی وێبگە", "قاڵب و دیزاین", "وێنە و ناوەڕۆک", "پێشبینین و دەستکاریکەر", "بڵاوکردنەوە", "چوونەژوورەوە یان هەژمار", "تایبەتمەندیی تر"])),
+    }.get(language, {})
+    display_option = lambda option: option_labels.get(option, option)
+    st.header(copy[0])
+    st.caption(copy[1])
 
     with st.form("customer_service_form", clear_on_submit=True):
         request_type, app_area = st.columns(2)
         with request_type:
             support_type = st.selectbox(
-                "Anliegen",
-                ["Fehler melden", "Frage zur Nutzung", "Idee oder Feedback"],
+                copy[2],
+                request_types,
+                format_func=display_option,
                 key="support_request_type",
             )
         with app_area:
             affected_area = st.selectbox(
-                "Betroffener App-Bereich",
-                [
-                    "Website planen", "Vorlage und Design", "Bilder und Inhalte",
-                    "Vorschau und Editor", "Veröffentlichung", "Anmeldung oder Konto",
-                    "Andere Funktion",
-                ],
+                copy[3],
+                app_areas,
+                format_func=display_option,
                 key="support_app_area",
             )
         subject = st.text_input(
-            "Kurzer Betreff",
-            placeholder="z. B. Vorschau lädt nach Bild-Upload nicht",
+            copy[4],
+            placeholder=copy[5],
             key="support_subject",
         )
         description = st.text_area(
-            "Was ist passiert oder welches Feedback möchten Sie geben?",
-            placeholder="Beschreiben Sie das gewünschte Ergebnis und was stattdessen passiert ist.",
+            copy[6],
+            placeholder=copy[7],
             key="support_description",
             height=150,
         )
         reproduction_steps = st.text_area(
-            "Schritte bis zum Problem (optional)",
-            placeholder="1. Vorlage wählen\n2. Bild hochladen\n3. Vorschau öffnen",
+            copy[8],
+            placeholder=copy[9],
             key="support_reproduction_steps",
             height=110,
         )
         submitted = st.form_submit_button(
-            "Anfrage an Kundenservice senden",
+            copy[10],
             icon=":material/send:",
             type="primary",
             width="stretch",
@@ -4385,22 +4405,22 @@ def render_customer_service_ui(user_id: int, user_email: str) -> None:
 
     if submitted:
         if len(subject.strip()) < 4:
-            st.error("Bitte geben Sie einen kurzen Betreff mit mindestens 4 Zeichen ein.")
+            st.error(copy[11])
         elif len(description.strip()) < 15:
-            st.error("Bitte beschreiben Sie Ihr Anliegen mit mindestens 15 Zeichen.")
+            st.error(copy[12])
         else:
             save_support_request(
                 user_id, support_type, affected_area, subject, description, reproduction_steps
             )
-            st.success("Ihre Anfrage wurde gespeichert. Der Kundenservice kann sie jetzt prüfen.")
+            st.success(copy[13])
 
     own_requests = get_support_requests(user_id)
-    st.subheader("Meine Anfragen", anchor=False)
+    st.subheader(copy[14], anchor=False)
     if not own_requests:
-        st.caption("Sie haben noch keine Anfrage gesendet.")
+        st.caption(copy[15])
     for request_id, support_type, affected_area, subject, description, steps, created_at in own_requests:
         with st.expander(f"#{request_id} · {support_type} · {subject}"):
-            st.caption(f"Bereich: {affected_area} · Gesendet: {created_at[:16].replace('T', ' ')} UTC")
+            st.caption(f"{copy[16]}: {display_option(affected_area)} · {copy[17]}: {created_at[:16].replace('T', ' ')} UTC")
             st.write(description)
             if steps:
                 st.code(steps, language=None)
@@ -4409,15 +4429,15 @@ def render_customer_service_ui(user_id: int, user_email: str) -> None:
         return
 
     st.divider()
-    st.subheader("Kundenservice-Inbox", anchor=False)
+    st.subheader(copy[18], anchor=False)
     support_requests = get_support_requests()
     if not support_requests:
-        st.caption("Noch keine Kundenanfragen vorhanden.")
+        st.caption(copy[19])
     for request_id, requester_email, support_type, affected_area, subject, description, steps, created_at in support_requests:
         with st.expander(f"#{request_id} · {support_type} · {subject}"):
             st.caption(
-                f"Kunde: {requester_email} · Bereich: {affected_area} · "
-                f"Gesendet: {created_at[:16].replace('T', ' ')} UTC"
+                f"{copy[20]}: {requester_email} · {copy[16]}: {display_option(affected_area)} · "
+                f"{copy[17]}: {created_at[:16].replace('T', ' ')} UTC"
             )
             st.write(description)
             if steps:
