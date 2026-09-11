@@ -70,6 +70,9 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
             const { data, parentElement, setTriggerValue } = component;
             const root = parentElement.querySelector('#template-editor');
             if (!root || !data) return;
+            const copy = data.copy;
+            root.lang = data.language;
+            root.dir = data.direction;
             root.replaceChildren();
             const create = (tag, className, text) => {
                 const element = document.createElement(tag);
@@ -90,7 +93,7 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
             const company = create('strong', '', data.companyName);
             const nav = create('nav', 'template-nav');
             if (data.multiPage) {
-                [['start', 'Start'], ['leistungen', 'Leistungen'], ['angebote', 'Angebote'], ['projekte', 'Projekte'], ['ueber_uns', 'Über uns'], ['kontakt', 'Kontakt']].forEach(([page, label]) => {
+                Object.entries(copy.nav).forEach(([page, label]) => {
                     const link = create('button', '', label);
                     link.type = 'button';
                     link.onclick = () => setTriggerValue('navigated', page);
@@ -100,41 +103,36 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
             header.append(company, nav);
             if (data.page !== 'start') {
                 const page = create('main', 'template-page');
-                const pageContent = {
-                    leistungen: ['Leistungen', 'Leistungen für Ihren Erfolg.', [['01', 'Individuelle Beratung', 'Wir analysieren Ihren Bedarf und entwickeln eine passende Lösung.'], ['02', 'Verlässliche Umsetzung', 'Klare Abläufe, hohe Qualität und ein verbindlicher Ansprechpartner.'], ['03', 'Nachhaltiger Service', 'Auch nach dem Projekt bleiben wir persönlich für Sie erreichbar.']]],
-                    angebote: ['Angebote', 'Passende Angebote, klar erklärt.', [['01', 'Individuelles Angebot', data.description], ['02', 'Transparente Konditionen', 'Leistungsumfang und nächster Schritt sind klar beschrieben.'], ['03', 'Persönliche Anfrage', 'Wir beraten Sie persönlich zu Ihrem Vorhaben.']]],
-                    projekte: ['Projekte', 'Einblicke in unsere Arbeit.', [['01', 'Ausgewählte Projekte', 'Einblick in Lösungen, die wir gemeinsam mit unseren Kunden umgesetzt haben.'], ['02', 'Unser Vorgehen', 'Von der ersten Idee bis zur verlässlichen Umsetzung begleiten wir jedes Vorhaben.'], ['03', 'Ihr nächstes Projekt', data.description]]],
-                    ueber_uns: ['Über uns', 'Ein Unternehmen, das persönlich erreichbar bleibt.', [['01', 'Unsere Arbeitsweise', 'Wir verbinden Kompetenz mit klarer Kommunikation.'], ['02', 'Unser Anspruch', 'Qualität und Verlässlichkeit bestimmen jede Zusammenarbeit.'], ['03', 'Ihr Vorteil', data.description]]],
-                    kontakt: ['Kontakt', 'Sprechen Sie mit uns.', [['01', 'Direkter Kontakt', data.businessEmail], ['02', 'Persönliche Beratung', 'Wir melden uns zeitnah bei Ihnen.'], ['03', 'Nächster Schritt', 'Senden Sie uns Ihre Anfrage und erzählen Sie uns von Ihrem Vorhaben.']]],
-                }[data.page];
+                const pageContent = copy.pages[data.page];
                 page.append(create('p', 'template-eyebrow', pageContent[0]));
                 page.append(create('h1', '', pageContent[1]));
                 page.append(create('p', 'template-description', data.description));
                 const cards = create('section', 'template-cards');
-                pageContent[2].forEach(([number, title, text]) => {
+                pageContent[2].forEach(([title, text], index) => {
                     const card = create('article', 'template-card');
-                    card.append(create('p', 'template-eyebrow', number), create('h2', '', title), create('p', '', text));
+                    const fallback = data.page === 'kontakt' && index === 0 ? data.businessEmail : data.description;
+                    card.append(create('p', 'template-eyebrow', String(index + 1).padStart(2, '0')), create('h2', '', title), create('p', '', text || fallback));
                     cards.append(card);
                 });
                 page.append(cards);
-                shell.append(header, page, create('p', 'template-hint', 'Dies ist eine eigenständige Unterseite im selben Unternehmensdesign.'));
+                shell.append(header, page, create('p', 'template-hint', copy.pageHint));
                 if (data.showCustomerChatbot) {
                     const chatbot = create('aside', 'template-chatbot');
                     const chatbotPanel = create('section', 'template-chatbot-panel');
-                    const chatbotAnswer = create('p', '', data.chatbotKnowledge || `Willkommen. Wie können wir Ihnen bei ${data.companyName} helfen?`);
+                    const chatbotAnswer = create('p', '', data.chatbotKnowledge || copy.welcome);
                     const chatbotForm = create('form', 'template-chatbot-form');
                     const chatbotInput = create('input', '');
-                    chatbotInput.placeholder = 'Frage eingeben...';
-                    chatbotInput.setAttribute('aria-label', 'Frage eingeben');
-                    const chatbotSend = create('button', '', 'Senden');
+                    chatbotInput.placeholder = copy.question;
+                    chatbotInput.setAttribute('aria-label', copy.question);
+                    const chatbotSend = create('button', '', copy.send);
                     chatbotSend.type = 'submit';
                     chatbotForm.append(chatbotInput, chatbotSend);
-                    chatbotForm.onsubmit = event => { event.preventDefault(); const question = chatbotInput.value.trim(); if (!question) return; chatbotAnswer.textContent = `Danke für Ihre Frage: „${question}“. ${data.chatbotKnowledge || `${data.companyName} meldet sich gerne bei Ihnen.`}`; chatbotInput.value = ''; };
-                    chatbotPanel.append(create('h2', '', data.chatbotName || `${data.companyName} Assistent`), chatbotAnswer, chatbotForm);
+                    chatbotForm.onsubmit = event => { event.preventDefault(); const question = chatbotInput.value.trim(); if (!question) return; chatbotAnswer.textContent = `${copy.thanks}: „${question}“. ${data.chatbotKnowledge || copy.reply}`; chatbotInput.value = ''; };
+                    chatbotPanel.append(create('h2', '', data.chatbotName || `${data.companyName} ${copy.assistant}`), chatbotAnswer, chatbotForm);
                     const chatbotToggle = create('button', 'template-chatbot-toggle', '🤖');
                     chatbotToggle.type = 'button';
-                    chatbotToggle.setAttribute('aria-label', 'Chatbot öffnen');
-                    chatbotToggle.title = 'Chatbot öffnen';
+                    chatbotToggle.setAttribute('aria-label', copy.openChat);
+                    chatbotToggle.title = copy.openChat;
                     chatbotToggle.style.fontSize = '28px';
                     chatbotToggle.style.background = data.chatbotColor || data.accentColor;
                     chatbotToggle.style.borderRadius = data.chatbotRadius || '50%';
@@ -154,7 +152,7 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
                 if (key === 'buttonText') field.onclick = () => setTriggerValue('navigated', 'angebote');
                 copy.append(field);
             });
-            const image = data.imageDataUrl ? create('img', 'template-image') : create('div', 'template-placeholder', 'BILDPLATZ: Hero oder Willkommensbereich');
+            const image = data.imageDataUrl ? create('img', 'template-image') : create('div', 'template-placeholder', copy.imagePlaceholder);
             if (data.imageDataUrl) { image.src = data.imageDataUrl; image.alt = data.companyName; }
             hero.append(copy, image);
             const templateSections = create('section', 'template-cards');
@@ -167,30 +165,30 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
             const brand = create('section', '');
             brand.append(create('h2', '', data.companyName), create('p', '', data.footerText));
             const contact = create('section', '');
-            contact.append(create('h2', '', 'Kontakt'), create('a', '', data.businessEmail));
+            contact.append(create('h2', '', copy.contact), create('a', '', data.businessEmail));
             contact.lastChild.href = `mailto:${data.businessEmail}`;
             const legal = create('section', '');
-            legal.append(create('h2', '', 'Rechtliches'), create('a', '', 'Impressum'), create('p', '', 'Datenschutz'));
-            const legalNote = create('p', 'template-footer-legal', `© ${new Date().getFullYear()} ${data.companyName}. Alle Rechte vorbehalten.`);
+            legal.append(create('h2', '', copy.legal), create('a', '', copy.imprint), create('p', '', copy.privacy));
+            const legalNote = create('p', 'template-footer-legal', `© ${new Date().getFullYear()} ${data.companyName}. ${copy.rights}`);
             footer.append(brand, contact, legal, legalNote);
-            shell.append(header, hero, templateSections, footer, create('p', 'template-hint', 'Design, Blöcke und Struktur bleiben erhalten. Inhalte werden über die Eingabefelder festgelegt.'));
+            shell.append(header, hero, templateSections, footer, create('p', 'template-hint', copy.designHint));
             if (data.showCustomerChatbot) {
                 const chatbot = create('aside', 'template-chatbot');
                 const chatbotPanel = create('section', 'template-chatbot-panel');
-                const chatbotAnswer = create('p', '', data.chatbotKnowledge || `Willkommen. Wie können wir Ihnen bei ${data.companyName} helfen?`);
+                const chatbotAnswer = create('p', '', data.chatbotKnowledge || copy.welcome);
                 const chatbotForm = create('form', 'template-chatbot-form');
                 const chatbotInput = create('input', '');
-                chatbotInput.placeholder = 'Frage eingeben...';
-                chatbotInput.setAttribute('aria-label', 'Frage eingeben');
-                const chatbotSend = create('button', '', 'Senden');
+                chatbotInput.placeholder = copy.question;
+                chatbotInput.setAttribute('aria-label', copy.question);
+                const chatbotSend = create('button', '', copy.send);
                 chatbotSend.type = 'submit';
                 chatbotForm.append(chatbotInput, chatbotSend);
-                chatbotForm.onsubmit = event => { event.preventDefault(); const question = chatbotInput.value.trim(); if (!question) return; chatbotAnswer.textContent = `Danke für Ihre Frage: „${question}“. ${data.chatbotKnowledge || `${data.companyName} meldet sich gerne bei Ihnen.`}`; chatbotInput.value = ''; };
-                chatbotPanel.append(create('h2', '', data.chatbotName || `${data.companyName} Assistent`), chatbotAnswer, chatbotForm);
+                chatbotForm.onsubmit = event => { event.preventDefault(); const question = chatbotInput.value.trim(); if (!question) return; chatbotAnswer.textContent = `${copy.thanks}: „${question}“. ${data.chatbotKnowledge || copy.reply}`; chatbotInput.value = ''; };
+                chatbotPanel.append(create('h2', '', data.chatbotName || `${data.companyName} ${copy.assistant}`), chatbotAnswer, chatbotForm);
                 const chatbotToggle = create('button', 'template-chatbot-toggle', '🤖');
                 chatbotToggle.type = 'button';
-                chatbotToggle.setAttribute('aria-label', 'Chatbot öffnen');
-                chatbotToggle.title = 'Chatbot öffnen';
+                chatbotToggle.setAttribute('aria-label', copy.openChat);
+                chatbotToggle.title = copy.openChat;
                 chatbotToggle.style.fontSize = '28px';
                 chatbotToggle.style.background = data.chatbotColor || data.accentColor;
                 chatbotToggle.style.borderRadius = data.chatbotRadius || '50%';
@@ -2605,6 +2603,23 @@ def render_language_selector() -> tuple[dict[str, str], str]:
     return SUPPORTED_LANGUAGES[target_language], target_language
 
 
+def get_template_preview_copy(language: str) -> dict[str, object]:
+    """Liefert alle festen Texte der interaktiven Vorlage in der App-Sprache."""
+    common = {
+        "de": {"nav": ["Start", "Leistungen", "Angebote", "Projekte", "Über uns", "Kontakt"], "page": ["Leistungen für Ihren Erfolg.", "Passende Angebote, klar erklärt.", "Einblicke in unsere Arbeit.", "Ein Unternehmen, das persönlich erreichbar bleibt.", "Sprechen Sie mit uns."], "cards": ["Individuelle Beratung", "Verlässliche Umsetzung", "Nachhaltiger Service", "Individuelles Angebot", "Transparente Konditionen", "Persönliche Anfrage", "Ausgewählte Projekte", "Unser Vorgehen", "Ihr nächstes Projekt", "Unsere Arbeitsweise", "Unser Anspruch", "Ihr Vorteil", "Direkter Kontakt", "Persönliche Beratung", "Nächster Schritt"], "texts": ["Wir analysieren Ihren Bedarf und entwickeln eine passende Lösung.", "Klare Abläufe, hohe Qualität und ein verbindlicher Ansprechpartner.", "Auch nach dem Projekt bleiben wir persönlich für Sie erreichbar.", "Leistungsumfang und nächster Schritt sind klar beschrieben.", "Wir beraten Sie persönlich zu Ihrem Vorhaben.", "Einblick in Lösungen, die wir gemeinsam mit unseren Kunden umgesetzt haben.", "Von der ersten Idee bis zur verlässlichen Umsetzung begleiten wir jedes Vorhaben.", "Wir verbinden Kompetenz mit klarer Kommunikation.", "Qualität und Verlässlichkeit bestimmen jede Zusammenarbeit.", "Wir melden uns zeitnah bei Ihnen.", "Senden Sie uns Ihre Anfrage und erzählen Sie uns von Ihrem Vorhaben."], "ui": ["Dies ist eine eigenständige Unterseite im selben Unternehmensdesign.", "BILDBEREICH: Hero oder Willkommensbereich", "Rechtliches", "Impressum", "Datenschutz", "Alle Rechte vorbehalten.", "Design, Blöcke und Struktur bleiben erhalten. Inhalte werden über die Eingabefelder festgelegt.", "Willkommen. Wie können wir Ihnen helfen?", "Frage eingeben...", "Senden", "Danke für Ihre Frage", "Wir melden uns gerne bei Ihnen.", "Assistent", "Chatbot öffnen"], "defaults": ["Eine Vorlage mit klarer Struktur und Raum für Ihre Inhalte.", "Sie ersetzen Unternehmensdaten, Texte und Bilder direkt in dieser Vorlage.", "Ihr Angebot entdecken", "Ihre Kontakt-E-Mail", "Individuell auf Ihr Unternehmen abgestimmt."]},
+        "en": {"nav": ["Home", "Services", "Offers", "Projects", "About us", "Contact"], "page": ["Services designed for your success.", "The right offers, clearly explained.", "A look at our work.", "A company that remains personally accessible.", "Talk to us."], "cards": ["Personal consultation", "Reliable delivery", "Lasting support", "Custom offer", "Transparent terms", "Personal request", "Selected projects", "Our approach", "Your next project", "How we work", "Our standards", "Your advantage", "Direct contact", "Personal advice", "Next step"], "texts": ["We analyze your needs and develop the right solution.", "Clear processes, high quality, and one dedicated contact.", "We remain personally available after the project.", "The scope and next step are clearly described.", "We will personally advise you about your project.", "Explore solutions we have delivered with our customers.", "We guide every project from the first idea to reliable delivery.", "We combine expertise with clear communication.", "Quality and reliability guide every collaboration.", "We will get back to you promptly.", "Send your request and tell us about your project."], "ui": ["This is a standalone page in the same company design.", "IMAGE AREA: Hero or welcome section", "Legal", "Imprint", "Privacy", "All rights reserved.", "The design, blocks, and structure remain intact. Content is controlled through the input fields.", "Welcome. How can we help you?", "Enter your question...", "Send", "Thank you for your question", "We will be happy to contact you.", "Assistant", "Open chatbot"], "defaults": ["A clear template with room for your content.", "Replace company details, text, and images directly in this template.", "Discover our offer", "Your contact email", "Tailored to your business."]},
+        "ar": {"nav": ["الرئيسية", "الخدمات", "العروض", "المشاريع", "من نحن", "اتصل بنا"], "page": ["خدمات مصممة لنجاحك.", "عروض مناسبة وموضحة بوضوح.", "نظرة على أعمالنا.", "شركة تبقى قريبة ومتاحة لعملائها.", "تحدث معنا."], "cards": ["استشارة شخصية", "تنفيذ موثوق", "دعم مستمر", "عرض مخصص", "شروط شفافة", "طلب شخصي", "مشاريع مختارة", "أسلوب عملنا", "مشروعك القادم", "طريقة عملنا", "معاييرنا", "ميزتك", "تواصل مباشر", "استشارة شخصية", "الخطوة التالية"], "texts": ["نحلل احتياجاتك ونطور الحل المناسب.", "إجراءات واضحة وجودة عالية وجهة اتصال مخصصة.", "نبقى متاحين لك شخصياً بعد انتهاء المشروع.", "نوضح نطاق العمل والخطوة التالية بوضوح.", "نقدم لك استشارة شخصية حول مشروعك.", "اكتشف حلولاً نفذناها بالتعاون مع عملائنا.", "نرافق كل مشروع من الفكرة الأولى إلى التنفيذ الموثوق.", "نجمع بين الخبرة والتواصل الواضح.", "الجودة والموثوقية أساس كل تعاون.", "سنتواصل معك في أقرب وقت.", "أرسل طلبك وأخبرنا عن مشروعك."], "ui": ["هذه صفحة مستقلة ضمن تصميم الشركة نفسه.", "مساحة الصورة: الواجهة الرئيسية أو قسم الترحيب", "معلومات قانونية", "بيانات الموقع", "الخصوصية", "جميع الحقوق محفوظة.", "يبقى التصميم والأقسام والبنية كما هي، ويتم تحديد المحتوى عبر حقول الإدخال.", "مرحباً، كيف يمكننا مساعدتك؟", "اكتب سؤالك...", "إرسال", "شكراً لسؤالك", "يسعدنا التواصل معك.", "المساعد", "فتح المحادثة"], "defaults": ["قالب واضح يوفر مساحة لمحتواك.", "استبدل بيانات الشركة والنصوص والصور مباشرة في هذا القالب.", "اكتشف عرضنا", "بريدك الإلكتروني للتواصل", "مصمم خصيصاً لشركتك."]},
+        "ku": {"nav": ["سەرەکی", "خزمەتگوزارییەکان", "پێشنیارەکان", "پڕۆژەکان", "دەربارەی ئێمە", "پەیوەندی"], "page": ["خزمەتگوزاری بۆ سەرکەوتنی تۆ.", "پێشنیاری گونجاو و ڕوون.", "سەیرێکی کارەکانمان بکە.", "کۆمپانیایەک کە هەمیشە لە بەردەستە.", "لەگەڵمان قسە بکە."], "cards": ["ڕاوێژکاری تایبەت", "جێبەجێکردنی متمانەپێکراو", "پشتیوانی بەردەوام", "پێشنیاری تایبەت", "مەرجی ڕوون", "داواکاری تایبەت", "پڕۆژە هەڵبژێردراوەکان", "شێوازی کارمان", "پڕۆژەی داهاتووت", "شێوازی کارمان", "ستانداردەکانمان", "سوودی تۆ", "پەیوەندی ڕاستەوخۆ", "ڕاوێژکاری تایبەت", "هەنگاوی داهاتوو"], "texts": ["پێداویستییەکانت شیکاری دەکەین و چارەسەری گونجاو دادەنێین.", "ڕێکاری ڕوون، کوالێتی بەرز و کەسێکی دیاریکراو بۆ پەیوەندی.", "دوای پڕۆژەکەش بەردەوام لە بەردەستت دەبین.", "سنووری کار و هەنگاوی داهاتوو بە ڕوونی باس دەکرێت.", "بۆ پڕۆژەکەت ڕاوێژکاری تایبەت پێشکەش دەکەین.", "چارەسەرە جێبەجێکراوەکانمان لەگەڵ کڕیاران ببینە.", "لە بیرۆکەی یەکەمەوە تا جێبەجێکردنی متمانەپێکراو لەگەڵتین.", "شارەزایی و پەیوەندی ڕوون پێکەوە دەبەستین.", "کوالێتی و متمانەپێکراوی بنەمای هەر هاوکارییەکن.", "بە زوویی وەڵامت دەدەینەوە.", "داواکارییەکەت بنێرە و باسی پڕۆژەکەت بۆمان بکە."], "ui": ["ئەمە پەڕەیەکی سەربەخۆیە بە هەمان دیزاینی کۆمپانیا.", "شوێنی وێنە: بەشی سەرەکی یان بەخێرهاتن", "یاسایی", "زانیاری خاوەن ماڵپەڕ", "پاراستنی نهێنی", "هەموو مافەکان پارێزراون.", "دیزاین و بەشەکان و پێکهاتەکە دەمێننەوە؛ ناوەڕۆک لە خانەکانی تێکردن دیاری دەکرێت.", "بەخێربێیت، چۆن دەتوانین یارمەتیت بدەین؟", "پرسیارەکەت بنووسە...", "ناردن", "سوپاس بۆ پرسیارەکەت", "بە خۆشحاڵییەوە پەیوەندیت پێوە دەکەین.", "یاریدەدەر", "کردنەوەی چات"], "defaults": ["قاڵبێکی ڕوون بە شوێن بۆ ناوەڕۆکەکەت.", "زانیاری کۆمپانیا و دەق و وێنەکان لەم قاڵبەدا بگۆڕە.", "پێشنیارەکەمان ببینە", "ئیمەیڵی پەیوەندیت", "بۆ کۆمپانیاکەت گونجێنراوە."]},
+    }
+    source = common.get(language, common["de"])
+    nav_keys = ["start", "leistungen", "angebote", "projekte", "ueber_uns", "kontakt"]
+    card_groups = [source["cards"][0:3], source["cards"][3:6], source["cards"][6:9], source["cards"][9:12], source["cards"][12:15]]
+    text_groups = [[source["texts"][0], source["texts"][1], source["texts"][2]], ["", source["texts"][3], source["texts"][4]], [source["texts"][5], source["texts"][6], ""], [source["texts"][7], source["texts"][8], ""], ["", source["texts"][9], source["texts"][10]]]
+    page_keys = nav_keys[1:]
+    ui = source["ui"]
+    return {"nav": dict(zip(nav_keys, source["nav"])), "pages": {key: [source["nav"][index + 1], source["page"][index], list(zip(card_groups[index], text_groups[index]))] for index, key in enumerate(page_keys)}, "pageHint": ui[0], "imagePlaceholder": ui[1], "contact": source["nav"][5], "legal": ui[2], "imprint": ui[3], "privacy": ui[4], "rights": ui[5], "designHint": ui[6], "welcome": ui[7], "question": ui[8], "send": ui[9], "thanks": ui[10], "reply": ui[11], "assistant": ui[12], "openChat": ui[13], "defaults": source["defaults"]}
+
+
 def is_light_color(color: str) -> bool:
     """Ermittelt, ob eine Hex-Farbe eine dunkle Textfarbe benötigt."""
     color = color.lstrip("#")
@@ -2630,6 +2645,9 @@ def render_template_preview(
     component_key: str = "clickable_template_editor",
 ) -> None:
     """Zeigt die Vorlage mit allen aktuell eingegebenen Kundendaten."""
+    language = str(st.session_state.app_language)
+    preview_copy = get_template_preview_copy(language)
+    defaults = preview_copy["defaults"]
     radius = "0px" if border_style == "sharp" else "14px"
     light_background = is_light_color(background_color)
     text_color = "#111827" if light_background else "#f8fafc"
@@ -2681,20 +2699,23 @@ def render_template_preview(
     CLICKABLE_TEMPLATE_EDITOR(
         key=component_key,
         data={
+            "language": language,
+            "direction": "rtl" if language in {"ar", "ku"} else "ltr",
+            "copy": preview_copy,
             "companyName": str(st.session_state.get("client_company_name", "")).strip() or template_name,
             "heading": str(st.session_state.get("template_hero_heading", "")).strip()
             or str(st.session_state.get("client_company_slogan", "")).strip()
-            or "Eine Vorlage mit klarer Struktur und Raum für Ihre Inhalte.",
+            or defaults[0],
             "description": str(st.session_state.get("template_custom_description", "")).strip()
-            or "Sie ersetzen Unternehmensdaten, Texte und Bilder direkt in dieser Vorlage. Die Gestaltung, Abstände und Inhaltsbereiche bleiben professionell geordnet.",
+            or defaults[1],
             "buttonText": str(st.session_state.get("template_button_text", "")).strip()
-            or "Ihr Angebot entdecken",
+            or defaults[2],
             "templateSections": [
                 {
                     "title": item.partition("|")[0].strip(),
                     "text": item.partition("|")[2].strip()
                     or str(st.session_state.get("template_custom_description", "")).strip()
-                    or "Individuell auf Ihr Unternehmen abgestimmt.",
+                    or defaults[4],
                 }
                 for item in str(st.session_state.get("template_sections_text", sections)).replace(",", "\n").splitlines()
                 if item.strip()
@@ -2708,7 +2729,7 @@ def render_template_preview(
             "showCustomerChatbot": component_key == "full_draft_template_preview",
             "multiPage": st.session_state.get("page_structure") == "Mehrseitige Website",
             "businessEmail": str(st.session_state.get("client_business_email", "")).strip()
-            or "Ihre Kontakt-E-Mail",
+            or defaults[3],
             "page": str(st.session_state.get("template_preview_page", "start")),
             "imageDataUrl": image_data_url,
             "backgroundColor": background_color,
@@ -2744,7 +2765,15 @@ def show_full_draft_preview() -> None:
 
 def render_template_and_design_ui() -> str:
     """Rendert die Branchenvorlagen fuer einen gefuehrten Website-Entwurf."""
-    st.subheader(f"3. {t('template')} und Gestaltung")
+    language = str(st.session_state.app_language)
+    template_ui_labels = {
+        "de": ["Button-Text in der Vorlage", "z. B. Termin vereinbaren", "Überschrift der Vorlage", "z. B. Ihr Partner für Qualität und Vertrauen", "Beschreibung in der Vorlage", "Beschreiben Sie Angebot, Zielgruppe und Ihre besonderen Stärken.", "Vorlagenabschnitte", "Ein Abschnitt pro Zeile. Optional: Überschrift | Beschreibung.", "Footer-Text", "z. B. Muster GmbH | Impressum | Datenschutz", "Hintergrund-Vorlage"],
+        "en": ["Template button text", "e.g. Book an appointment", "Template heading", "e.g. Your partner for quality and trust", "Template description", "Describe your offer, audience, and key strengths.", "Template sections", "One section per line. Optional: Heading | Description.", "Footer text", "e.g. Example Ltd | Imprint | Privacy", "Background preset"],
+        "ar": ["نص زر القالب", "مثال: احجز موعداً", "عنوان القالب", "مثال: شريكك للجودة والثقة", "وصف القالب", "صف عرضك وجمهورك المستهدف ونقاط قوتك.", "أقسام القالب", "قسم واحد في كل سطر. اختياري: العنوان | الوصف.", "نص التذييل", "مثال: الشركة | بيانات الموقع | الخصوصية", "نمط الخلفية"],
+        "ku": ["دەقی دوگمەی قاڵب", "بۆ نموونە: کاتێک دیاری بکە", "سەردێڕی قاڵب", "بۆ نموونە: هاوبەشی تۆ بۆ کوالێتی و متمانە", "وەسفی قاڵب", "پێشنیار، ئامانج و خاڵە بەهێزەکانت باس بکە.", "بەشەکانی قاڵب", "لە هەر دێڕێکدا بەشێک. ئارەزوومەندانە: سەردێڕ | وەسف.", "دەقی پێپەڕە", "بۆ نموونە: کۆمپانیا | زانیاری یاسایی | نهێنی", "قاڵبی پاشبنەما"],
+    }
+    labels = template_ui_labels.get(language, template_ui_labels["en"])
+    st.subheader(f"3. {t('template')}")
     selected_language, language_name = render_language_selector()
     st.caption(f"{t('target_language')}: {language_name}")
 
@@ -2765,7 +2794,7 @@ def render_template_and_design_ui() -> str:
 
     with design_column:
         background_presets = st.segmented_control(
-            "Hintergrund-Vorlage",
+            labels[10],
             list(BACKGROUND_PRESET_COLORS),
             default="Weiß",
             key="template_background_preset",
@@ -2777,7 +2806,7 @@ def render_template_and_design_ui() -> str:
             preset_background_color,
             key=f"template_preset_background_{background_presets}",
             disabled=True,
-            help="Die Hintergrundfarbe wird über die Auswahl der Hintergrund-Vorlage festgelegt.",
+            help=t("background_color"),
         )
         background_color = preset_background_color
         accent_color = st.color_picker(
@@ -2794,37 +2823,37 @@ def render_template_and_design_ui() -> str:
         )
 
     st.text_input(
-        "Button-Text in der Vorlage",
-        placeholder="z. B. Termin vereinbaren",
+        labels[0],
+        placeholder=labels[1],
         key="template_button_text",
-        help="Die Beschriftung wird direkt in der Live-Vorlage und später auf der Website angezeigt.",
+        help=t("live_preview"),
     )
     content_columns = st.columns(2)
     with content_columns[0]:
         st.text_input(
-            "Überschrift der Vorlage",
-            placeholder="z. B. Ihr Partner für Qualität und Vertrauen",
+            labels[2],
+            placeholder=labels[3],
             key="template_hero_heading",
         )
     with content_columns[1]:
         st.text_area(
-            "Beschreibung in der Vorlage",
-            placeholder="Beschreiben Sie Angebot, Zielgruppe und Ihre besonderen Stärken.",
+            labels[4],
+            placeholder=labels[5],
             key="template_custom_description",
             height=100,
         )
 
     st.text_area(
-        "Vorlagenabschnitte",
+        labels[6],
         value=str(st.session_state.get("template_sections_text", current_template["sections"])),
-        help="Ein Abschnitt pro Zeile. Neue Zeile hinzufügen erstellt einen Abschnitt; Zeile löschen entfernt ihn. Optional: Überschrift | Beschreibung.",
+        help=labels[7],
         key="template_sections_text",
         height=150,
     )
     st.text_input(
-        "Footer-Text",
+        labels[8],
         value=str(st.session_state.get("template_footer_text", "")),
-        placeholder="z. B. Muster GmbH | Impressum | Datenschutz",
+        placeholder=labels[9],
         key="template_footer_text",
     )
 
