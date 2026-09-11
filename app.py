@@ -1467,6 +1467,18 @@ def apply_app_language() -> None:
     st.session_state.target_language = TARGET_LANGUAGE_BY_APP_CODE[
         st.session_state.app_language
     ]
+    applied_industry = str(st.session_state.get("industry_preset_applied", ""))
+    preset = globals().get("INDUSTRY_CONTENT_PRESETS", {}).get(applied_industry)
+    language = str(st.session_state.app_language)
+    localized_defaults = {
+        "en": {"template_hero_heading": "Professional service you can trust", "template_custom_description": "Reliable solutions, clear advice, and personal support for every customer.", "template_sections_text": "Our services | Solutions tailored to your needs.\nPersonal consultation | We take time to answer your questions.\nContact | Speak directly with our team.", "template_footer_text": "Imprint | Privacy"},
+        "ar": {"template_hero_heading": "خدمة احترافية يمكنك الوثوق بها", "template_custom_description": "حلول موثوقة واستشارة واضحة ودعم شخصي لكل عميل.", "template_sections_text": "خدماتنا | حلول مناسبة لاحتياجاتك.\nاستشارة شخصية | نخصص الوقت للإجابة عن أسئلتك.\nاتصل بنا | تحدث مباشرة مع فريقنا.", "template_footer_text": "بيانات الموقع | الخصوصية"},
+        "ku": {"template_hero_heading": "خزمەتگوزاریی پیشەیی و متمانەپێکراو", "template_custom_description": "چارەسەری متمانەپێکراو، ڕاوێژکاری ڕوون و پشتیوانی تایبەت بۆ هەر کڕیارێک.", "template_sections_text": "خزمەتگوزارییەکانمان | چارەسەری گونجاو بۆ پێداویستییەکانت.\nڕاوێژکاری تایبەت | کات بۆ پرسیارەکانت تەرخان دەکەین.\nپەیوەندی | ڕاستەوخۆ لەگەڵ تیمەکەمان قسە بکە.", "template_footer_text": "زانیاری یاسایی | پاراستنی نهێنی"},
+    }.get(language)
+    if preset and localized_defaults:
+        for key, localized_value in localized_defaults.items():
+            if str(st.session_state.get(key, "")) == str(preset.get(key, "")):
+                st.session_state[key] = localized_value
     reset_help_chat_for_language()
 
 
@@ -2877,20 +2889,68 @@ def render_template_and_design_ui() -> str:
         "ku": ["دەقی دوگمەی قاڵب", "بۆ نموونە: کاتێک دیاری بکە", "سەردێڕی قاڵب", "بۆ نموونە: هاوبەشی تۆ بۆ کوالێتی و متمانە", "وەسفی قاڵب", "پێشنیار، ئامانج و خاڵە بەهێزەکانت باس بکە.", "بەشەکانی قاڵب", "لە هەر دێڕێکدا بەشێک. ئارەزوومەندانە: سەردێڕ | وەسف.", "دەقی پێپەڕە", "بۆ نموونە: کۆمپانیا | زانیاری یاسایی | نهێنی", "قاڵبی پاشبنەما"],
     }
     labels = template_ui_labels.get(language, template_ui_labels["en"])
+    localized_templates = {
+        "en": {
+            "Automobil und KFZ-Gewerbe": ("Automotive and vehicle services", "Dynamic design for dealerships, workshops, and suppliers."),
+            "GmbH und Corporate Unternehmen": ("Corporate business", "Professional and trustworthy B2B design for companies."),
+            "Cafe und Baeckerei": ("Cafe and bakery", "Warm, handcrafted design for cafes and bakeries."),
+            "Restaurant und Gastronomie": ("Restaurant and hospitality", "Elegant, image-led design focused on reservations."),
+            "Formale Agentur oder Kanzlei": ("Agency or professional office", "Refined design for agencies, consultancies, and professional offices."),
+            "Schule und Bildung": ("School and education", "Clear and welcoming design for educational organizations."),
+            "Bibliothek": ("Library", "Organized information design for media, events, and opening hours."),
+            "Supermarkt und Einzelhandel": ("Retail and supermarket", "Practical sales-focused design for products and local services."),
+        },
+        "ar": {
+            "Automobil und KFZ-Gewerbe": ("السيارات وخدمات المركبات", "تصميم ديناميكي لمعارض السيارات والورش والموردين."),
+            "GmbH und Corporate Unternehmen": ("الشركات والمؤسسات", "تصميم مهني موثوق للشركات وخدمات الأعمال."),
+            "Cafe und Baeckerei": ("مقهى ومخبز", "تصميم دافئ وحرفي للمقاهي والمخابز."),
+            "Restaurant und Gastronomie": ("المطاعم والضيافة", "تصميم أنيق يركز على الصور والحجوزات."),
+            "Formale Agentur oder Kanzlei": ("وكالة أو مكتب مهني", "تصميم راقٍ للوكالات والاستشارات والمكاتب المهنية."),
+            "Schule und Bildung": ("المدارس والتعليم", "تصميم واضح ومرحب للمؤسسات التعليمية."),
+            "Bibliothek": ("مكتبة", "تصميم منظم للكتب والفعاليات وساعات العمل."),
+            "Supermarkt und Einzelhandel": ("التجزئة والسوبرماركت", "تصميم عملي يركز على المنتجات والخدمات المحلية."),
+        },
+        "ku": {
+            "Automobil und KFZ-Gewerbe": ("ئۆتۆمبێل و خزمەتگوزاری ئۆتۆمبێل", "دیزاینێکی جووڵاو بۆ پێشانگا و وەرشە و دابینکەرانی ئۆتۆمبێل."),
+            "GmbH und Corporate Unternehmen": ("کۆمپانیا و دامەزراوە", "دیزاینێکی پیشەیی و متمانەپێکراو بۆ کۆمپانیاکان."),
+            "Cafe und Baeckerei": ("کافێ و نانەواخانە", "دیزاینێکی گەرم و دەستکرد بۆ کافێ و نانەواخانە."),
+            "Restaurant und Gastronomie": ("چێشتخانە و میوانداری", "دیزاینێکی جوان بە گرنگیدان بە وێنە و حجزکردن."),
+            "Formale Agentur oder Kanzlei": ("ئاژانس یان نووسینگەی پیشەیی", "دیزاینێکی ڕێک بۆ ئاژانس و ڕاوێژکاری و نووسینگە پیشەییەکان."),
+            "Schule und Bildung": ("قوتابخانە و پەروەردە", "دیزاینێکی ڕوون و بەخێرهێنەر بۆ دامەزراوە پەروەردەییەکان."),
+            "Bibliothek": ("کتێبخانە", "دیزاینێکی ڕێکخراو بۆ کتێب و چالاکی و کاتەکانی کردنەوە."),
+            "Supermarkt und Einzelhandel": ("فرۆشتنی تاک و سوپەرمارکێت", "دیزاینێکی کرداری بۆ بەرهەم و خزمەتگوزاری ناوخۆییەکان."),
+        },
+    }.get(language, {})
+    section_defaults = {
+        "de": "Unsere Leistungen | Passende Lösungen für Ihr Anliegen.\nPersönliche Beratung | Wir nehmen uns Zeit für Ihre Fragen.\nKontakt | Sprechen Sie direkt mit unserem Team.",
+        "en": "Our services | Solutions tailored to your needs.\nPersonal consultation | We take time to answer your questions.\nContact | Speak directly with our team.",
+        "ar": "خدماتنا | حلول مناسبة لاحتياجاتك.\nاستشارة شخصية | نخصص الوقت للإجابة عن أسئلتك.\nاتصل بنا | تحدث مباشرة مع فريقنا.",
+        "ku": "خزمەتگوزارییەکانمان | چارەسەری گونجاو بۆ پێداویستییەکانت.\nڕاوێژکاری تایبەت | کات بۆ پرسیارەکانت تەرخان دەکەین.\nپەیوەندی | ڕاستەوخۆ لەگەڵ تیمەکەمان قسە بکە.",
+    }
+    background_labels = {
+        "en": {"Weiß": "White", "Schwarz": "Black", "Dunkel": "Dark", "Hellgrau": "Light gray"},
+        "ar": {"Weiß": "أبيض", "Schwarz": "أسود", "Dunkel": "داكن", "Hellgrau": "رمادي فاتح"},
+        "ku": {"Weiß": "سپی", "Schwarz": "ڕەش", "Dunkel": "تاریک", "Hellgrau": "خۆڵەمێشی کاڵ"},
+    }.get(language, {})
     st.subheader(f"3. {t('template')}")
     selected_language, language_name = render_language_selector()
     st.caption(f"{t('target_language')}: {language_name}")
 
     template_column, design_column = st.columns(2)
     with template_column:
+        display_template = lambda name: localized_templates.get(name, (name, ""))[0]
         selected_template_name = st.selectbox(
             t("choose_industry"),
             list(TEMPLATES),
-            format_func=lambda name: f"{TEMPLATES[name]['icon']} {name}",
+            format_func=lambda name: f"{TEMPLATES[name]['icon']} {display_template(name)}",
             key="template_name",
         )
         current_template = TEMPLATES[selected_template_name]
-        st.info(current_template["description"])
+        template_display_name, template_description = localized_templates.get(
+            selected_template_name,
+            (selected_template_name, current_template["description"]),
+        )
+        st.info(template_description)
 
     if st.session_state.get("template_preview_template") != selected_template_name:
         st.session_state.template_preview_template = selected_template_name
@@ -2901,12 +2961,13 @@ def render_template_and_design_ui() -> str:
             labels[10],
             list(BACKGROUND_PRESET_COLORS),
             default="Weiß",
+            format_func=lambda option: background_labels.get(option, option),
             key="template_background_preset",
             on_change=apply_background_preset,
         )
         preset_background_color = BACKGROUND_PRESET_COLORS[background_presets]
         st.color_picker(
-            f"{t('background_color')} ({background_presets})",
+            f"{t('background_color')} ({background_labels.get(background_presets, background_presets)})",
             preset_background_color,
             key=f"template_preset_background_{background_presets}",
             disabled=True,
@@ -2949,7 +3010,7 @@ def render_template_and_design_ui() -> str:
 
     st.text_area(
         labels[6],
-        value=str(st.session_state.get("template_sections_text", current_template["sections"])),
+        value=str(st.session_state.get("template_sections_text", section_defaults.get(language, current_template["sections"]))),
         help=labels[7],
         key="template_sections_text",
         height=150,
@@ -2962,8 +3023,8 @@ def render_template_and_design_ui() -> str:
     )
 
     render_template_preview(
-        selected_template_name,
-        current_template["sections"],
+        template_display_name,
+        section_defaults.get(language, current_template["sections"]),
         background_color,
         accent_color,
         border_style,
@@ -4721,33 +4782,47 @@ def apply_industry_content_preset() -> None:
 
 def render_industry_content_preset_ui() -> None:
     """Rendert die formularbasierte Branchenauswahl für Website-Inhalte."""
-    st.caption("Wählen Sie eine Branche und übernehmen Sie vorbereitete Inhalte in den Entwurf.")
+    language = str(st.session_state.app_language)
+    copy_by_language = {
+        "de": {"caption": "Wählen Sie eine Branche und übernehmen Sie vorbereitete Inhalte in den Entwurf.", "question": "Was ist Ihr Betrieb?", "choose": "Bitte wählen...", "other": "Andere Branche oder Kleingewerbe", "custom": "Branche oder Art des Kleingewerbes", "placeholder": "z. B. Kosmetikstudio, Reinigungsservice oder Fotograf", "apply": "Vorlage automatisch mit Brancheninhalten befüllen", "required": "Bitte geben Sie zuerst eine Branche oder Art des Kleingewerbes ein.", "success": "Die Inhalte für „{industry}“ wurden vorbereitet."},
+        "en": {"caption": "Choose an industry and add prepared content to the draft.", "question": "What type of business is it?", "choose": "Please choose...", "other": "Other industry or small business", "custom": "Industry or type of small business", "placeholder": "e.g. beauty salon, cleaning service, or photographer", "apply": "Automatically fill template with industry content", "required": "Please enter an industry or type of small business first.", "success": "Content for “{industry}” has been prepared."},
+        "ar": {"caption": "اختر مجال العمل وأضف المحتوى المُعد مسبقاً إلى المسودة.", "question": "ما نوع نشاطك التجاري؟", "choose": "يرجى الاختيار...", "other": "مجال آخر أو مشروع صغير", "custom": "المجال أو نوع المشروع الصغير", "placeholder": "مثال: صالون تجميل أو شركة تنظيف أو مصور", "apply": "ملء القالب تلقائياً بمحتوى المجال", "required": "يرجى إدخال المجال أو نوع المشروع الصغير أولاً.", "success": "تم إعداد المحتوى للمجال «{industry}»."},
+        "ku": {"caption": "بوارێک هەڵبژێرە و ناوەڕۆکی ئامادەکراو زیاد بکە بۆ ڕەشنووسەکە.", "question": "جۆری کاروبارەکەت چییە؟", "choose": "تکایە هەڵبژێرە...", "other": "بواری تر یان کاروباری بچووک", "custom": "بوار یان جۆری کاروباری بچووک", "placeholder": "بۆ نموونە: سالۆنی جوانکاری، خزمەتگوزاری پاککردنەوە یان وێنەگر", "apply": "قاڵبەکە خۆکارانە بە ناوەڕۆکی بوارەکە پڕ بکەرەوە", "required": "تکایە سەرەتا بوار یان جۆری کاروباری بچووک بنووسە.", "success": "ناوەڕۆکی «{industry}» ئامادە کرا."},
+    }
+    labels = copy_by_language.get(language, copy_by_language["en"])
+    industry_names = {
+        "ar": {"Bitte wählen...": labels["choose"], "Kfz-Meisterwerkstatt": "ورشة سيارات متخصصة", "Friseursalon": "صالون حلاقة وتجميل", "Dachdeckerfachbetrieb": "شركة متخصصة في الأسقف", "Physiotherapie-Praxis": "عيادة علاج طبيعي", "Restaurant": "مطعم", "Café und Bäckerei": "مقهى ومخبز", "Onlineshop": "متجر إلكتروني", OTHER_INDUSTRY_OPTION: labels["other"]},
+        "ku": {"Bitte wählen...": labels["choose"], "Kfz-Meisterwerkstatt": "وەرشەی پسپۆڕی ئۆتۆمبێل", "Friseursalon": "سالۆنی قژبڕین و جوانکاری", "Dachdeckerfachbetrieb": "کۆمپانیای پسپۆڕی سەربان", "Physiotherapie-Praxis": "کلینیکی فیزیۆتێراپی", "Restaurant": "چێشتخانە", "Café und Bäckerei": "کافێ و نانەواخانە", "Onlineshop": "فرۆشگای ئۆنلاین", OTHER_INDUSTRY_OPTION: labels["other"]},
+    }.get(language, {"Bitte wählen...": labels["choose"], OTHER_INDUSTRY_OPTION: labels["other"]})
+    display_industry = lambda option: industry_names.get(option, option)
+    st.caption(labels["caption"])
     industry = st.selectbox(
-        "Was ist Ihr Betrieb?",
+        labels["question"],
         ["Bitte wählen..."] + list(INDUSTRY_CONTENT_PRESETS) + [OTHER_INDUSTRY_OPTION],
+        format_func=display_industry,
         key="industry_content_preset",
     )
     custom_industry = ""
     if industry == OTHER_INDUSTRY_OPTION:
         custom_industry = st.text_input(
-            "Branche oder Art des Kleingewerbes",
-            placeholder="z. B. Kosmetikstudio, Reinigungsservice oder Fotograf",
+            labels["custom"],
+            placeholder=labels["placeholder"],
             key="custom_industry_name",
         ).strip()
     if industry != "Bitte wählen..." and st.button(
-        "Vorlage automatisch mit Brancheninhalten befüllen",
+        labels["apply"],
         icon=":material/auto_awesome:",
         type="primary",
         key="apply_industry_content_preset",
     ):
         if industry == OTHER_INDUSTRY_OPTION and not custom_industry:
-            st.warning("Bitte geben Sie zuerst eine Branche oder Art des Kleingewerbes ein.")
+            st.warning(labels["required"])
         else:
             apply_industry_content_preset()
             st.rerun()
     applied_industry = custom_industry or industry
     if industry != "Bitte wählen..." and st.session_state.get("industry_preset_applied") == applied_industry:
-        st.success(f"Die Inhalte für „{applied_industry}“ wurden vorbereitet.")
+        st.success(labels["success"].format(industry=display_industry(applied_industry)))
 
 
 def render_transformer_test_ui() -> None:
