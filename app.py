@@ -1240,6 +1240,20 @@ def get_help_chat_greeting() -> str:
             "design, templates, previews, errors, or publishing. I can also improve your prompt. "
             f"{get_customer_guidance()}"
         )
+    if language == "ar":
+        name = f"، {company_name}" if company_name else ""
+        return (
+            f"مرحباً{name}. أنا مساعد إنشاء موقعك. اسألني عن التخطيط أو المحتوى أو التصميم "
+            "أو القوالب أو المعاينة أو الأخطاء أو النشر. ويمكنني أيضاً تحسين وصف موقعك. "
+            f"{get_customer_guidance()}"
+        )
+    if language == "ku":
+        name = f"، {company_name}" if company_name else ""
+        return (
+            f"سڵاو{name}. من یاریدەدەری دروستکردنی وێبگەکەت دەبم. دەتوانیت پرسیار لەسەر "
+            "پلان، ناوەڕۆک، دیزاین، قاڵب، پێشبینین، هەڵە یان بڵاوکردنەوە بکەیت. "
+            f"{get_customer_guidance()}"
+        )
     name = f", {company_name}" if company_name else ""
     return (
         f"Hallo{name}. Ich bin Ihr Website-Assistent. Fragen Sie mich zu Planung, Inhalten, "
@@ -1573,18 +1587,20 @@ def get_help_response(prompt: str) -> str:
     """Gibt eine kurze Hilfeantwort für die wichtigsten Builder-Abläufe zurück."""
     question = prompt.lower()
     texts = get_help_chat_texts()
+    language = str(st.session_state.app_language)
 
     if prompt == "__next_customer_step__":
         return get_customer_guidance()
-    coach_response = get_project_coach_response(prompt)
-    if coach_response:
-        return coach_response
-    if any(word in question for word in ("url", "link", "adresse", "live-link", "live link")):
+    if language in {"de", "en"}:
+        coach_response = get_project_coach_response(prompt)
+        if coach_response:
+            return coach_response
+    if language == "de" and any(word in question for word in ("url", "link", "adresse", "live-link", "live link")):
         live_url = str(st.session_state.get("live_url", "")).strip()
         if live_url:
             return f"Ihre veröffentlichte Website erreichen Sie hier: {live_url}"
         return "Ihre Live-URL erscheint nach der erfolgreichen Vercel-Veröffentlichung im Bereich „Aktuelle Veröffentlichung“. Dort können Sie die veröffentlichte Seite direkt laden."
-    if any(word in question for word in ("aktiv", "aktivier", "freischalt", "abo", "abonnement", "bezahlt", "zahlung")):
+    if language == "de" and any(word in question for word in ("aktiv", "aktivier", "freischalt", "abo", "abonnement", "bezahlt", "zahlung")):
         if st.session_state.get("live_url"):
             return "Ihr Konto ist für die Veröffentlichung aktiv; Ihre Live-URL wird im Bereich „Aktuelle Veröffentlichung“ angezeigt."
         return "Während der ersten 24 Stunden ist die Veröffentlichung kostenlos aktiviert. Danach aktivieren Sie Premium über den Bereich „Veröffentlichung und Liveschaltung“. Nach bestätigter Zahlung wird die Website automatisch veröffentlicht."
@@ -1815,14 +1831,29 @@ def queue_html_update(html: str, reset_site_pages: bool = False) -> None:
 
 def build_chat_api_route(chatbot_knowledge: str) -> str:
         """Erstellt eine Vercel-Route, die den Hugging-Face-Schlüssel serverseitig hält."""
+        language = str(st.session_state.app_language)
+        api_copy = {
+            "de": {"name": "Deutsch", "fallback": "Vielen Dank für Ihre Frage. Bitte kontaktieren Sie uns über die Kontaktmöglichkeiten der Website.", "invalid": "Bitte senden Sie eine gültige Frage."},
+            "en": {"name": "English", "fallback": "Thank you for your question. Please contact us using the contact details on this website.", "invalid": "Please send a valid question."},
+            "ar": {"name": "Arabic", "fallback": "شكراً لسؤالك. يرجى التواصل معنا عبر بيانات الاتصال الموجودة في الموقع.", "invalid": "يرجى إرسال سؤال صحيح."},
+            "ku": {"name": "Sorani Kurdish", "fallback": "سوپاس بۆ پرسیارەکەت. تکایە بە زانیاری پەیوەندیی ناو وێبگەکە پەیوەندیمان پێوە بکە.", "invalid": "تکایە پرسیارێکی دروست بنێرە."},
+            "es": {"name": "Spanish", "fallback": "Gracias por tu pregunta. Contáctanos mediante los datos de contacto del sitio web.", "invalid": "Envía una pregunta válida."},
+            "it": {"name": "Italian", "fallback": "Grazie per la domanda. Contattaci tramite i recapiti presenti sul sito.", "invalid": "Invia una domanda valida."},
+            "hi": {"name": "Hindi", "fallback": "आपके प्रश्न के लिए धन्यवाद। वेबसाइट पर दिए गए संपर्क विवरण से हमसे संपर्क करें।", "invalid": "कृपया एक मान्य प्रश्न भेजें।"},
+        }.get(language)
+        if api_copy is None:
+            api_copy = {"name": "English", "fallback": "Please contact us using the contact details on this website.", "invalid": "Please send a valid question."}
         knowledge = chatbot_knowledge.strip() or (
                 "Keine zusätzlichen Firmendaten vorhanden. Verweise bei unbekannten Fragen "
                 "auf die Kontaktmöglichkeiten der Website."
         )
         knowledge_json = json.dumps(knowledge, ensure_ascii=False)
+        copy_json = json.dumps(api_copy, ensure_ascii=False)
         return f'''const CHATBOT_KNOWLEDGE = {knowledge_json};
+    const CHAT_LANGUAGE = "{language}";
+    const CHAT_COPY = {copy_json};
     const MODEL_URL = "https://router.huggingface.co/hf-inference/models/HuggingFaceH4/zephyr-7b-beta";
-    const FALLBACK_ANSWER = "Vielen Dank für Ihre Frage. " + CHATBOT_KNOWLEDGE;
+    const FALLBACK_ANSWER = CHAT_COPY.fallback;
 
 function findDetail(...labels) {{
     for (const label of labels) {{
@@ -1833,6 +1864,7 @@ function findDetail(...labels) {{
 }}
 
 function targetedAnswer(question) {{
+    if (CHAT_LANGUAGE !== "de") return "";
     const normalized = question.toLowerCase();
     const contact = findDetail("Kontaktwege");
     const hours = findDetail("Öffnungszeiten");
@@ -1866,7 +1898,7 @@ export default async function handler(request, response) {{
 
     const question = typeof request.body?.question === "string" ? request.body.question.trim() : "";
     if (!question || question.length > 800) {{
-        return response.status(400).json({{ error: "Bitte senden Sie eine gültige Frage." }});
+        return response.status(400).json({{ error: CHAT_COPY.invalid }});
     }}
 
     const directAnswer = targetedAnswer(question);
@@ -1879,7 +1911,7 @@ export default async function handler(request, response) {{
         return response.status(200).json({{ answer: FALLBACK_ANSWER }});
     }}
 
-    const prompt = `<|system|>Du bist ein freundlicher KI-Mitarbeiter. Antworte auf Deutsch, präzise und in höchstens zwei Sätzen. Nutze ausschließlich diese Firmendaten: ${{CHATBOT_KNOWLEDGE}} Wenn die Antwort dort nicht steht, verweise auf die Kontaktmöglichkeiten der Website.</s><|user|>${{question}}</s><|assistant|>`;
+    const prompt = `<|system|>You are a friendly customer-service assistant. Respond only in ${{CHAT_COPY.name}}, precisely and in no more than two sentences. Use only these verified company details: ${{CHATBOT_KNOWLEDGE}}. If the answer is not contained there, direct the visitor to the website contact details. Never invent facts.</s><|user|>${{question}}</s><|assistant|>`;
     try {{
         const hfResponse = await fetch(MODEL_URL, {{
             method: "POST",
@@ -1892,7 +1924,7 @@ export default async function handler(request, response) {{
         }}
         const generated = Array.isArray(data) ? data[0]?.generated_text : data.generated_text;
         const answer = typeof generated === "string" ? generated.split("<|assistant|>").pop().trim() : "";
-        return response.status(200).json({{ answer: answer || "Bitte kontaktieren Sie uns direkt für diese Auskunft." }});
+        return response.status(200).json({{ answer: answer || FALLBACK_ANSWER }});
     }} catch (error) {{
         return response.status(200).json({{ answer: FALLBACK_ANSWER }});
     }}
@@ -2187,7 +2219,7 @@ def build_customized_template_styles() -> str:
     return """* { box-sizing: border-box; } body { margin: 0; background: var(--background); color: var(--text); font: 16px/1.55 Arial, sans-serif; } header { padding: 20px max(5vw, 24px); border-bottom: 1px solid color-mix(in srgb, var(--text) 18%, transparent); } header, nav { display: flex; gap: 18px; flex-wrap: wrap; justify-content: space-between; align-items: center; } nav a, .button, .site-footer a { color: inherit; text-decoration: none; } main, .container { max-width: 1120px; margin: auto; padding: 70px 24px; } .hero, .contact { display: grid; grid-template-columns: 1.1fr .9fr; gap: 40px; align-items: center; } .eyebrow { color: var(--accent); font-size: 13px; font-weight: 700; text-transform: uppercase; } h1 { font-family: Georgia, serif; font-size: clamp(2.4rem, 5vw, 4.4rem); line-height: 1.05; margin: 14px 0; } p { color: var(--muted); } .button { display: inline-block; margin-top: 18px; padding: 13px 19px; border-radius: var(--radius); background: var(--accent); color: #111827; font-weight: 700; } .hero-image, .image-placeholder { width: 100%; min-height: 310px; object-fit: cover; border-radius: var(--radius); border: 1px dashed var(--accent); display: grid; place-items: center; color: var(--accent); padding: 20px; } .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 45px; } .card { border-top: 3px solid var(--accent); background: color-mix(in srgb, var(--text) 6%, transparent); padding: 24px; margin-top: 32px; } .band { background: color-mix(in srgb, var(--text) 6%, transparent); } .site-footer { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 28px; padding: 34px max(5vw, 24px) 20px; border-top: 1px solid color-mix(in srgb, var(--text) 18%, transparent); } .site-footer strong { display: block; } .site-footer p { margin: 8px 0 0; font-size: 13px; } .footer-legal { grid-column: 1 / -1; padding-top: 16px; border-top: 1px solid color-mix(in srgb, var(--text) 18%, transparent); } .customer-chatbot { position: fixed; right: 24px; bottom: 24px; z-index: 10; } .customer-chatbot button { width: 52px; height: 52px; border: 0; border-radius: 50%; background: var(--accent); color: #111827; cursor: pointer; font-weight: 700; font-size: 20px; } .customer-chatbot section { width: min(300px, calc(100vw - 48px)); margin-bottom: 10px; padding: 18px; border: 1px solid color-mix(in srgb, var(--text) 18%, transparent); border-radius: var(--radius); background: var(--background); box-shadow: 0 16px 38px rgba(15, 23, 42, .22); } @media (max-width: 700px) { header, .hero, .contact { display: block; } nav { margin-top: 12px; } .hero-image, .image-placeholder { margin-top: 26px; min-height: 220px; } .cards, .site-footer { grid-template-columns: 1fr; } }"""
 
 
-def build_customer_chatbot_widget(
+def _build_customer_chatbot_widget_legacy(
     chatbot_name: str, chatbot_color: str, chatbot_knowledge: str
 ) -> str:
     """Erstellt ein lokales Chat-Widget für die exportierte Kundenwebsite."""
@@ -2270,6 +2302,38 @@ def build_customer_chatbot_widget(
 }})();</script>'''
     return f'''<aside class="customer-chatbot" style="position:{chatbot_behavior};{chatbot_side}bottom:20px;z-index:10000"><button id="customer-chat-toggle" type="button" aria-expanded="false" aria-label="{chatbot_name} öffnen" style="background:{chatbot_color};color:#fff;border:0;border-radius:50%;width:56px;height:56px;cursor:pointer;font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,.24)">Chat</button><section id="customer-chat-panel" hidden style="position:absolute;right:0;bottom:68px;width:min(330px,calc(100vw - 40px));padding:18px;background:#fff;color:#111827;border:1px solid #d1d5db;border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.22)"><strong>{chatbot_name}</strong><p id="customer-chat-answer" style="margin:10px 0;color:#374151">Hallo! Wie können wir helfen?</p><form id="customer-chat-form" style="display:flex;gap:6px"><input id="customer-chat-input" aria-label="Frage eingeben" placeholder="Frage eingeben..." required style="min-width:0;flex:1;padding:8px"><button type="submit" style="border:0;background:{chatbot_color};color:#fff;padding:8px 12px;cursor:pointer">Senden</button></form></section></aside><script>(()=>{{const toggle=document.getElementById('customer-chat-toggle'),panel=document.getElementById('customer-chat-panel'),form=document.getElementById('customer-chat-form'),input=document.getElementById('customer-chat-input'),answer=document.getElementById('customer-chat-answer');toggle.onclick=()=>{{panel.hidden=!panel.hidden;toggle.setAttribute('aria-expanded',String(!panel.hidden));if(!panel.hidden)input.focus();}};form.onsubmit=async event=>{{event.preventDefault();const question=input.value.trim();if(!question)return;answer.textContent='Antwort wird erstellt ...';try{{const result=await fetch('/api/chat',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{question}})}});const data=await result.json();answer.textContent=data.answer||data.error||'Bitte kontaktieren Sie uns direkt.';}}catch(error){{answer.textContent='Bitte kontaktieren Sie uns direkt.';}}input.value='';}};}})();</script>'''
     return f'''<aside class="customer-chatbot" data-knowledge="{chatbot_knowledge}" style="position:{chatbot_behavior};{chatbot_side}bottom:20px;z-index:10000"><button id="customer-chat-toggle" type="button" aria-expanded="false" aria-label="{chatbot_name} öffnen" style="background:{chatbot_color};color:#fff;border:0;border-radius:50%;width:56px;height:56px;cursor:pointer;font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,.24)">Chat</button><section id="customer-chat-panel" hidden style="position:absolute;right:0;bottom:68px;width:min(330px,calc(100vw - 40px));padding:18px;background:#fff;color:#111827;border:1px solid #d1d5db;border-radius:10px;box-shadow:0 10px 28px rgba(0,0,0,.22)"><strong>{chatbot_name}</strong><p id="customer-chat-answer" style="margin:10px 0;color:#374151">Hallo! Wie können wir helfen?</p><form id="customer-chat-form" style="display:flex;gap:6px"><input id="customer-chat-input" aria-label="Frage eingeben" placeholder="Frage eingeben..." required style="min-width:0;flex:1;padding:8px"><button type="submit" style="border:0;background:{chatbot_color};color:#fff;padding:8px 12px;cursor:pointer">Senden</button></form></section></aside><script>(()=>{{const toggle=document.getElementById('customer-chat-toggle'),panel=document.getElementById('customer-chat-panel'),form=document.getElementById('customer-chat-form'),input=document.getElementById('customer-chat-input'),answer=document.getElementById('customer-chat-answer'),knowledge=document.querySelector('.customer-chatbot').dataset.knowledge;toggle.onclick=()=>{{panel.hidden=!panel.hidden;toggle.setAttribute('aria-expanded',String(!panel.hidden));if(!panel.hidden)input.focus();}};form.onsubmit=async event=>{{event.preventDefault();const question=input.value.trim();if(!question)return;answer.textContent='Antwort wird erstellt ...';input.value='';try{{const result=await fetch('/api/chat',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{question}})}});const data=await result.json();answer.textContent=data.answer||data.error||knowledge;}}catch(error){{answer.textContent=knowledge||'Bitte nutzen Sie die Kontaktmöglichkeiten auf dieser Website.';}}}};}})();</script>'''
+
+
+def build_customer_chatbot_widget(
+    chatbot_name: str, chatbot_color: str, chatbot_knowledge: str
+) -> str:
+    """Erstellt den Kunden-Chatbot vollständig in der gewählten App-Sprache."""
+    language = str(st.session_state.app_language)
+    copy_by_language = {
+        "de": {"service": "Kundenservice", "open": "Chatbot öffnen", "welcome": "Hallo! Wie können wir Ihnen helfen?", "question": "Frage eingeben...", "send": "Senden", "loading": "Antwort wird erstellt ...", "fallback": "Bitte kontaktieren Sie uns direkt über die Kontaktmöglichkeiten der Website."},
+        "en": {"service": "Customer service", "open": "Open chatbot", "welcome": "Hello! How can we help you?", "question": "Enter your question...", "send": "Send", "loading": "Creating an answer ...", "fallback": "Please contact us directly using the contact details on this website."},
+        "ar": {"service": "خدمة العملاء", "open": "فتح المحادثة", "welcome": "مرحباً! كيف يمكننا مساعدتك؟", "question": "اكتب سؤالك...", "send": "إرسال", "loading": "جارٍ إعداد الإجابة...", "fallback": "يرجى التواصل معنا مباشرة عبر بيانات الاتصال الموجودة في الموقع."},
+        "ku": {"service": "خزمەتگوزاری کڕیار", "open": "کردنەوەی چات", "welcome": "سڵاو! چۆن دەتوانین یارمەتیت بدەین؟", "question": "پرسیارەکەت بنووسە...", "send": "ناردن", "loading": "وەڵام ئامادە دەکرێت...", "fallback": "تکایە بە ڕێگەی زانیاری پەیوەندیی ناو وێبگەکە ڕاستەوخۆ پەیوەندیمان پێوە بکە."},
+        "es": {"service": "Atención al cliente", "open": "Abrir chat", "welcome": "¡Hola! ¿Cómo podemos ayudarte?", "question": "Escribe tu pregunta...", "send": "Enviar", "loading": "Preparando la respuesta...", "fallback": "Contáctanos directamente mediante los datos de contacto del sitio web."},
+        "it": {"service": "Servizio clienti", "open": "Apri chat", "welcome": "Ciao! Come possiamo aiutarti?", "question": "Scrivi la tua domanda...", "send": "Invia", "loading": "Preparazione della risposta...", "fallback": "Contattaci direttamente tramite i recapiti presenti sul sito."},
+        "hi": {"service": "ग्राहक सेवा", "open": "चैट खोलें", "welcome": "नमस्ते! हम आपकी कैसे सहायता कर सकते हैं?", "question": "अपना प्रश्न लिखें...", "send": "भेजें", "loading": "उत्तर तैयार हो रहा है...", "fallback": "कृपया वेबसाइट पर दिए गए संपर्क विवरण से सीधे हमसे संपर्क करें।"},
+    }
+    copy = copy_by_language.get(language, copy_by_language["en"])
+    direction = "rtl" if language in {"ar", "ku"} else "ltr"
+    safe_name = escape(chatbot_name.strip() or copy["service"])
+    safe_knowledge = escape(chatbot_knowledge.strip(), quote=True)
+    safe_color = chatbot_color if re.fullmatch(r"#[0-9a-fA-F]{6}", chatbot_color) else "#2563EB"
+    is_left = st.session_state.get("customer_chatbot_position") == "Unten links"
+    side = "left:20px;right:auto;" if is_left else "right:20px;left:auto;"
+    panel_side = "left:0;right:auto;" if is_left else "right:0;left:auto;"
+    position = "fixed" if st.session_state.get("customer_chatbot_fixed", True) else "relative"
+    copy_json = json.dumps(copy, ensure_ascii=False).replace("</", "<\\/")
+    return f'''<aside id="customer-chatbot" lang="{language}" dir="{direction}" data-knowledge="{safe_knowledge}" style="position:{position};{side}bottom:20px;z-index:10000;font-family:Arial,sans-serif">
+<button id="customer-chat-toggle" type="button" aria-expanded="false" aria-label="{escape(copy['open'])}" title="{escape(copy['open'])}" style="width:56px;height:56px;border:0;border-radius:50%;background:{safe_color};color:#fff;cursor:pointer;font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,.24)">Chat</button>
+<section id="customer-chat-panel" hidden style="position:absolute;{panel_side}bottom:68px;width:min(340px,calc(100vw - 40px));padding:18px;background:#fff;color:#111827;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.22);text-align:{'right' if direction == 'rtl' else 'left'}">
+<strong>{safe_name}</strong><p id="customer-chat-answer" aria-live="polite" style="margin:10px 0;color:#374151">{escape(copy['welcome'])}</p>
+<form id="customer-chat-form" style="display:flex;gap:6px"><input id="customer-chat-input" aria-label="{escape(copy['question'])}" placeholder="{escape(copy['question'])}" required style="min-width:0;flex:1;padding:8px;text-align:inherit"><button id="customer-chat-send" type="submit" style="border:0;background:{safe_color};color:#fff;padding:8px 12px;cursor:pointer">{escape(copy['send'])}</button></form></section></aside>
+<script>(()=>{{const copy={copy_json};const root=document.getElementById('customer-chatbot');const toggle=document.getElementById('customer-chat-toggle');const panel=document.getElementById('customer-chat-panel');const form=document.getElementById('customer-chat-form');const input=document.getElementById('customer-chat-input');const answer=document.getElementById('customer-chat-answer');const send=document.getElementById('customer-chat-send');const knowledge=root.dataset.knowledge;toggle.onclick=()=>{{panel.hidden=!panel.hidden;toggle.setAttribute('aria-expanded',String(!panel.hidden));if(!panel.hidden)input.focus();}};form.onsubmit=async event=>{{event.preventDefault();const question=input.value.trim();if(!question)return;answer.textContent=copy.loading;input.value='';send.disabled=true;try{{const result=await fetch('/api/chat',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{question,language:'{language}'}})}});const data=await result.json().catch(()=>({{}}));answer.textContent=result.ok&&data.answer?data.answer:(knowledge||copy.fallback);}}catch(error){{answer.textContent=knowledge||copy.fallback;}}finally{{send.disabled=false;}}}};}})();</script>'''
 
 
 def build_customized_template_pages(
