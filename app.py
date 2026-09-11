@@ -3885,10 +3885,58 @@ def render_domain_and_deployment_ui() -> None:
                 f"Geplante Adresse: {safe_project_name(requested_name)}.vercel.app"
             )
     else:
+        with st.expander("Domain kaufen und verbinden: Anleitung", expanded=True):
+            st.markdown(
+                """
+                1. Geben Sie unten Ihre gewünschte Domain ohne Pfad ein, zum Beispiel `mein-betrieb.de`.
+                2. Prüfen Sie mit MCP, ob für die Domain bereits ein öffentlicher RDAP-Eintrag besteht.
+                3. Kaufen Sie eine freie Domain direkt bei einem Domainanbieter Ihrer Wahl.
+                4. Fügen Sie die Domain anschließend in Vercel hinzu und übernehmen Sie die dort angezeigten DNS-Einträge beim Domainanbieter.
+                """
+            )
+            st.info(
+                "Preisorientierung: Eine .de-Domain kostet häufig etwa 5-20 EUR pro Jahr, "
+                "eine .com-Domain etwa 10-25 EUR pro Jahr. Aktionspreise gelten oft nur im "
+                "ersten Jahr; prüfen Sie deshalb immer den Verlängerungspreis und die Mehrwertsteuer."
+            )
+            st.warning(
+                "Die App kauft keine Domain automatisch und bucht dafür nichts ab. Der "
+                "Domainanbieter berechnet die Domain separat. Ein App-Abonnement und mögliche "
+                "Vercel-Kosten sind ebenfalls getrennte Verträge."
+            )
+            provider_columns = st.columns(3)
+            with provider_columns[0]:
+                st.link_button(
+                    "IONOS Domains",
+                    "https://www.ionos.de/domains/domain-kaufen",
+                    icon=":material/open_in_new:",
+                    width="stretch",
+                )
+            with provider_columns[1]:
+                st.link_button(
+                    "STRATO Domains",
+                    "https://www.strato.de/domains/",
+                    icon=":material/open_in_new:",
+                    width="stretch",
+                )
+            with provider_columns[2]:
+                st.link_button(
+                    "Cloudflare Registrar",
+                    "https://www.cloudflare.com/products/registrar/",
+                    icon=":material/open_in_new:",
+                    width="stretch",
+                )
+            st.link_button(
+                "Offizielle Vercel-Anleitung zur Domain-Verbindung",
+                "https://vercel.com/docs/domains/working-with-domains/add-a-domain",
+                icon=":material/help:",
+                width="stretch",
+            )
         custom_domain = st.text_input(
-            "Bereits gekaufte eigene Domain",
+            "Gewünschte oder bereits gekaufte Domain",
             placeholder="z. B. www.mein-unternehmen.de",
             key="custom_domain",
+            help="Die MCP-Prüfung ist ein Hinweis anhand öffentlicher Registrierungsdaten und keine Kaufgarantie.",
         )
         if custom_domain:
             st.caption(
@@ -3904,6 +3952,7 @@ def render_domain_and_deployment_ui() -> None:
             with st.spinner("MCP prüft die Domain ..."):
                 try:
                     domain_check = check_custom_domain_with_mcp(custom_domain)
+                    st.session_state.domain_check_result = domain_check
                     if domain_check.get("available"):
                         st.success(str(domain_check["message"]))
                     elif domain_check.get("status") == "registered":
@@ -3912,6 +3961,14 @@ def render_domain_and_deployment_ui() -> None:
                         st.error(str(domain_check["message"]))
                 except ValueError as error:
                     st.error(str(error))
+        domain_check = st.session_state.get("domain_check_result")
+        if isinstance(domain_check, dict) and domain_check.get("domain"):
+            checked_domain = str(domain_check.get("domain", ""))
+            if checked_domain == custom_domain.strip().lower().removeprefix("https://").removeprefix("http://").rstrip("/"):
+                if domain_check.get("next_step"):
+                    st.info(f"Nächster Schritt: {domain_check['next_step']}")
+                if domain_check.get("cost_guidance"):
+                    st.caption(str(domain_check["cost_guidance"]))
 
     if not user_info["subscribed"] and not user_info["trial_active"]:
         st.warning(

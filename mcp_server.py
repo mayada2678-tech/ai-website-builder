@@ -19,6 +19,10 @@ DOMAIN_PATTERN = re.compile(
 )
 DOMAIN_CACHE_TTL_SECONDS = 300
 domain_cache: dict[str, tuple[float, dict[str, str | bool]]] = {}
+DOMAIN_COST_GUIDANCE = (
+    "Typische Registrierungsgebühr: .de etwa 5-20 EUR/Jahr, .com etwa "
+    "10-25 EUR/Jahr. Aktions-, Verlängerungs- und Zusatzpreise unterscheiden sich je Anbieter."
+)
 CHATBOT_INDUSTRY_PROFILES = {
     "Kfz-Meisterwerkstatt": {
         "name": "Werkstatt-Assistent",
@@ -275,6 +279,11 @@ def check_domain_availability(domain_name: str) -> dict[str, str | bool]:
             "available": True,
             "status": "not_registered",
             "message": f"Für {normalized_domain} wurde kein RDAP-Eintrag gefunden.",
+            "next_step": (
+                "Registrieren Sie die Domain jetzt bei einem Registrar und verbinden Sie "
+                "sie danach über die von Vercel angezeigten DNS-Einträge."
+            ),
+            "cost_guidance": DOMAIN_COST_GUIDANCE,
         }
     elif response.status_code == 200:
         result = {
@@ -282,6 +291,11 @@ def check_domain_availability(domain_name: str) -> dict[str, str | bool]:
             "available": False,
             "status": "registered",
             "message": f"{normalized_domain} ist bereits registriert.",
+            "next_step": (
+                "Falls die Domain Ihnen gehört, öffnen Sie die DNS-Verwaltung bei Ihrem "
+                "Anbieter. Andernfalls prüfen Sie einen anderen Namen."
+            ),
+            "cost_guidance": DOMAIN_COST_GUIDANCE,
         }
     else:
         result = {
@@ -289,6 +303,8 @@ def check_domain_availability(domain_name: str) -> dict[str, str | bool]:
             "available": False,
             "status": "unknown",
             "message": "Der Registrierungsstatus konnte nicht zuverlässig ermittelt werden.",
+            "next_step": "Prüfen Sie die Domain zusätzlich direkt bei einem Registrar.",
+            "cost_guidance": DOMAIN_COST_GUIDANCE,
         }
     domain_cache[normalized_domain] = (time.monotonic(), result)
     return result
