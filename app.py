@@ -1148,6 +1148,19 @@ def workspace_copy() -> dict[str, str]:
     """Liefert Texte des Arbeitsbereichs in der gewählten Sprache."""
     return WORKSPACE_COPY.get(str(st.session_state.app_language), WORKSPACE_COPY["en"])
 
+
+PUBLISH_COPY = {
+    "de": {"title": "Veröffentlichung und Liveschaltung", "need_site": "Erstellen oder laden Sie zuerst eine Website, bevor Sie sie veröffentlichen.", "load_title": "Öffentliche Website laden", "load_hint": "Die Original-Website wird geladen, ohne HTML oder Design vor der Bearbeitung zu ändern.", "live_link": "Öffentlicher Live-Link", "load_button": "Original-Website laden", "link_required": "Bitte geben Sie einen Live-Link ein.", "loading": "Website wird geladen ...", "loaded": "Original-Website wurde unverändert geladen.", "failed": "Laden fehlgeschlagen"},
+    "en": {"title": "Publishing and going live", "need_site": "Create or load a website before publishing it.", "load_title": "Load public website", "load_hint": "The original website is loaded without changing its HTML or design before editing.", "live_link": "Public live link", "load_button": "Load original website", "link_required": "Please enter a live link.", "loading": "Loading website ...", "loaded": "The original website was loaded unchanged.", "failed": "Loading failed"},
+    "ar": {"title": "النشر وإطلاق الموقع", "need_site": "أنشئ موقعاً أو حمّله أولاً قبل نشره.", "load_title": "تحميل موقع عام", "load_hint": "يتم تحميل الموقع الأصلي من دون تغيير HTML أو التصميم قبل التعديل.", "live_link": "الرابط العام للموقع", "load_button": "تحميل الموقع الأصلي", "link_required": "يرجى إدخال رابط عام للموقع.", "loading": "جارٍ تحميل الموقع...", "loaded": "تم تحميل الموقع الأصلي من دون تغيير.", "failed": "فشل التحميل"},
+    "ku": {"title": "بڵاوکردنەوە و خستنە سەر هێڵ", "need_site": "پێش بڵاوکردنەوە سەرەتا وێبگەیەک دروست بکە یان باری بکە.", "load_title": "بارکردنی وێبگەی گشتی", "load_hint": "وێبگە ڕەسەنەکە بەبێ گۆڕینی HTML یان دیزاین پێش دەستکاریکردن بار دەکرێت.", "live_link": "بەستەری گشتی وێبگە", "load_button": "بارکردنی وێبگە ڕەسەنەکە", "link_required": "تکایە بەستەری گشتی وێبگە بنووسە.", "loading": "وێبگەکە بار دەکرێت...", "loaded": "وێبگە ڕەسەنەکە بەبێ گۆڕانکاری بار کرا.", "failed": "بارکردن سەرکەوتوو نەبوو"},
+}
+
+
+def publish_copy() -> dict[str, str]:
+    """Liefert Import- und Veröffentlichungstexte in der App-Sprache."""
+    return PUBLISH_COPY.get(str(st.session_state.app_language), PUBLISH_COPY["en"])
+
 HELP_CHAT_TEXTS = {
     "de": {
         "title": "Hilfe-Chat", "input": "Schreiben Sie Ihre Frage",
@@ -4008,10 +4021,11 @@ def publish_website() -> None:
 
 def render_domain_and_deployment_ui() -> None:
     """Rendert die Premium-geschuetzte Konfiguration fuer die Vercel-Veröffentlichung."""
-    st.header("Veröffentlichung und Liveschaltung")
+    labels = publish_copy()
+    st.header(labels["title"])
 
     if not st.session_state.generated_html:
-        st.info("Erstellen oder laden Sie zuerst eine Website, bevor Sie sie veröffentlichen.")
+        st.info(labels["need_site"])
         return
 
     chatbot_environment_warning = str(
@@ -5249,36 +5263,36 @@ with new_tab:
                         st.error(error_message)
 
 with manage_tab:
-    st.subheader("Öffentliche Website laden")
-    st.caption(
-        "Die Original-Website wird geladen, ohne HTML oder Design vor der Bearbeitung zu ändern."
-    )
+    import_labels = publish_copy()
+    st.subheader(import_labels["load_title"])
+    st.caption(import_labels["load_hint"])
 
     live_url_input = st.text_input(
-        "Öffentlicher Live-Link",
+        import_labels["live_link"],
         placeholder="https://ihre-website.vercel.app",
         key="manage_live_url",
     )
 
     if st.button(
-        "⚙️ Original-Website laden",
+        import_labels["load_button"],
+        icon=":material/settings:",
         type="primary",
         width="stretch",
     ):
         if not live_url_input.strip():
-            st.warning("Bitte geben Sie einen Live-Link ein.")
+            st.warning(import_labels["link_required"])
         else:
-            with st.status("Website wird geladen ...", expanded=True) as status:
+            with st.status(import_labels["loading"], expanded=True) as status:
                 try:
                     load_published_website(live_url_input)
                     status.update(
-                        label="✅ Original-Website wurde unverändert geladen.",
+                        label=import_labels["loaded"],
                         state="complete",
                     )
                     st.rerun()
                 except Exception as error:
                     status.update(
-                        label="❌ Laden fehlgeschlagen",
+                        label=import_labels["failed"],
                         state="error",
                     )
                     st.error(str(error))
