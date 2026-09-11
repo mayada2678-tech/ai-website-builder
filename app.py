@@ -1136,6 +1136,18 @@ AUTHENTICATION_COPY = {
     },
 }
 
+WORKSPACE_COPY = {
+    "de": {"trial_active": "Kostenlose Testphase aktiv: noch etwa {hours} Stunden.", "trial_sidebar": "Kostenlose Testphase: noch etwa {hours} Stunden", "trial_expired": "Kostenlose Testphase abgelaufen", "premium_hint": "Premium kann im Bereich Veröffentlichung sicher abgeschlossen werden.", "service": "Kundenservice", "privacy": "Datenschutz", "project_title": "1. Website-Projekt festlegen", "project_hint": "Wählen Sie Branche, Startmodus und Seitenstruktur. Alle Inhalte bleiben anschließend bearbeitbar.", "start": "Wie möchten Sie starten?", "professional": "Professionelle Vorlage", "free": "Freier Entwurf", "existing": "Bestehenden Entwurf anpassen", "structure": "Seitenstruktur", "single": "Eine übersichtliche Seite", "multi": "Mehrseitige Website", "client_title": "2. Kundendaten und Kunden-Chatbot", "client_hint": "Diese Angaben werden direkt in Vorschau, Kontaktbereich und Chatbot übernommen.", "draft_saved": "Ihr Entwurf wurde gespeichert."},
+    "en": {"trial_active": "Free trial active: about {hours} hours remaining.", "trial_sidebar": "Free trial: about {hours} hours remaining", "trial_expired": "Free trial expired", "premium_hint": "Premium can be purchased securely in Publishing.", "service": "Customer service", "privacy": "Privacy", "project_title": "1. Define website project", "project_hint": "Choose the industry, starting mode, and page structure. All content remains editable.", "start": "How would you like to start?", "professional": "Professional template", "free": "Blank draft", "existing": "Edit existing draft", "structure": "Page structure", "single": "Single-page website", "multi": "Multi-page website", "client_title": "2. Customer details and customer chatbot", "client_hint": "These details are used directly in the preview, contact section, and chatbot.", "draft_saved": "Your draft has been saved."},
+    "ar": {"trial_active": "الفترة التجريبية المجانية نشطة: متبقٍ نحو {hours} ساعة.", "trial_sidebar": "الفترة التجريبية المجانية: متبقٍ نحو {hours} ساعة", "trial_expired": "انتهت الفترة التجريبية المجانية", "premium_hint": "يمكن الاشتراك في Premium بأمان من قسم النشر.", "service": "خدمة العملاء", "privacy": "الخصوصية", "project_title": "1. تحديد مشروع الموقع", "project_hint": "اختر المجال وطريقة البدء وبنية الصفحات. ويمكن تعديل جميع المحتويات لاحقاً.", "start": "كيف تريد أن تبدأ؟", "professional": "قالب احترافي", "free": "مسودة حرة", "existing": "تعديل مسودة موجودة", "structure": "بنية الصفحات", "single": "صفحة واحدة واضحة", "multi": "موقع متعدد الصفحات", "client_title": "2. بيانات العميل وروبوت المحادثة", "client_hint": "تُستخدم هذه البيانات مباشرة في المعاينة وقسم الاتصال وروبوت المحادثة.", "draft_saved": "تم حفظ المسودة."},
+    "ku": {"trial_active": "ماوەی تاقیکردنەوەی بەخۆڕایی چالاکە: نزیکەی {hours} کاتژمێر ماوە.", "trial_sidebar": "تاقیکردنەوەی بەخۆڕایی: نزیکەی {hours} کاتژمێر ماوە", "trial_expired": "ماوەی تاقیکردنەوەی بەخۆڕایی کۆتایی هات", "premium_hint": "دەتوانیت Premium بە پارێزراوی لە بەشی بڵاوکردنەوە بکڕیت.", "service": "خزمەتگوزاری کڕیار", "privacy": "پاراستنی نهێنی", "project_title": "1. دیاریکردنی پڕۆژەی وێبگە", "project_hint": "بوار، شێوازی دەستپێکردن و پێکهاتەی پەڕەکان هەڵبژێرە. هەموو ناوەڕۆکێک دواتر دەستکاری دەکرێت.", "start": "چۆن دەتەوێت دەست پێ بکەیت؟", "professional": "قاڵبی پیشەیی", "free": "ڕەشنووسی ئازاد", "existing": "دەستکاریکردنی ڕەشنووسی هەبوو", "structure": "پێکهاتەی پەڕەکان", "single": "یەک پەڕەی ڕوون", "multi": "وێبگەی چەند پەڕەیی", "client_title": "2. زانیاری کڕیار و چاتبۆت", "client_hint": "ئەم زانیارییانە ڕاستەوخۆ لە پێشبینین و بەشی پەیوەندی و چاتبۆت بەکاردێن.", "draft_saved": "ڕەشنووسەکە پاشەکەوت کرا."},
+}
+
+
+def workspace_copy() -> dict[str, str]:
+    """Liefert Texte des Arbeitsbereichs in der gewählten Sprache."""
+    return WORKSPACE_COPY.get(str(st.session_state.app_language), WORKSPACE_COPY["en"])
+
 HELP_CHAT_TEXTS = {
     "de": {
         "title": "Hilfe-Chat", "input": "Schreiben Sie Ihre Frage",
@@ -1730,7 +1742,9 @@ if not user_info["subscribed"] and not user_info["trial_active"]:
     render_payment_ui(current_user_id, st.session_state.user_email)
 elif not user_info["subscribed"]:
     st.info(
-        f"Kostenlose Testphase aktiv: noch etwa {user_info['trial_remaining_hours']} Stunden."
+        workspace_copy()["trial_active"].format(
+            hours=user_info["trial_remaining_hours"]
+        )
     )
 
 
@@ -4841,6 +4855,7 @@ def render_privacy_policy_ui() -> None:
 
 
 with st.sidebar:
+    workspace_labels = workspace_copy()
     with st.container(border=True):
         st.subheader(t("account"))
         st.caption(st.session_state.user_email)
@@ -4849,12 +4864,13 @@ with st.sidebar:
             st.badge(t("premium_active"), icon=":material/workspace_premium:", color="green")
         else:
             st.caption(
-                "Kostenlose Testphase: noch etwa "
-                f"{user_info['trial_remaining_hours']} Stunden"
+                workspace_labels["trial_sidebar"].format(
+                    hours=user_info["trial_remaining_hours"]
+                )
                 if user_info["trial_active"]
-                else "Kostenlose Testphase abgelaufen"
+                else workspace_labels["trial_expired"]
             )
-            st.caption("Premium kann im Bereich Veröffentlichung sicher abgeschlossen werden.")
+            st.caption(workspace_labels["premium_hint"])
 
         if st.button(t("logout"), icon=":material/logout:", width="stretch"):
             st.session_state.clear()
@@ -4879,7 +4895,7 @@ with st.sidebar:
             create_preview_html(st.session_state.generated_html),
             st.session_state.live_url,
         )
-        st.success("Ihr Entwurf wurde gespeichert.")
+        st.success(workspace_labels["draft_saved"])
         st.rerun()
 
     saved_websites = get_websites(st.session_state.user_id)
@@ -4920,32 +4936,43 @@ st.title(t("main_title"), anchor=False)
 st.caption(t("main_subtitle"))
 
 new_tab, manage_tab, service_tab, privacy_tab = st.tabs(
-    [t("new_website"), t("load_published"), "Kundenservice", "Datenschutz"]
+    [t("new_website"), t("load_published"), workspace_labels["service"], workspace_labels["privacy"]]
 )
 
 
 
 with new_tab:
-    st.subheader("1. Website-Projekt festlegen")
-    st.caption("Wählen Sie Branche, Startmodus und Seitenstruktur. Alle Inhalte bleiben anschließend bearbeitbar.")
+    st.subheader(workspace_labels["project_title"])
+    st.caption(workspace_labels["project_hint"])
+    creation_mode_labels = {
+        "Professionelle Vorlage": workspace_labels["professional"],
+        "Freier Entwurf": workspace_labels["free"],
+        "Bestehenden Entwurf anpassen": workspace_labels["existing"],
+    }
     creation_mode = st.segmented_control(
-        "Wie möchten Sie starten?",
+        workspace_labels["start"],
         ["Professionelle Vorlage", "Freier Entwurf", "Bestehenden Entwurf anpassen"],
         default="Professionelle Vorlage",
+        format_func=lambda option: creation_mode_labels[option],
         key="creation_mode",
     )
+    page_structure_labels = {
+        "Eine übersichtliche Seite": workspace_labels["single"],
+        "Mehrseitige Website": workspace_labels["multi"],
+    }
     page_structure = st.segmented_control(
-        "Seitenstruktur",
+        workspace_labels["structure"],
         ["Eine übersichtliche Seite", "Mehrseitige Website"],
         default="Eine übersichtliche Seite",
+        format_func=lambda option: page_structure_labels[option],
         key="page_structure",
     )
     render_industry_content_preset_ui()
     st.divider()
 
     if creation_mode != "Bestehenden Entwurf anpassen":
-        st.subheader("2. Kundendaten und Kunden-Chatbot")
-        st.caption("Diese Angaben werden direkt in Vorschau, Kontaktbereich und Chatbot übernommen.")
+        st.subheader(workspace_labels["client_title"])
+        st.caption(workspace_labels["client_hint"])
         render_client_contact_ui()
         st.divider()
 
