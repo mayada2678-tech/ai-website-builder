@@ -2565,110 +2565,124 @@ CHATBOT MIT VOICE:
 
 def render_client_contact_ui() -> None:
     """Erfasst die Kontaktdaten, die in jede neue Kundenwebsite einfliessen."""
-    st.subheader("Geschäfts- und Kontaktdaten des Kunden")
+    language = str(st.session_state.app_language)
+    copy_by_language = {
+        "de": ["Geschäfts- und Kontaktdaten des Kunden", "E-Mail-Adresse für Kundenanfragen", "z. B. info@unternehmen.de", "Offizieller Unternehmensname", "z. B. Autohaus Müller GmbH", "Slogan oder Hauptüberschrift (optional)", "z. B. Ihr Partner für Qualität und Vertrauen", "Telefonnummer (optional)", "z. B. +49 30 123456", "Web3Forms Access Key (optional)", "Mit diesem Schlüssel erhält die generierte Website ein Web3Forms-Kontaktformular.", "Kunden-Chatbot konfigurieren", "Allgemeiner Kundenservice", "Der Chatbot erhält automatisch Basiswissen über die Branche: {industry}. Er wird beim Erstellen in die Kundenwebsite eingefügt. Für KI-Antworten nach der Veröffentlichung muss im Vercel-Projekt einmalig HF_API_KEY gesetzt sein.", "Hinterlegen Sie die Firmendaten, die der Chatbot Ihren Website-Besuchern nennen darf.", "Öffnungszeiten", "z. B. Mo-Fr: 08:00-17:00 Uhr", "Telefon und weitere Kontaktwege", "z. B. +49 30 123456 oder info@unternehmen.de", "Preise und wichtige Leistungen", "z. B. Erstberatung kostenlos, Wartung ab 89 Euro", "Notfall und Bereitschaft", "z. B. Notdienst unter +49 171 123456", "Chat-Designfarbe", "Form des Chat-Icons", "Chatbot-Figur", "Name des Chatbots", "Position des Chatbots", "Beim Scrollen sichtbar halten", "Aktiv: Der Chatbot bleibt am Bildschirmrand. Deaktiviert: Er steht am Ende der Seite.", "Chatbot bereit: Die Firmendaten werden automatisch in Vorschau, ZIP und veröffentlichte Website übernommen.", "Empfehlung: Ergänzen Sie Öffnungszeiten, Leistungen, Preise oder den Notdienst. Ohne eigene Angaben verwendet der Chatbot das Branchenwissen und eine sichere Kontaktantwort."],
+        "en": ["Customer business and contact details", "Email address for customer enquiries", "e.g. info@company.com", "Official company name", "e.g. Example Company Ltd", "Slogan or main heading (optional)", "e.g. Your partner for quality and trust", "Phone number (optional)", "e.g. +44 20 1234 5678", "Web3Forms access key (optional)", "This key enables a Web3Forms contact form on the generated website.", "Configure customer chatbot", "General customer service", "The chatbot automatically receives basic knowledge about the industry: {industry}. It is added to the customer website during creation. Set HF_API_KEY once in the Vercel project for AI answers after publishing.", "Enter the company details the chatbot may share with website visitors.", "Opening hours", "e.g. Mon-Fri: 8:00-17:00", "Phone and other contact methods", "e.g. +44 20 1234 5678 or info@company.com", "Prices and key services", "e.g. Free initial consultation, maintenance from EUR 89", "Emergency and on-call service", "e.g. Emergency number +44 7000 123456", "Chat design color", "Chat icon shape", "Chatbot character", "Chatbot name", "Chatbot position", "Keep visible while scrolling", "On: the chatbot remains at the screen edge. Off: it appears at the end of the page.", "Chatbot ready: Company details are automatically included in the preview, ZIP, and published website.", "Recommendation: Add opening hours, services, prices, or emergency information. Without your own details, the chatbot uses industry knowledge and a safe contact response."],
+        "ar": ["بيانات الشركة والاتصال الخاصة بالعميل", "البريد الإلكتروني لاستفسارات العملاء", "مثال: info@company.com", "الاسم الرسمي للشركة", "مثال: شركة النور", "الشعار أو العنوان الرئيسي (اختياري)", "مثال: شريكك للجودة والثقة", "رقم الهاتف (اختياري)", "مثال: +49 30 123456", "مفتاح Web3Forms (اختياري)", "يتيح هذا المفتاح إضافة نموذج اتصال Web3Forms إلى الموقع الناتج.", "إعداد روبوت محادثة العملاء", "خدمة عملاء عامة", "يحصل روبوت المحادثة تلقائياً على معلومات أساسية عن المجال: {industry}. ويُضاف إلى موقع العميل عند إنشائه. للحصول على إجابات الذكاء الاصطناعي بعد النشر، يجب ضبط HF_API_KEY مرة واحدة في مشروع Vercel.", "أدخل بيانات الشركة التي يُسمح لروبوت المحادثة بعرضها لزوار الموقع.", "ساعات العمل", "مثال: الاثنين-الجمعة: 08:00-17:00", "الهاتف ووسائل الاتصال الأخرى", "مثال: +49 30 123456 أو info@company.com", "الأسعار والخدمات المهمة", "مثال: الاستشارة الأولى مجانية، الصيانة من 89 يورو", "الطوارئ وخدمة الاستعداد", "مثال: رقم الطوارئ +49 171 123456", "لون تصميم المحادثة", "شكل أيقونة المحادثة", "شخصية روبوت المحادثة", "اسم روبوت المحادثة", "موضع روبوت المحادثة", "إبقاؤه ظاهراً أثناء التمرير", "عند التفعيل يبقى روبوت المحادثة عند حافة الشاشة، وعند التعطيل يظهر في نهاية الصفحة.", "روبوت المحادثة جاهز: ستُضاف بيانات الشركة تلقائياً إلى المعاينة وملف ZIP والموقع المنشور.", "نصيحة: أضف ساعات العمل والخدمات والأسعار أو معلومات الطوارئ. من دون بياناتك يستخدم الروبوت معلومات المجال وإجابة اتصال آمنة."],
+        "ku": ["زانیاری بازرگانی و پەیوەندیی کڕیار", "ئیمەیڵ بۆ پرسیارەکانی کڕیار", "بۆ نموونە: info@company.com", "ناوی فەرمی کۆمپانیا", "بۆ نموونە: کۆمپانیای ڕووناکی", "دروشـم یان سەردێڕی سەرەکی (ئارەزوومەندانە)", "بۆ نموونە: هاوبەشی تۆ بۆ کوالێتی و متمانە", "ژمارەی تەلەفۆن (ئارەزوومەندانە)", "بۆ نموونە: +49 30 123456", "کلیلی Web3Forms (ئارەزوومەندانە)", "ئەم کلیلە فۆڕمی پەیوەندی Web3Forms بۆ وێبگەی دروستکراو چالاک دەکات.", "ڕێکخستنی چاتبۆتی کڕیار", "خزمەتگوزاری گشتی کڕیار", "چاتبۆتەکە خۆکارانە زانیاری بنەڕەتی دەربارەی بوارەکە وەردەگرێت: {industry}. لە کاتی دروستکردندا زیاد دەکرێت. بۆ وەڵامی زیرەکی دەستکرد دوای بڵاوکردنەوە، HF_API_KEY جارێک لە پڕۆژەی Vercel دابنێ.", "ئەو زانیارییەی کۆمپانیا بنووسە کە چاتبۆت دەتوانێت بە سەردانکەرانی وێبگە بڵێت.", "کاتەکانی کردنەوە", "بۆ نموونە: دووشەممە-هەینی: 08:00-17:00", "تەلەفۆن و ڕێگاکانی تری پەیوەندی", "بۆ نموونە: +49 30 123456 یان info@company.com", "نرخ و خزمەتگوزارییە گرنگەکان", "بۆ نموونە: ڕاوێژکاری یەکەم بەخۆڕاییە", "فریاکەوتن و ئامادەباشی", "بۆ نموونە: ژمارەی فریاکەوتن +49 171 123456", "ڕەنگی دیزاینی چات", "شێوەی ئایکۆنی چات", "کەسایەتی چاتبۆت", "ناوی چاتبۆت", "شوێنی چاتبۆت", "لە کاتی سکرۆڵکردن دیار بێت", "کاتێک چالاکە چاتبۆت لە کەناری شاشە دەمێنێتەوە؛ کاتێک ناچالاکە لە کۆتایی پەڕە دەردەکەوێت.", "چاتبۆت ئامادەیە: زانیاری کۆمپانیا خۆکارانە دەخرێتە پێشبینین و ZIP و وێبگەی بڵاوکراوە.", "پێشنیار: کاتەکانی کردنەوە، خزمەتگوزاری، نرخ یان زانیاری فریاکەوتن زیاد بکە."],
+    }
+    labels = copy_by_language.get(language, copy_by_language["en"])
+    st.subheader(labels[0])
     contact_column, company_column = st.columns(2)
     with contact_column:
         st.text_input(
-            "E-Mail-Adresse für Kundenanfragen",
-            placeholder="z. B. info@unternehmen.de",
+            labels[1],
+            placeholder=labels[2],
             key="client_business_email",
         )
     with company_column:
         st.text_input(
-            "Offizieller Unternehmensname",
-            placeholder="z. B. Autohaus Müller GmbH",
+            labels[3],
+            placeholder=labels[4],
             key="client_company_name",
         )
     st.text_input(
-        "Slogan oder Hauptüberschrift (optional)",
-        placeholder="z. B. Ihr Partner für Qualität und Vertrauen",
+        labels[5],
+        placeholder=labels[6],
         key="client_company_slogan",
     )
     contact_details_column, form_column = st.columns(2)
     with contact_details_column:
         st.text_input(
-            "Telefonnummer (optional)",
-            placeholder="z. B. +49 30 123456",
+            labels[7],
+            placeholder=labels[8],
             key="client_business_phone",
         )
     with form_column:
         st.text_input(
-            "Web3Forms Access Key (optional)",
+            labels[9],
             type="password",
-            help="Mit diesem Schlüssel erhält die generierte Website ein Web3Forms-Kontaktformular.",
+            help=labels[10],
             key="client_web3forms_access_key",
         )
     industry = str(st.session_state.get("industry_content_preset", ""))
-    industry_knowledge = industry if industry in INDUSTRY_CONTENT_PRESETS else "Allgemeiner Kundenservice"
-    st.subheader("Kunden-Chatbot konfigurieren", anchor=False)
+    industry_knowledge = industry if industry in INDUSTRY_CONTENT_PRESETS else labels[12]
+    st.subheader(labels[11], anchor=False)
     st.info(
-        f"Der Chatbot erhält automatisch Basiswissen über die Branche: {industry_knowledge}. "
-        "Er wird beim Erstellen in die Kundenwebsite eingefügt. Für KI-Antworten nach "
-        "der Veröffentlichung muss im Vercel-Projekt einmalig HF_API_KEY gesetzt sein."
+        labels[13].format(industry=industry_knowledge)
     )
-    st.write("Hinterlegen Sie die Firmendaten, die der Chatbot Ihren Website-Besuchern nennen darf.")
+    st.write(labels[14])
     hours_column, contact_column = st.columns(2)
     with hours_column:
         st.text_input(
-            "Öffnungszeiten",
-            placeholder="z. B. Mo-Fr: 08:00-17:00 Uhr",
+            labels[15],
+            placeholder=labels[16],
             key="client_chatbot_hours",
         )
         st.text_input(
-            "Telefon und weitere Kontaktwege",
-            placeholder="z. B. +49 30 123456 oder info@unternehmen.de",
+            labels[17],
+            placeholder=labels[18],
             key="client_chatbot_contact",
         )
     with contact_column:
         st.text_area(
-            "Preise und wichtige Leistungen",
-            placeholder="z. B. Erstberatung kostenlos, Wartung ab 89 Euro",
+            labels[19],
+            placeholder=labels[20],
             key="client_chatbot_services",
             height=100,
         )
         st.text_input(
-            "Notfall und Bereitschaft",
-            placeholder="z. B. Notdienst unter +49 171 123456",
+            labels[21],
+            placeholder=labels[22],
             key="client_chatbot_emergency",
         )
+    option_copy = {
+        "ar": {"Rund (Kreis)": "دائري", "Eckig mit Rundung": "بحواف مستديرة", "Quadratisch": "مربع", "Freundlicher Roboter": "روبوت ودود", "Salon-Stylistin": "خبيرة تصفيف", "Werkstatt-Profi": "خبير ورشة", "Praxis-Begleitung": "مساعد العيادة", "Gastronomie-Service": "مساعد المطعم", "Shop-Beratung": "مساعد المتجر", "Unten rechts": "أسفل اليمين", "Unten links": "أسفل اليسار"},
+        "ku": {"Rund (Kreis)": "بازنەیی", "Eckig mit Rundung": "گۆشەی خڕ", "Quadratisch": "چوارگۆشە", "Freundlicher Roboter": "ڕۆبۆتی دۆستانە", "Salon-Stylistin": "پسپۆڕی جوانکاری", "Werkstatt-Profi": "پسپۆڕی وەرشە", "Praxis-Begleitung": "یاریدەدەری کلینیک", "Gastronomie-Service": "یاریدەدەری چێشتخانە", "Shop-Beratung": "ڕاوێژکاری فرۆشگا", "Unten rechts": "خوارەوە لای ڕاست", "Unten links": "خوارەوە لای چەپ"},
+    }.get(language, {})
+    display_option = lambda option: option_copy.get(option, option)
     color_column, shape_column, figure_column, name_column = st.columns(4)
     with color_column:
         st.color_picker(
-            "Chat-Designfarbe",
+            labels[23],
             "#2563EB",
             key="customer_chatbot_color",
         )
     with shape_column:
         st.selectbox(
-            "Form des Chat-Icons",
+            labels[24],
             ["Rund (Kreis)", "Eckig mit Rundung", "Quadratisch"],
+            format_func=display_option,
             key="customer_chatbot_shape",
         )
     with figure_column:
         st.selectbox(
-            "Chatbot-Figur",
+            labels[25],
             ["Freundlicher Roboter", "Salon-Stylistin", "Werkstatt-Profi", "Praxis-Begleitung", "Gastronomie-Service", "Shop-Beratung"],
+            format_func=display_option,
             key="customer_chatbot_figure",
         )
     with name_column:
         st.text_input(
-            "Name des Chatbots",
+            labels[26],
             key="customer_chatbot_name",
         )
     position_column, behavior_column = st.columns(2)
     with position_column:
         st.segmented_control(
-            "Position des Chatbots",
+            labels[27],
             ["Unten rechts", "Unten links"],
             default="Unten rechts",
+            format_func=display_option,
             key="customer_chatbot_position",
         )
     with behavior_column:
         st.checkbox(
-            "Beim Scrollen sichtbar halten",
+            labels[28],
             value=True,
             key="customer_chatbot_fixed",
-            help="Aktiv: Der Chatbot bleibt am Bildschirmrand. Deaktiviert: Er steht am Ende der Seite.",
+            help=labels[29],
         )
     chatbot_knowledge = get_configured_chatbot_knowledge()
     has_business_knowledge = any(
@@ -2681,15 +2695,9 @@ def render_client_contact_ui() -> None:
         )
     )
     if has_business_knowledge:
-        st.success(
-            "Chatbot bereit: Die Firmendaten werden beim Übernehmen der Vorlage automatisch "
-            "in Vorschau, ZIP und veröffentlichte Website übernommen."
-        )
+        st.success(labels[30])
     else:
-        st.caption(
-            "Empfehlung: Ergänzen Sie Öffnungszeiten, Leistungen, Preise oder den Notdienst. "
-            "Ohne eigene Angaben verwendet der Chatbot das Branchenwissen und eine sichere Kontaktantwort."
-        )
+        st.caption(labels[31])
 
 
 def render_language_selector() -> tuple[dict[str, str], str]:
