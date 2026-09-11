@@ -4795,13 +4795,18 @@ def render_industry_content_preset_ui() -> None:
         "ku": {"Bitte wählen...": labels["choose"], "Kfz-Meisterwerkstatt": "وەرشەی پسپۆڕی ئۆتۆمبێل", "Friseursalon": "سالۆنی قژبڕین و جوانکاری", "Dachdeckerfachbetrieb": "کۆمپانیای پسپۆڕی سەربان", "Physiotherapie-Praxis": "کلینیکی فیزیۆتێراپی", "Restaurant": "چێشتخانە", "Café und Bäckerei": "کافێ و نانەواخانە", "Onlineshop": "فرۆشگای ئۆنلاین", OTHER_INDUSTRY_OPTION: labels["other"]},
     }.get(language, {"Bitte wählen...": labels["choose"], OTHER_INDUSTRY_OPTION: labels["other"]})
     display_industry = lambda option: industry_names.get(option, option)
+    industry_options = ["Bitte wählen..."] + list(INDUSTRY_CONTENT_PRESETS) + [OTHER_INDUSTRY_OPTION]
+    selected_industry = str(st.session_state.get("industry_content_preset", "Bitte wählen..."))
+    selected_index = industry_options.index(selected_industry) if selected_industry in industry_options else 0
     st.caption(labels["caption"])
     industry = st.selectbox(
         labels["question"],
-        ["Bitte wählen..."] + list(INDUSTRY_CONTENT_PRESETS) + [OTHER_INDUSTRY_OPTION],
+        industry_options,
+        index=selected_index,
         format_func=display_industry,
-        key="industry_content_preset",
+        key=f"industry_content_preset_{language}",
     )
+    st.session_state.industry_content_preset = industry
     custom_industry = ""
     if industry == OTHER_INDUSTRY_OPTION:
         custom_industry = st.text_input(
