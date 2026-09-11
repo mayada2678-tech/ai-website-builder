@@ -144,17 +144,17 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
                 return;
             }
             const hero = create('div', 'template-hero');
-            const copy = create('div', '');
+            const heroCopy = create('div', '');
             const fields = [['heading', 'h3', 'template-heading'], ['description', 'p', 'template-description'], ['buttonText', 'button', 'template-button']];
             fields.forEach(([key, tag, className]) => {
                 const field = create(tag, className, data[key]);
                 if (key === 'buttonText') field.type = 'button';
                 if (key === 'buttonText') field.onclick = () => setTriggerValue('navigated', 'angebote');
-                copy.append(field);
+                heroCopy.append(field);
             });
             const image = data.imageDataUrl ? create('img', 'template-image') : create('div', 'template-placeholder', copy.imagePlaceholder);
             if (data.imageDataUrl) { image.src = data.imageDataUrl; image.alt = data.companyName; }
-            hero.append(copy, image);
+            hero.append(heroCopy, image);
             const templateSections = create('section', 'template-cards');
             data.templateSections.forEach((section, index) => {
                 const card = create('article', 'template-card');
