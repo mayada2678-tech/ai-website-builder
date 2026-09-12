@@ -166,10 +166,11 @@ def translate_content_fields(
                 "role": "system",
                 "content": (
                     f"Translate every natural-language value in the JSON object into {target_language}. "
-                    "Return exactly the same keys as a flat JSON object. Translate sample company names "
-                    "and all headings, descriptions, labels, service lists, offers, footer text, and chatbot "
+                    "Return exactly the same keys as a flat JSON object. Translate company names that are "
+                    "part of this generated template, including names such as Restaurant Genusszeit, and "
+                    "all headings, descriptions, labels, service lists, offers, footer text, and chatbot "
                     "content. Preserve line breaks, separators such as |, HTML entities, email addresses, "
-                    "URLs, numbers, currency amounts, and brand names supplied by a real customer. Return "
+                    "URLs, numbers, and currency amounts. Return "
                     "JSON only and do not add or remove fields."
                 ),
             },

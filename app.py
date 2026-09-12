@@ -1511,6 +1511,27 @@ def apply_app_language() -> None:
     ]
     language = str(st.session_state.app_language)
     source_preset = st.session_state.get("industry_source_preset")
+    if not isinstance(source_preset, dict):
+        selected_industry = str(
+            st.session_state.get("industry_content_preset", "")
+        )
+        available_presets = globals().get("INDUSTRY_CONTENT_PRESETS", {})
+        source_preset = available_presets.get(selected_industry)
+        other_industry = globals().get("OTHER_INDUSTRY_OPTION")
+        custom_industry = str(
+            st.session_state.get("custom_industry_name", "")
+        ).strip()
+        generic_preset_builder = globals().get("build_generic_industry_preset")
+        if (
+            source_preset is None
+            and selected_industry == other_industry
+            and custom_industry
+            and callable(generic_preset_builder)
+        ):
+            source_preset = generic_preset_builder(custom_industry)
+        if isinstance(source_preset, dict):
+            source_preset = dict(source_preset)
+            st.session_state.industry_source_preset = source_preset
     if isinstance(source_preset, dict):
         try:
             translated_preset = translate_content_fields_with_mcp(
@@ -2757,6 +2778,12 @@ def render_client_contact_ui() -> None:
 
 def render_language_selector() -> tuple[dict[str, str], str]:
     """Leitet Website-Sprache und Leserichtung aus der globalen Sprachwahl ab."""
+    language = str(st.session_state.app_language)
+    if (
+        st.session_state.get("industry_preset_applied")
+        and st.session_state.get("industry_preset_language") != language
+    ):
+        apply_app_language()
     target_language = TARGET_LANGUAGE_BY_APP_CODE[st.session_state.app_language]
     st.session_state.target_language = target_language
     translation_error = str(
