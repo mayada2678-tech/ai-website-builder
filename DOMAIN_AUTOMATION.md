@@ -48,8 +48,12 @@ VERCEL_CNAME_TARGET=cname.vercel-dns.com
 Register this Stripe endpoint:
 
 ```text
-https://YOUR-WEBHOOK-PROJECT.vercel.app/api/stripe_webhook
+https://website-domain-webhook.vercel.app/api/stripe_webhook
 ```
+
+The Stripe test endpoint is registered as `we_1UElXKRiHK1kZVcgwSrF3EfK`.
+Its signing secret is stored as an encrypted Vercel environment variable and
+must not be copied into source control.
 
 Subscribe to:
 
@@ -57,6 +61,18 @@ Subscribe to:
 - `checkout.session.async_payment_succeeded`
 
 Use the signing secret belonging to this exact Dashboard webhook endpoint. Stripe CLI webhook secrets are different.
+
+The deployed webhook project still requires these INWX OTE values before an
+end-to-end test purchase can provision a domain:
+
+```text
+INWX_USERNAME
+INWX_PASSWORD
+INWX_REGISTRANT_HANDLE
+INWX_ADMIN_HANDLE
+INWX_TECH_HANDLE
+INWX_BILLING_HANDLE
+```
 
 ## Live activation
 

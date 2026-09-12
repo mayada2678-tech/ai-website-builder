@@ -1,0 +1,11 @@
+[project]
+name = "ai-website-builder-webhook"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "requests",
+    "stripe",
+]
+
+[tool.vercel]
+entrypoint = "api.stripe_webhook:handler"
