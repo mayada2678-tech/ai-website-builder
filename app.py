@@ -4452,6 +4452,17 @@ def publish_website() -> None:
         )
 
     deployment = wait_for_vercel_deployment(deployment_id)
+    if project_id:
+        final_access_warning = configure_public_vercel_project(project_id)
+        if final_access_warning:
+            existing_warning = str(
+                st.session_state.get("chatbot_environment_warning", "")
+            ).strip()
+            st.session_state.chatbot_environment_warning = "\n\n".join(
+                warning
+                for warning in (existing_warning, final_access_warning)
+                if warning
+            )
 
     # project_name hier NICHT verändern: Es gehört zum Streamlit-Textfeld.
     st.session_state.live_url = get_public_url(deployment)
