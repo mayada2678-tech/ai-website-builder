@@ -1941,13 +1941,13 @@ def build_chat_api_route(chatbot_knowledge: str) -> str:
         """Erstellt eine Vercel-Route, die den Hugging-Face-Schlüssel serverseitig hält."""
         language = str(st.session_state.app_language)
         api_copy = {
-            "de": {"name": "Deutsch", "fallback": "Vielen Dank für Ihre Frage. Bitte kontaktieren Sie uns über die Kontaktmöglichkeiten der Website.", "invalid": "Bitte senden Sie eine gültige Frage."},
-            "en": {"name": "English", "fallback": "Thank you for your question. Please contact us using the contact details on this website.", "invalid": "Please send a valid question."},
-            "ar": {"name": "Arabic", "fallback": "شكراً لسؤالك. يرجى التواصل معنا عبر بيانات الاتصال الموجودة في الموقع.", "invalid": "يرجى إرسال سؤال صحيح."},
-            "ku": {"name": "Sorani Kurdish", "fallback": "سوپاس بۆ پرسیارەکەت. تکایە بە زانیاری پەیوەندیی ناو وێبگەکە پەیوەندیمان پێوە بکە.", "invalid": "تکایە پرسیارێکی دروست بنێرە."},
-            "es": {"name": "Spanish", "fallback": "Gracias por tu pregunta. Contáctanos mediante los datos de contacto del sitio web.", "invalid": "Envía una pregunta válida."},
-            "it": {"name": "Italian", "fallback": "Grazie per la domanda. Contattaci tramite i recapiti presenti sul sito.", "invalid": "Invia una domanda valida."},
-            "hi": {"name": "Hindi", "fallback": "आपके प्रश्न के लिए धन्यवाद। वेबसाइट पर दिए गए संपर्क विवरण से हमसे संपर्क करें।", "invalid": "कृपया एक मान्य प्रश्न भेजें।"},
+            "de": {"name": "Deutsch", "fallback": "Gerne helfe ich weiter. Fragen Sie mich zu unserem Angebot oder erzählen Sie mir, wobei ich Sie unterstützen darf.", "hello": "Hallo! Schön, dass Sie da sind. Wie kann ich Ihnen helfen?", "thanks": "Sehr gern. Haben Sie noch eine Frage?", "bye": "Auf Wiedersehen und einen schönen Tag!", "invalid": "Bitte senden Sie eine gültige Frage."},
+            "en": {"name": "English", "fallback": "I am happy to help. Ask me about our services or tell me what you need.", "hello": "Hello! It is nice to meet you. How can I help?", "thanks": "You are welcome. Is there anything else I can help with?", "bye": "Goodbye and have a wonderful day!", "invalid": "Please send a valid question."},
+            "ar": {"name": "Arabic", "fallback": "يسعدني مساعدتك. اسألني عن خدماتنا أو أخبرني بما تحتاج إليه.", "hello": "مرحباً! يسعدني وجودك هنا. كيف يمكنني مساعدتك؟", "thanks": "على الرحب والسعة. هل لديك سؤال آخر؟", "bye": "إلى اللقاء، ونتمنى لك يوماً سعيداً!", "invalid": "يرجى إرسال سؤال صحيح."},
+            "ku": {"name": "Sorani Kurdish", "fallback": "بە خۆشحاڵییەوە یارمەتیت دەدەم. دەربارەی خزمەتگوزارییەکانمان بپرسە یان پێم بڵێ چیت پێویستە.", "hello": "سڵاو! خۆشحاڵم کە لێرەیت. چۆن دەتوانم یارمەتیت بدەم؟", "thanks": "بەخێربێیت. پرسیارێکی ترت هەیە؟", "bye": "خواحافیز و ڕۆژێکی خۆشت هەبێت!", "invalid": "تکایە پرسیارێکی دروست بنێرە."},
+            "es": {"name": "Spanish", "fallback": "Estaré encantado de ayudarte. Pregúntame por nuestros servicios o dime qué necesitas.", "hello": "¡Hola! Me alegra verte. ¿Cómo puedo ayudarte?", "thanks": "De nada. ¿Puedo ayudarte con algo más?", "bye": "¡Hasta pronto y que tengas un buen día!", "invalid": "Envía una pregunta válida."},
+            "it": {"name": "Italian", "fallback": "Sarò felice di aiutarti. Chiedimi dei nostri servizi o dimmi di cosa hai bisogno.", "hello": "Ciao! È un piacere averti qui. Come posso aiutarti?", "thanks": "Prego. Posso aiutarti con qualcos'altro?", "bye": "Arrivederci e buona giornata!", "invalid": "Invia una domanda valida."},
+            "hi": {"name": "Hindi", "fallback": "मुझे आपकी सहायता करके खुशी होगी। हमारी सेवाओं के बारे में पूछें या बताएं कि आपको क्या चाहिए।", "hello": "नमस्ते! आपका स्वागत है। मैं आपकी कैसे सहायता कर सकता हूं?", "thanks": "आपका स्वागत है। क्या मैं किसी और चीज में सहायता कर सकता हूं?", "bye": "फिर मिलेंगे, आपका दिन शुभ हो!", "invalid": "कृपया एक मान्य प्रश्न भेजें।"},
         }.get(language)
         if api_copy is None:
             api_copy = {"name": "English", "fallback": "Please contact us using the contact details on this website.", "invalid": "Please send a valid question."}
@@ -1960,7 +1960,7 @@ def build_chat_api_route(chatbot_knowledge: str) -> str:
         return f'''const CHATBOT_KNOWLEDGE = {knowledge_json};
     const CHAT_LANGUAGE = "{language}";
     const CHAT_COPY = {copy_json};
-    const MODEL_URL = "https://router.huggingface.co/hf-inference/models/HuggingFaceH4/zephyr-7b-beta";
+    const MODEL_URL = "https://router.huggingface.co/hf-inference/models/Qwen/Qwen2.5-7B-Instruct";
     const FALLBACK_ANSWER = CHAT_COPY.fallback;
 
 function findDetail(...labels) {{
@@ -1989,7 +1989,15 @@ function targetedAnswer(question) {{
     if (/(notfall|dringend|bereit|panne)/.test(normalized) && emergency) return emergency;
     if (/(über euch|über sie|unternehmen|firma|wer seid|wer sind sie)/.test(normalized) && description) return company ? `${{company}}: ${{description}}` : description;
     if (/(hallo|guten tag|hilfe|was machen sie|wer sind sie)/.test(normalized) && services) return `Gerne helfe ich weiter. Wir bieten unter anderem ${{services}}.`;
-    return "Bitte kontaktieren Sie uns direkt über die Kontaktmöglichkeiten der Website. Dort erhalten Sie eine verlässliche Auskunft zu Ihrem Anliegen.";
+    return "";
+}}
+
+function offlineAnswer(question) {{
+    const normalized = question.toLocaleLowerCase();
+    if (/(^|\\s)(hallo|hi|hey|hello|hola|ciao|مرحبا|أهلا|سڵاو|नमस्ते)(\\s|$|!)/u.test(normalized)) return CHAT_COPY.hello;
+    if (/(danke|thank|gracias|grazie|شكرا|سوپاس|धन्यवाद)/u.test(normalized)) return CHAT_COPY.thanks;
+    if (/(tschüss|auf wiedersehen|goodbye|bye|adiós|arrivederci|مع السلامة|خواحافیز|अलविदा)/u.test(normalized)) return CHAT_COPY.bye;
+    return CHAT_COPY.fallback;
 }}
 
 export default async function handler(request, response) {{
@@ -2016,10 +2024,10 @@ export default async function handler(request, response) {{
 
     const apiKey = process.env.HF_API_KEY;
     if (!apiKey) {{
-        return response.status(200).json({{ answer: FALLBACK_ANSWER }});
+        return response.status(200).json({{ answer: offlineAnswer(question) }});
     }}
 
-    const prompt = `<|system|>You are a friendly customer-service assistant. Respond only in ${{CHAT_COPY.name}}, precisely and in no more than two sentences. Use only these verified company details: ${{CHATBOT_KNOWLEDGE}}. If the answer is not contained there, direct the visitor to the website contact details. Never invent facts.</s><|user|>${{question}}</s><|assistant|>`;
+    const prompt = `<|im_start|>system\nYou are a warm, intelligent customer-service assistant. Respond only in ${{CHAT_COPY.name}} and keep answers concise. Hold natural conversations, including greetings, thanks, farewells, and light small talk. For factual questions about the company, use only the verified details below and never invent prices, opening hours, availability, policies, or contact details. If a requested company fact is unavailable, say so naturally and offer the website contact options. Verified company details:\n${{CHATBOT_KNOWLEDGE}}<|im_end|>\n<|im_start|>user\n${{question}}<|im_end|>\n<|im_start|>assistant\n`;
     try {{
         const hfResponse = await fetch(MODEL_URL, {{
             method: "POST",
@@ -2028,13 +2036,13 @@ export default async function handler(request, response) {{
         }});
         const data = await hfResponse.json();
         if (!hfResponse.ok) {{
-            return response.status(200).json({{ answer: FALLBACK_ANSWER }});
+            return response.status(200).json({{ answer: offlineAnswer(question) }});
         }}
         const generated = Array.isArray(data) ? data[0]?.generated_text : data.generated_text;
-        const answer = typeof generated === "string" ? generated.split("<|assistant|>").pop().trim() : "";
-        return response.status(200).json({{ answer: answer || FALLBACK_ANSWER }});
+        const answer = typeof generated === "string" ? generated.split("<|im_start|>assistant").pop().replace("<|im_end|>", "").trim() : "";
+        return response.status(200).json({{ answer: answer || offlineAnswer(question) }});
     }} catch (error) {{
-        return response.status(200).json({{ answer: FALLBACK_ANSWER }});
+        return response.status(200).json({{ answer: offlineAnswer(question) }});
     }}
 }}
 '''
@@ -2418,13 +2426,13 @@ def build_customer_chatbot_widget(
     """Erstellt den Kunden-Chatbot vollständig in der gewählten App-Sprache."""
     language = str(st.session_state.app_language)
     copy_by_language = {
-        "de": {"service": "Kundenservice", "open": "Chatbot öffnen", "welcome": "Hallo! Wie können wir Ihnen helfen?", "question": "Frage eingeben...", "send": "Senden", "loading": "Antwort wird erstellt ...", "fallback": "Bitte kontaktieren Sie uns direkt über die Kontaktmöglichkeiten der Website."},
-        "en": {"service": "Customer service", "open": "Open chatbot", "welcome": "Hello! How can we help you?", "question": "Enter your question...", "send": "Send", "loading": "Creating an answer ...", "fallback": "Please contact us directly using the contact details on this website."},
-        "ar": {"service": "خدمة العملاء", "open": "فتح المحادثة", "welcome": "مرحباً! كيف يمكننا مساعدتك؟", "question": "اكتب سؤالك...", "send": "إرسال", "loading": "جارٍ إعداد الإجابة...", "fallback": "يرجى التواصل معنا مباشرة عبر بيانات الاتصال الموجودة في الموقع."},
-        "ku": {"service": "خزمەتگوزاری کڕیار", "open": "کردنەوەی چات", "welcome": "سڵاو! چۆن دەتوانین یارمەتیت بدەین؟", "question": "پرسیارەکەت بنووسە...", "send": "ناردن", "loading": "وەڵام ئامادە دەکرێت...", "fallback": "تکایە بە ڕێگەی زانیاری پەیوەندیی ناو وێبگەکە ڕاستەوخۆ پەیوەندیمان پێوە بکە."},
-        "es": {"service": "Atención al cliente", "open": "Abrir chat", "welcome": "¡Hola! ¿Cómo podemos ayudarte?", "question": "Escribe tu pregunta...", "send": "Enviar", "loading": "Preparando la respuesta...", "fallback": "Contáctanos directamente mediante los datos de contacto del sitio web."},
-        "it": {"service": "Servizio clienti", "open": "Apri chat", "welcome": "Ciao! Come possiamo aiutarti?", "question": "Scrivi la tua domanda...", "send": "Invia", "loading": "Preparazione della risposta...", "fallback": "Contattaci direttamente tramite i recapiti presenti sul sito."},
-        "hi": {"service": "ग्राहक सेवा", "open": "चैट खोलें", "welcome": "नमस्ते! हम आपकी कैसे सहायता कर सकते हैं?", "question": "अपना प्रश्न लिखें...", "send": "भेजें", "loading": "उत्तर तैयार हो रहा है...", "fallback": "कृपया वेबसाइट पर दिए गए संपर्क विवरण से सीधे हमसे संपर्क करें।"},
+        "de": {"service": "Kundenservice", "open": "Chatbot öffnen", "welcome": "Hallo! Wie können wir Ihnen helfen?", "question": "Frage eingeben...", "send": "Senden", "loading": "Antwort wird erstellt ...", "thanks": "Sehr gern. Haben Sie noch eine Frage?", "bye": "Auf Wiedersehen und einen schönen Tag!", "fallback": "Gerne helfe ich weiter. Fragen Sie mich zu unserem Angebot oder sagen Sie mir, was Sie benötigen."},
+        "en": {"service": "Customer service", "open": "Open chatbot", "welcome": "Hello! How can we help you?", "question": "Enter your question...", "send": "Send", "loading": "Creating an answer ...", "thanks": "You are welcome. Can I help with anything else?", "bye": "Goodbye and have a wonderful day!", "fallback": "I am happy to help. Ask about our services or tell me what you need."},
+        "ar": {"service": "خدمة العملاء", "open": "فتح المحادثة", "welcome": "مرحباً! كيف يمكننا مساعدتك؟", "question": "اكتب سؤالك...", "send": "إرسال", "loading": "جارٍ إعداد الإجابة...", "thanks": "على الرحب والسعة. هل لديك سؤال آخر؟", "bye": "إلى اللقاء، ونتمنى لك يوماً سعيداً!", "fallback": "يسعدني مساعدتك. اسألني عن خدماتنا أو أخبرني بما تحتاج إليه."},
+        "ku": {"service": "خزمەتگوزاری کڕیار", "open": "کردنەوەی چات", "welcome": "سڵاو! چۆن دەتوانین یارمەتیت بدەین؟", "question": "پرسیارەکەت بنووسە...", "send": "ناردن", "loading": "وەڵام ئامادە دەکرێت...", "thanks": "بەخێربێیت. پرسیارێکی ترت هەیە؟", "bye": "خواحافیز و ڕۆژێکی خۆشت هەبێت!", "fallback": "بە خۆشحاڵییەوە یارمەتیت دەدەم. دەربارەی خزمەتگوزارییەکانمان بپرسە."},
+        "es": {"service": "Atención al cliente", "open": "Abrir chat", "welcome": "¡Hola! ¿Cómo podemos ayudarte?", "question": "Escribe tu pregunta...", "send": "Enviar", "loading": "Preparando la respuesta...", "thanks": "De nada. ¿Puedo ayudarte con algo más?", "bye": "¡Hasta pronto y que tengas un buen día!", "fallback": "Estaré encantado de ayudarte. Pregúntame por nuestros servicios o dime qué necesitas."},
+        "it": {"service": "Servizio clienti", "open": "Apri chat", "welcome": "Ciao! Come possiamo aiutarti?", "question": "Scrivi la tua domanda...", "send": "Invia", "loading": "Preparazione della risposta...", "thanks": "Prego. Posso aiutarti con qualcos'altro?", "bye": "Arrivederci e buona giornata!", "fallback": "Sarò felice di aiutarti. Chiedimi dei nostri servizi o dimmi di cosa hai bisogno."},
+        "hi": {"service": "ग्राहक सेवा", "open": "चैट खोलें", "welcome": "नमस्ते! हम आपकी कैसे सहायता कर सकते हैं?", "question": "अपना प्रश्न लिखें...", "send": "भेजें", "loading": "उत्तर तैयार हो रहा है...", "thanks": "आपका स्वागत है। क्या मैं किसी और चीज में सहायता कर सकता हूं?", "bye": "फिर मिलेंगे, आपका दिन शुभ हो!", "fallback": "मुझे आपकी सहायता करके खुशी होगी। हमारी सेवाओं के बारे में पूछें या बताएं कि आपको क्या चाहिए।"},
     }
     copy = copy_by_language.get(language, copy_by_language["en"])
     direction = "rtl" if language in {"ar", "ku"} else "ltr"
@@ -2441,7 +2449,7 @@ def build_customer_chatbot_widget(
 <section id="customer-chat-panel" hidden style="position:absolute;{panel_side}bottom:68px;width:min(340px,calc(100vw - 40px));padding:18px;background:#fff;color:#111827;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.22);text-align:{'right' if direction == 'rtl' else 'left'}">
 <strong>{safe_name}</strong><p id="customer-chat-answer" aria-live="polite" style="margin:10px 0;color:#374151">{escape(copy['welcome'])}</p>
 <form id="customer-chat-form" style="display:flex;gap:6px"><input id="customer-chat-input" aria-label="{escape(copy['question'])}" placeholder="{escape(copy['question'])}" required style="min-width:0;flex:1;padding:8px;text-align:inherit"><button id="customer-chat-send" type="submit" style="border:0;background:{safe_color};color:#fff;padding:8px 12px;cursor:pointer">{escape(copy['send'])}</button></form></section></aside>
-<script>(()=>{{const copy={copy_json};const root=document.getElementById('customer-chatbot');const toggle=document.getElementById('customer-chat-toggle');const panel=document.getElementById('customer-chat-panel');const form=document.getElementById('customer-chat-form');const input=document.getElementById('customer-chat-input');const answer=document.getElementById('customer-chat-answer');const send=document.getElementById('customer-chat-send');const knowledge=root.dataset.knowledge;toggle.onclick=()=>{{panel.hidden=!panel.hidden;toggle.setAttribute('aria-expanded',String(!panel.hidden));if(!panel.hidden)input.focus();}};form.onsubmit=async event=>{{event.preventDefault();const question=input.value.trim();if(!question)return;answer.textContent=copy.loading;input.value='';send.disabled=true;try{{const result=await fetch('/api/chat',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{question,language:'{language}'}})}});const data=await result.json().catch(()=>({{}}));answer.textContent=result.ok&&data.answer?data.answer:(knowledge||copy.fallback);}}catch(error){{answer.textContent=knowledge||copy.fallback;}}finally{{send.disabled=false;}}}};}})();</script>'''
+<script>(()=>{{const copy={copy_json};const root=document.getElementById('customer-chatbot');const toggle=document.getElementById('customer-chat-toggle');const panel=document.getElementById('customer-chat-panel');const form=document.getElementById('customer-chat-form');const input=document.getElementById('customer-chat-input');const answer=document.getElementById('customer-chat-answer');const send=document.getElementById('customer-chat-send');const offlineAnswer=question=>{{const normalized=question.toLocaleLowerCase();if(/(^|\\s)(hallo|hi|hey|hello|hola|ciao|مرحبا|أهلا|سڵاو|नमस्ते)(\\s|$|!)/u.test(normalized))return copy.welcome;if(/(danke|thank|gracias|grazie|شكرا|سوپاس|धन्यवाद)/u.test(normalized))return copy.thanks;if(/(tschüss|auf wiedersehen|goodbye|bye|adiós|arrivederci|مع السلامة|خواحافیز|अलविदा)/u.test(normalized))return copy.bye;return copy.fallback;}};toggle.onclick=()=>{{panel.hidden=!panel.hidden;toggle.setAttribute('aria-expanded',String(!panel.hidden));if(!panel.hidden)input.focus();}};form.onsubmit=async event=>{{event.preventDefault();const question=input.value.trim();if(!question)return;answer.textContent=copy.loading;input.value='';send.disabled=true;try{{const result=await fetch('/api/chat',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{question,language:'{language}'}})}});const data=await result.json().catch(()=>({{}}));answer.textContent=result.ok&&data.answer?data.answer:offlineAnswer(question);}}catch(error){{answer.textContent=offlineAnswer(question);}}finally{{send.disabled=false;}}}};}})();</script>'''
 
 
 def build_customized_template_pages(
@@ -4137,6 +4145,19 @@ def publish_website() -> None:
 def render_domain_and_deployment_ui() -> None:
     """Rendert die Premium-geschuetzte Konfiguration fuer die Vercel-Veröffentlichung."""
     labels = publish_copy()
+    language = str(st.session_state.app_language)
+    domain_copy_by_language = {
+        "de": ["Live-Vorschau des Entwurfs öffnen", "Wunschadresse festlegen", "Wählen Sie die Adresse für Ihre Website, bevor Sie das Abonnement abschließen.", "Adresse wählen", "Vercel-Projektadresse", "Eigene Domain verbinden", "Name für die Vercel-Projektadresse", "z. B. autohaus-mueller", "Vercel vergibt die endgültige .vercel.app-Adresse beim Deployment.", "Geplante Adresse: {address}", "Sie können Ihre Website jetzt live schalten."],
+        "en": ["Open live draft preview", "Choose your preferred address", "Choose the address for your website before completing the subscription.", "Choose address", "Vercel project address", "Connect your own domain", "Name for the Vercel project address", "e.g. example-company", "Vercel assigns the final .vercel.app address during deployment.", "Planned address: {address}", "You can publish your website now."],
+        "ar": ["فتح المعاينة المباشرة للمسودة", "تحديد العنوان المطلوب", "اختر عنوان موقعك قبل إكمال الاشتراك.", "اختيار العنوان", "عنوان مشروع Vercel", "ربط نطاقك الخاص", "اسم عنوان مشروع Vercel", "مثال: example-company", "يحدد Vercel عنوان .vercel.app النهائي عند النشر.", "العنوان المخطط: {address}", "يمكنك نشر موقعك الآن."],
+        "ku": ["کردنەوەی پێشبینینی ڕاستەوخۆی ڕەشنووس", "دیاریکردنی ناونیشانی دڵخواز", "پێش تەواوکردنی بەشداریکردن ناونیشانی وێبگەکەت هەڵبژێرە.", "هەڵبژاردنی ناونیشان", "ناونیشانی پڕۆژەی Vercel", "بەستنەوەی دۆمەینی خۆت", "ناوی ناونیشانی پڕۆژەی Vercel", "بۆ نموونە: example-company", "Vercel لە کاتی بڵاوکردنەوە ناونیشانی کۆتایی .vercel.app دیاری دەکات.", "ناونیشانی پلانکراو: {address}", "ئێستا دەتوانیت وێبگەکەت بڵاوبکەیتەوە."],
+        "es": ["Abrir vista previa del borrador", "Definir la dirección deseada", "Elija la dirección de su sitio antes de completar la suscripción.", "Elegir dirección", "Dirección del proyecto Vercel", "Conectar dominio propio", "Nombre de la dirección del proyecto Vercel", "p. ej. empresa-ejemplo", "Vercel asigna la dirección .vercel.app definitiva durante la publicación.", "Dirección prevista: {address}", "Ya puede publicar su sitio web."],
+        "it": ["Apri l'anteprima della bozza", "Imposta l'indirizzo desiderato", "Scegliete l'indirizzo del sito prima di completare l'abbonamento.", "Scegli indirizzo", "Indirizzo del progetto Vercel", "Collega il tuo dominio", "Nome dell'indirizzo del progetto Vercel", "ad es. azienda-esempio", "Vercel assegna l'indirizzo .vercel.app definitivo durante la pubblicazione.", "Indirizzo previsto: {address}", "Ora potete pubblicare il sito."],
+        "hi": ["प्रारूप का लाइव पूर्वावलोकन खोलें", "पसंदीदा पता निर्धारित करें", "सदस्यता पूरी करने से पहले अपनी वेबसाइट का पता चुनें।", "पता चुनें", "Vercel परियोजना पता", "अपना डोमेन जोड़ें", "Vercel परियोजना पते का नाम", "उदा. example-company", "प्रकाशन के समय Vercel अंतिम .vercel.app पता निर्धारित करता है।", "नियोजित पता: {address}", "अब आप अपनी वेबसाइट प्रकाशित कर सकते हैं।"],
+    }
+    domain_labels = domain_copy_by_language.get(language, domain_copy_by_language["en"])
+    domain_options = ["Vercel-Projektadresse", "Eigene Domain verbinden"]
+    domain_option_labels = dict(zip(domain_options, domain_labels[4:6]))
     st.header(labels["title"])
 
     if not st.session_state.generated_html:
@@ -4151,32 +4172,35 @@ def render_domain_and_deployment_ui() -> None:
 
     if st.session_state.get("creation_mode") == "Professionelle Vorlage":
         if st.button(
-            "Live-Vorschau des Entwurfs öffnen",
+            domain_labels[0],
             icon=":material/visibility:",
             key="open_full_draft_preview",
             width="stretch",
         ):
             show_full_draft_preview()
 
-    st.subheader("Wunschadresse festlegen")
-    st.caption("Wählen Sie die Adresse für Ihre Website, bevor Sie das Abonnement abschließen.")
+    st.subheader(domain_labels[1])
+    st.caption(domain_labels[2])
     domain_type = st.radio(
-        "Adresse wählen",
-        ["Vercel-Projektadresse", "Eigene Domain verbinden"],
+        domain_labels[3],
+        domain_options,
+        format_func=lambda option: domain_option_labels[option],
         key="domain_type",
     )
     requested_name = ""
     if domain_type == "Vercel-Projektadresse":
         requested_name = st.text_input(
-            "Name für die Vercel-Projektadresse",
+            domain_labels[6],
             value=st.session_state.project_name,
-            placeholder="z. B. autohaus-mueller",
+            placeholder=domain_labels[7],
             key="deployment_project_name",
-            help="Vercel vergibt die endgültige .vercel.app-Adresse beim Deployment.",
+            help=domain_labels[8],
         )
         if requested_name:
             st.caption(
-                f"Geplante Adresse: {safe_project_name(requested_name)}.vercel.app"
+                domain_labels[9].format(
+                    address=f"{safe_project_name(requested_name)}.vercel.app"
+                )
             )
     else:
         with st.expander("Domain kaufen und verbinden: Anleitung", expanded=True):
@@ -4302,8 +4326,8 @@ def render_domain_and_deployment_ui() -> None:
         )
     else:
         st.info(
-            f"Kostenlose Testphase aktiv: noch etwa {user_info['trial_remaining_hours']} Stunden. "
-            "Sie können Ihre Website jetzt live schalten."
+            f"{workspace_copy()['trial_active'].format(hours=user_info['trial_remaining_hours'])} "
+            f"{domain_labels[10]}"
         )
     st.divider()
     st.subheader("Veröffentlichung mit Chatbot", anchor=False)
@@ -4806,53 +4830,72 @@ def build_generic_industry_preset(industry: str) -> dict[str, str]:
 
 def get_configured_chatbot_knowledge() -> str:
     """Kombiniert Branchenwissen mit den strukturierten Firmendaten des Kunden."""
+    language = str(st.session_state.app_language)
+    knowledge_copy = {
+        "de": ["Branche", "Unternehmen", "Unternehmensbeschreibung", "Öffnungszeiten", "Kontaktwege", "Preise und Leistungen", "Notfall und Bereitschaft", "Telefon", "Typische Leistungen dieser Branche", "Standardhinweis: Öffnungszeiten, Preise und konkrete Verfügbarkeiten liegen nicht vor. Verweise dafür auf die Kontaktmöglichkeiten der Website.", "Allgemeiner Kundenservice"],
+        "en": ["Industry", "Company", "Company description", "Opening hours", "Contact methods", "Prices and services", "Emergency and on-call service", "Phone", "Typical services in this industry", "Note: Opening hours, prices, and specific availability are not provided. Refer visitors to the website contact details.", "General customer service"],
+        "ar": ["المجال", "الشركة", "وصف الشركة", "ساعات العمل", "وسائل الاتصال", "الأسعار والخدمات", "الطوارئ وخدمة الاستعداد", "الهاتف", "الخدمات المعتادة في هذا المجال", "ملاحظة: لا تتوفر ساعات العمل أو الأسعار أو معلومات التوفر المحددة. يُرجى توجيه الزوار إلى بيانات الاتصال في الموقع.", "خدمة العملاء العامة"],
+        "ku": ["بوار", "کۆمپانیا", "وەسفی کۆمپانیا", "کاتەکانی کردنەوە", "ڕێگاکانی پەیوەندی", "نرخ و خزمەتگوزارییەکان", "فریاکەوتن و ئامادەباشی", "تەلەفۆن", "خزمەتگوزارییە باوەکانی ئەم بوارە", "تێبینی: کاتەکانی کردنەوە، نرخ و بەردەستبوونی دیاریکراو نەدراون. سەردانکەران بۆ زانیاری پەیوەندیی وێبگەکە ڕێنمایی بکە.", "خزمەتگوزاری گشتی کڕیار"],
+        "es": ["Sector", "Empresa", "Descripción de la empresa", "Horario", "Métodos de contacto", "Precios y servicios", "Emergencias y guardias", "Teléfono", "Servicios habituales del sector", "Nota: No se dispone de horarios, precios ni disponibilidad concreta. Remita a los visitantes a los datos de contacto del sitio web.", "Atención general al cliente"],
+        "it": ["Settore", "Azienda", "Descrizione dell'azienda", "Orari di apertura", "Metodi di contatto", "Prezzi e servizi", "Emergenze e reperibilità", "Telefono", "Servizi tipici del settore", "Nota: Orari, prezzi e disponibilità specifiche non sono indicati. Indirizzate i visitatori ai recapiti del sito.", "Servizio clienti generale"],
+        "hi": ["उद्योग", "कंपनी", "कंपनी का विवरण", "कार्य समय", "संपर्क के तरीके", "मूल्य और सेवाएं", "आपातकालीन और ऑन-कॉल सेवा", "फोन", "इस उद्योग की सामान्य सेवाएं", "नोट: कार्य समय, मूल्य और निश्चित उपलब्धता नहीं दी गई है। आगंतुकों को वेबसाइट के संपर्क विवरण पर भेजें।", "सामान्य ग्राहक सेवा"],
+    }
+    labels = knowledge_copy.get(language, knowledge_copy["en"])
+    industry_names = {
+        "en": {"Kfz-Meisterwerkstatt": "Automotive workshop", "Friseursalon": "Hair salon", "Dachdeckerfachbetrieb": "Roofing company", "Physiotherapie-Praxis": "Physiotherapy clinic", "Restaurant": "Restaurant", "Café und Bäckerei": "Cafe and bakery", "Onlineshop": "Online shop"},
+        "ar": {"Kfz-Meisterwerkstatt": "ورشة سيارات متخصصة", "Friseursalon": "صالون حلاقة وتجميل", "Dachdeckerfachbetrieb": "شركة أسقف متخصصة", "Physiotherapie-Praxis": "عيادة علاج طبيعي", "Restaurant": "مطعم", "Café und Bäckerei": "مقهى ومخبز", "Onlineshop": "متجر إلكتروني"},
+        "ku": {"Kfz-Meisterwerkstatt": "وەرشەی پسپۆڕی ئۆتۆمبێل", "Friseursalon": "سالۆنی قژبڕین", "Dachdeckerfachbetrieb": "کۆمپانیای سەربان", "Physiotherapie-Praxis": "کلینیکی فیزیۆتێراپی", "Restaurant": "چێشتخانە", "Café und Bäckerei": "کافێ و نانەواخانە", "Onlineshop": "فرۆشگای ئۆنلاین"},
+        "es": {"Kfz-Meisterwerkstatt": "Taller de automóviles", "Friseursalon": "Peluquería", "Dachdeckerfachbetrieb": "Empresa de cubiertas", "Physiotherapie-Praxis": "Clínica de fisioterapia", "Restaurant": "Restaurante", "Café und Bäckerei": "Cafetería y panadería", "Onlineshop": "Tienda en línea"},
+        "it": {"Kfz-Meisterwerkstatt": "Officina automobilistica", "Friseursalon": "Salone di parrucchieri", "Dachdeckerfachbetrieb": "Impresa di coperture", "Physiotherapie-Praxis": "Studio di fisioterapia", "Restaurant": "Ristorante", "Café und Bäckerei": "Caffetteria e panetteria", "Onlineshop": "Negozio online"},
+        "hi": {"Kfz-Meisterwerkstatt": "वाहन कार्यशाला", "Friseursalon": "हेयर सैलून", "Dachdeckerfachbetrieb": "छत निर्माण कंपनी", "Physiotherapie-Praxis": "फिजियोथेरेपी क्लिनिक", "Restaurant": "रेस्तरां", "Café und Bäckerei": "कैफे और बेकरी", "Onlineshop": "ऑनलाइन दुकान"},
+    }
     industry = str(st.session_state.get("industry_content_preset", ""))
+    source_industry = industry
     custom_industry = str(st.session_state.get("custom_industry_name", "")).strip()
     if industry == OTHER_INDUSTRY_OPTION and custom_industry:
         industry = custom_industry
     elif industry not in INDUSTRY_CONTENT_PRESETS:
-        industry = "Allgemeiner Kundenservice"
+        industry = labels[10]
+    else:
+        industry = industry_names.get(language, {}).get(industry, industry)
     company_name = str(st.session_state.get("client_company_name", "")).strip()
     description = str(st.session_state.get("template_custom_description", "")).strip()
     business_email = str(st.session_state.get("client_business_email", "")).strip()
     business_phone = str(st.session_state.get("client_business_phone", "")).strip()
     fields = (
-        ("Öffnungszeiten", "client_chatbot_hours"),
-        ("Kontaktwege", "client_chatbot_contact"),
-        ("Preise und Leistungen", "client_chatbot_services"),
-        ("Notfall und Bereitschaft", "client_chatbot_emergency"),
+        (labels[3], "client_chatbot_hours"),
+        (labels[4], "client_chatbot_contact"),
+        (labels[5], "client_chatbot_services"),
+        (labels[6], "client_chatbot_emergency"),
     )
     business_details = [
         f"{label}: {str(st.session_state.get(key, '')).strip()}"
         for label, key in fields
         if str(st.session_state.get(key, "")).strip()
     ]
-    context = [f"Branche: {industry}."]
+    context = [f"{labels[0]}: {industry}."]
     if company_name:
-        context.append(f"Unternehmen: {company_name}.")
+        context.append(f"{labels[1]}: {company_name}.")
     if description:
-        context.append(f"Unternehmensbeschreibung: {description}")
+        context.append(f"{labels[2]}: {description}")
     if business_email or business_phone:
         contact_details = " | ".join(
             detail
             for detail in (
                 f"E-Mail: {business_email}" if business_email else "",
-                f"Telefon: {business_phone}" if business_phone else "",
+                f"{labels[7]}: {business_phone}" if business_phone else "",
             )
             if detail
         )
-        context.append(f"Kontaktwege: {contact_details}")
+        context.append(f"{labels[4]}: {contact_details}")
     if business_details:
         context.extend(business_details)
     else:
-        industry_preset = INDUSTRY_CONTENT_PRESETS.get(industry, {})
+        industry_preset = INDUSTRY_CONTENT_PRESETS.get(source_industry, {})
         default_services = str(industry_preset.get("section_services", "")).strip()
         if default_services:
-            context.append(f"Typische Leistungen dieser Branche: {default_services}.")
-        context.append(
-            "Standardhinweis: Öffnungszeiten, Preise und konkrete Verfügbarkeiten "
-            "liegen nicht vor. Verweise dafür auf die Kontaktmöglichkeiten der Website."
-        )
+            context.append(f"{labels[8]}: {default_services}.")
+        context.append(labels[9])
     return "\n".join(context)
 
 
