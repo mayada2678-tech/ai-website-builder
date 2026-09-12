@@ -4172,6 +4172,17 @@ def render_domain_and_deployment_ui() -> None:
         "hi": ["चैटबॉट के साथ प्रकाशन", "पैकेज में कॉन्फ़िगर किए गए चैटबॉट सहित वर्तमान वेबसाइट प्रारूप शामिल है।", "चैटबॉट सहित Vercel ZIP पैकेज बनाएं", "वेबसाइट पैकेज बनाया जा रहा है...", "वेबसाइट पैकेज डाउनलोड के लिए तैयार है।", "चैटबॉट सहित वेबसाइट डाउनलोड करें (ZIP)", "अब Vercel पर प्रकाशित करें", "Vercel वेबसाइट प्रकाशित कर रहा है...", "वेबसाइट प्रकाशित हो गई है।", "आपके ग्राहक की वेबसाइट तैयार है: {url}", "ग्राहक वेबसाइट अभी खोलें", "प्रकाशन विफल", "वर्तमान प्रकाशन", "आपकी वेबसाइट लाइव है: {url}", "अभी कोई वेबसाइट प्रकाशित नहीं हुई है। प्रकाशन के बाद आप इसे यहां खोल या हटा सकते हैं।", "प्रकाशित पृष्ठ खोलें", "हटाने की पुष्टि करें", "प्रकाशित वेबसाइट हटाएं", "केवल वर्तमान Vercel प्रकाशन हटाया जाएगा। सहेजा गया प्रारूप और स्थानीय पैकेज उपलब्ध रहेंगे।", "प्रकाशन हटाया जा रहा है...", "प्रकाशित वेबसाइट हटा दी गई।", "हटाना विफल"],
     }
     action_labels = action_copy_by_language.get(language, action_copy_by_language["en"])
+    old_publication_copy = {
+        "de": ["Alte Veröffentlichung löschen", "Vercel-URL oder Deployment-ID der alten Website", "z. B. meine-seite-abc123.vercel.app", "Ich möchte diese alte Veröffentlichung endgültig löschen.", "Alte veröffentlichte Seite löschen", "Alte Veröffentlichung wird entfernt ...", "Die alte veröffentlichte Website wurde entfernt.", "Löschen fehlgeschlagen"],
+        "en": ["Delete an old publication", "Vercel URL or deployment ID of the old website", "e.g. my-site-abc123.vercel.app", "I want to permanently delete this old publication.", "Delete old published page", "Removing old publication ...", "The old published website was removed.", "Deletion failed"],
+        "ar": ["حذف نشر قديم", "رابط Vercel أو معرّف نشر الموقع القديم", "مثال: my-site-abc123.vercel.app", "أريد حذف هذا النشر القديم نهائياً.", "حذف الصفحة القديمة المنشورة", "جارٍ إزالة النشر القديم...", "تمت إزالة الموقع القديم المنشور.", "فشل الحذف"],
+        "ku": ["سڕینەوەی بڵاوکراوەی کۆن", "بەستەری Vercel یان ناسنامەی بڵاوکردنەوەی وێبگە کۆنەکە", "بۆ نموونە: my-site-abc123.vercel.app", "دەمەوێت ئەم بڵاوکراوە کۆنە بە یەکجاری بسڕمەوە.", "سڕینەوەی پەڕە کۆنە بڵاوکراوەکە", "بڵاوکراوە کۆنەکە لادەبرێت...", "وێبگە کۆنە بڵاوکراوەکە لابرا.", "سڕینەوە سەرکەوتوو نەبوو"],
+        "es": ["Eliminar una publicación anterior", "URL de Vercel o ID de despliegue del sitio anterior", "p. ej. mi-sitio-abc123.vercel.app", "Quiero eliminar definitivamente esta publicación anterior.", "Eliminar página publicada anterior", "Eliminando publicación anterior...", "El sitio publicado anterior fue eliminado.", "Error al eliminar"],
+        "it": ["Elimina una vecchia pubblicazione", "URL Vercel o ID deployment del vecchio sito", "ad es. mio-sito-abc123.vercel.app", "Voglio eliminare definitivamente questa vecchia pubblicazione.", "Elimina la vecchia pagina pubblicata", "Rimozione della vecchia pubblicazione...", "Il vecchio sito pubblicato è stato rimosso.", "Eliminazione non riuscita"],
+        "hi": ["पुराना प्रकाशन हटाएं", "पुरानी वेबसाइट का Vercel URL या प्रकाशन ID", "उदा. my-site-abc123.vercel.app", "मैं इस पुराने प्रकाशन को स्थायी रूप से हटाना चाहता हूं।", "पुराना प्रकाशित पृष्ठ हटाएं", "पुराना प्रकाशन हटाया जा रहा है...", "पुरानी प्रकाशित वेबसाइट हटा दी गई।", "हटाना विफल"],
+    }.get(language)
+    if old_publication_copy is None:
+        old_publication_copy = []
     custom_domain_copy = {
         "de": ["Domain kaufen und verbinden: Anleitung", "1. Geben Sie unten Ihre gewünschte Domain ohne Pfad ein, zum Beispiel `mein-betrieb.de`.\n2. Prüfen Sie mit MCP, ob für die Domain bereits ein öffentlicher RDAP-Eintrag besteht.\n3. Kaufen Sie eine freie Domain direkt bei einem Domainanbieter Ihrer Wahl.\n4. Fügen Sie die Domain anschließend in Vercel hinzu und übernehmen Sie die dort angezeigten DNS-Einträge beim Domainanbieter.", "Preisorientierung: Eine .de-Domain kostet häufig etwa 5-20 EUR pro Jahr, eine .com-Domain etwa 10-25 EUR pro Jahr. Aktionspreise gelten oft nur im ersten Jahr; prüfen Sie deshalb immer den Verlängerungspreis und die Mehrwertsteuer.", "Die App kauft keine Domain automatisch und bucht dafür nichts ab. Der Domainanbieter berechnet die Domain separat. Ein App-Abonnement und mögliche Vercel-Kosten sind ebenfalls getrennte Verträge.", "Offizielle Vercel-Anleitung zur Domain-Verbindung", "Gewünschte oder bereits gekaufte Domain", "z. B. www.mein-unternehmen.de", "Die MCP-Prüfung ist ein Hinweis anhand öffentlicher Registrierungsdaten und keine Kaufgarantie.", "Geplante Domain: {domain}", "Eigene Domain per MCP prüfen", "MCP prüft die Domain ...", "Nächster Schritt: {step}"],
         "en": ["Buy and connect a domain: instructions", "1. Enter your preferred domain without a path, for example `my-business.com`.\n2. Use MCP to check whether a public RDAP record already exists.\n3. Buy an available domain from a provider of your choice.\n4. Add the domain to Vercel and copy the displayed DNS records to your domain provider.", "Price guide: a .de domain often costs about EUR 5-20 per year and a .com domain about EUR 10-25 per year. Promotional prices often apply only to the first year, so check renewal prices and taxes.", "The app does not buy or charge for a domain automatically. The domain provider bills it separately. The app subscription and possible Vercel costs are separate agreements.", "Official Vercel domain connection guide", "Preferred or already purchased domain", "e.g. www.my-company.com", "The MCP check uses public registration data as guidance and is not a purchase guarantee.", "Planned domain: {domain}", "Check own domain with MCP", "MCP is checking the domain ...", "Next step: {step}"],
@@ -4446,34 +4457,34 @@ def render_domain_and_deployment_ui() -> None:
                 st.error(str(error))
 
     st.divider()
-    st.subheader("Alte Veröffentlichung löschen", anchor=False)
+    st.subheader(old_publication_copy[0], anchor=False)
     old_deployment_reference = st.text_input(
-        "Vercel-URL oder Deployment-ID der alten Website",
-        placeholder="z. B. meine-seite-abc123.vercel.app",
+        old_publication_copy[1],
+        placeholder=old_publication_copy[2],
         key="old_deployment_reference",
     )
     old_deployment_confirmed = st.checkbox(
-        "Ich möchte diese alte Veröffentlichung endgültig löschen.",
+        old_publication_copy[3],
         key="old_deployment_delete_confirmation",
     )
     if st.button(
-        "Alte veröffentlichte Seite löschen",
+        old_publication_copy[4],
         icon=":material/delete_forever:",
         type="secondary",
         disabled=not old_deployment_reference.strip() or not old_deployment_confirmed,
         key="delete_old_published_site",
         width="stretch",
     ):
-        with st.status("Alte Veröffentlichung wird entfernt ...", expanded=True) as status:
+        with st.status(old_publication_copy[5], expanded=True) as status:
             try:
                 delete_previous_vercel_deployment(old_deployment_reference)
                 status.update(
-                    label="Die alte veröffentlichte Website wurde entfernt.",
+                    label=old_publication_copy[6],
                     state="complete",
                 )
                 st.rerun()
             except ValueError as error:
-                status.update(label="Löschen fehlgeschlagen", state="error")
+                status.update(label=old_publication_copy[7], state="error")
                 st.error(str(error))
 
 
