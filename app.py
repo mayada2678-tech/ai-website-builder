@@ -4158,6 +4158,16 @@ def render_domain_and_deployment_ui() -> None:
     domain_labels = domain_copy_by_language.get(language, domain_copy_by_language["en"])
     domain_options = ["Vercel-Projektadresse", "Eigene Domain verbinden"]
     domain_option_labels = dict(zip(domain_options, domain_labels[4:6]))
+    action_copy_by_language = {
+        "de": ["Veröffentlichung mit Chatbot", "Das Paket enthält den aktuellen Website-Entwurf einschließlich des konfigurierten Chatbots.", "Vercel-ZIP-Paket mit Chatbot generieren", "Website-Paket wird erstellt ...", "Das Website-Paket ist bereit zum Download.", "Website mit Chatbot herunterladen (ZIP)", "Jetzt auf Vercel veröffentlichen", "Vercel veröffentlicht die Website ...", "Die Website wurde veröffentlicht.", "Ihre Kundenwebsite ist bereit: {url}", "Kundenwebsite jetzt öffnen", "Veröffentlichung fehlgeschlagen", "Aktuelle Veröffentlichung", "Ihre Website ist live: {url}", "Noch keine Website veröffentlicht. Nach der Veröffentlichung können Sie sie hier laden oder löschen.", "Veröffentlichte Seite laden", "Löschen bestätigen", "Veröffentlichte Website löschen", "Entfernt nur das aktuelle Vercel-Deployment. Der gespeicherte Entwurf und das lokale Website-Paket bleiben erhalten.", "Veröffentlichung wird entfernt ...", "Die veröffentlichte Website wurde entfernt.", "Löschen fehlgeschlagen"],
+        "en": ["Publish with chatbot", "The package contains the current website draft including the configured chatbot.", "Generate Vercel ZIP package with chatbot", "Creating website package ...", "The website package is ready to download.", "Download website with chatbot (ZIP)", "Publish to Vercel now", "Vercel is publishing the website ...", "The website has been published.", "Your customer website is ready: {url}", "Open customer website now", "Publishing failed", "Current publication", "Your website is live: {url}", "No website has been published yet. After publishing, you can open or delete it here.", "Open published page", "Confirm deletion", "Delete published website", "Only the current Vercel deployment is removed. The saved draft and local website package remain available.", "Removing publication ...", "The published website was removed.", "Deletion failed"],
+        "ar": ["النشر مع روبوت المحادثة", "تتضمن الحزمة مسودة الموقع الحالية مع روبوت المحادثة الذي تم إعداده.", "إنشاء حزمة Vercel ZIP مع روبوت المحادثة", "جارٍ إنشاء حزمة الموقع...", "حزمة الموقع جاهزة للتنزيل.", "تنزيل الموقع مع روبوت المحادثة (ZIP)", "النشر الآن على Vercel", "يقوم Vercel بنشر الموقع...", "تم نشر الموقع.", "موقع عميلك جاهز: {url}", "فتح موقع العميل الآن", "فشل النشر", "النشر الحالي", "موقعك متاح الآن: {url}", "لم يتم نشر أي موقع بعد. بعد النشر يمكنك فتحه أو حذفه هنا.", "فتح الصفحة المنشورة", "تأكيد الحذف", "حذف الموقع المنشور", "يؤدي هذا إلى إزالة نشر Vercel الحالي فقط. تبقى المسودة المحفوظة وحزمة الموقع المحلية محفوظتين.", "جارٍ إزالة النشر...", "تمت إزالة الموقع المنشور.", "فشل الحذف"],
+        "ku": ["بڵاوکردنەوە لەگەڵ چاتبۆت", "پاکێجەکە ڕەشنووسی ئێستای وێبگە لەگەڵ چاتبۆتی ڕێکخراو لەخۆدەگرێت.", "دروستکردنی پاکێجی Vercel ZIP لەگەڵ چاتبۆت", "پاکێجی وێبگە دروست دەکرێت...", "پاکێجی وێبگە ئامادەی داگرتنە.", "داگرتنی وێبگە لەگەڵ چاتبۆت (ZIP)", "ئێستا لە Vercel بڵاوبکەرەوە", "Vercel وێبگەکە بڵاودەکاتەوە...", "وێبگەکە بڵاوکرایەوە.", "وێبگەی کڕیارەکەت ئامادەیە: {url}", "ئێستا وێبگەی کڕیار بکەرەوە", "بڵاوکردنەوە سەرکەوتوو نەبوو", "بڵاوکراوەی ئێستا", "وێبگەکەت لەسەر هێڵە: {url}", "هێشتا هیچ وێبگەیەک بڵاونەکراوەتەوە. دوای بڵاوکردنەوە دەتوانیت لێرە بیکەیتەوە یان بیسڕیتەوە.", "کردنەوەی پەڕەی بڵاوکراوە", "پشتڕاستکردنەوەی سڕینەوە", "سڕینەوەی وێبگەی بڵاوکراوە", "تەنها بڵاوکراوەی ئێستای Vercel لادەبات. ڕەشنووسی پاشەکەوتکراو و پاکێجی ناوخۆیی دەمێننەوە.", "بڵاوکراوەکە لادەبرێت...", "وێبگە بڵاوکراوەکە لابرا.", "سڕینەوە سەرکەوتوو نەبوو"],
+        "es": ["Publicación con chatbot", "El paquete contiene el borrador actual y el chatbot configurado.", "Generar paquete ZIP de Vercel con chatbot", "Creando el paquete del sitio...", "El paquete está listo para descargar.", "Descargar sitio con chatbot (ZIP)", "Publicar ahora en Vercel", "Vercel está publicando el sitio...", "El sitio ha sido publicado.", "El sitio de su cliente está listo: {url}", "Abrir ahora el sitio del cliente", "Error de publicación", "Publicación actual", "Su sitio está en línea: {url}", "Todavía no se ha publicado ningún sitio. Después de publicarlo podrá abrirlo o eliminarlo aquí.", "Abrir página publicada", "Confirmar eliminación", "Eliminar sitio publicado", "Solo se elimina el despliegue actual de Vercel. El borrador y el paquete local se conservan.", "Eliminando publicación...", "El sitio publicado fue eliminado.", "Error al eliminar"],
+        "it": ["Pubblicazione con chatbot", "Il pacchetto contiene la bozza attuale e il chatbot configurato.", "Genera pacchetto ZIP Vercel con chatbot", "Creazione del pacchetto del sito...", "Il pacchetto è pronto per il download.", "Scarica sito con chatbot (ZIP)", "Pubblica ora su Vercel", "Vercel sta pubblicando il sito...", "Il sito è stato pubblicato.", "Il sito del cliente è pronto: {url}", "Apri ora il sito del cliente", "Pubblicazione non riuscita", "Pubblicazione attuale", "Il sito è online: {url}", "Nessun sito è stato ancora pubblicato. Dopo la pubblicazione potrete aprirlo o eliminarlo qui.", "Apri pagina pubblicata", "Conferma eliminazione", "Elimina sito pubblicato", "Viene rimosso solo il deployment Vercel attuale. La bozza e il pacchetto locale restano disponibili.", "Rimozione della pubblicazione...", "Il sito pubblicato è stato rimosso.", "Eliminazione non riuscita"],
+        "hi": ["चैटबॉट के साथ प्रकाशन", "पैकेज में कॉन्फ़िगर किए गए चैटबॉट सहित वर्तमान वेबसाइट प्रारूप शामिल है।", "चैटबॉट सहित Vercel ZIP पैकेज बनाएं", "वेबसाइट पैकेज बनाया जा रहा है...", "वेबसाइट पैकेज डाउनलोड के लिए तैयार है।", "चैटबॉट सहित वेबसाइट डाउनलोड करें (ZIP)", "अब Vercel पर प्रकाशित करें", "Vercel वेबसाइट प्रकाशित कर रहा है...", "वेबसाइट प्रकाशित हो गई है।", "आपके ग्राहक की वेबसाइट तैयार है: {url}", "ग्राहक वेबसाइट अभी खोलें", "प्रकाशन विफल", "वर्तमान प्रकाशन", "आपकी वेबसाइट लाइव है: {url}", "अभी कोई वेबसाइट प्रकाशित नहीं हुई है। प्रकाशन के बाद आप इसे यहां खोल या हटा सकते हैं।", "प्रकाशित पृष्ठ खोलें", "हटाने की पुष्टि करें", "प्रकाशित वेबसाइट हटाएं", "केवल वर्तमान Vercel प्रकाशन हटाया जाएगा। सहेजा गया प्रारूप और स्थानीय पैकेज उपलब्ध रहेंगे।", "प्रकाशन हटाया जा रहा है...", "प्रकाशित वेबसाइट हटा दी गई।", "हटाना विफल"],
+    }
+    action_labels = action_copy_by_language.get(language, action_copy_by_language["en"])
     st.header(labels["title"])
 
     if not st.session_state.generated_html:
@@ -4330,20 +4340,20 @@ def render_domain_and_deployment_ui() -> None:
             f"{domain_labels[10]}"
         )
     st.divider()
-    st.subheader("Veröffentlichung mit Chatbot", anchor=False)
-    st.caption("Das Paket enthält den aktuellen Website-Entwurf einschließlich des konfigurierten Chatbots.")
+    st.subheader(action_labels[0], anchor=False)
+    st.caption(action_labels[1])
     if st.button(
-        "Vercel-ZIP-Paket mit Chatbot generieren",
+        action_labels[2],
         icon=":material/folder_zip:",
         key="generate_chatbot_website_zip",
         width="stretch",
     ):
-        with st.spinner("Website-Paket wird erstellt ..."):
+        with st.spinner(action_labels[3]):
             st.session_state.finished_website_zip = build_website_zip()
-        st.success("Das Website-Paket ist bereit zum Download.")
+        st.success(action_labels[4])
     if st.session_state.get("finished_website_zip"):
         st.download_button(
-            "Website mit Chatbot herunterladen (ZIP)",
+            action_labels[5],
             data=st.session_state.finished_website_zip,
             file_name="kunden-website-mit-chatbot.zip",
             mime="application/zip",
@@ -4353,20 +4363,20 @@ def render_domain_and_deployment_ui() -> None:
         )
     if domain_type == "Vercel-Projektadresse":
         if st.button(
-            "Jetzt auf Vercel veröffentlichen",
+            action_labels[6],
             icon=":material/rocket_launch:",
             type="primary",
             key="publish_from_domain_center",
             width="stretch",
         ):
             st.session_state.project_name = safe_project_name(requested_name or "")
-            with st.status("Vercel veröffentlicht die Website ...", expanded=True) as status:
+            with st.status(action_labels[7], expanded=True) as status:
                 try:
                     publish_website()
-                    status.update(label="Die Website wurde veröffentlicht.", state="complete")
-                    st.success(f"Ihre Kundenwebsite ist bereit: {st.session_state.live_url}")
+                    status.update(label=action_labels[8], state="complete")
+                    st.success(action_labels[9].format(url=st.session_state.live_url))
                     st.link_button(
-                        "Kundenwebsite jetzt öffnen",
+                        action_labels[10],
                         st.session_state.live_url,
                         icon=":material/open_in_new:",
                         type="primary",
@@ -4374,7 +4384,7 @@ def render_domain_and_deployment_ui() -> None:
                         width="stretch",
                     )
                 except ValueError as error:
-                    status.update(label="Veröffentlichung fehlgeschlagen", state="error")
+                    status.update(label=action_labels[11], state="error")
                     st.error(str(error))
     else:
         custom_domain = str(st.session_state.get("custom_domain", "")).strip()
@@ -4386,16 +4396,16 @@ def render_domain_and_deployment_ui() -> None:
             )
 
     st.divider()
-    st.subheader("Aktuelle Veröffentlichung", anchor=False)
+    st.subheader(action_labels[12], anchor=False)
     if st.session_state.deployment_id:
-        st.success(f"Ihre Website ist live: {st.session_state.live_url}")
+        st.success(action_labels[13].format(url=st.session_state.live_url))
     else:
-        st.info("Noch keine Website veröffentlicht. Nach der Veröffentlichung können Sie sie hier laden oder löschen.")
+        st.info(action_labels[14])
     action_column, delete_column = st.columns(2)
     with action_column:
         if st.session_state.deployment_id:
             st.link_button(
-                "Veröffentlichte Seite laden",
+                action_labels[15],
                 st.session_state.live_url,
                 icon=":material/open_in_new:",
                 key="open_published_site_from_domain_center",
@@ -4403,7 +4413,7 @@ def render_domain_and_deployment_ui() -> None:
             )
         else:
             st.button(
-                "Veröffentlichte Seite laden",
+                action_labels[15],
                 icon=":material/open_in_new:",
                 disabled=True,
                 key="open_published_site_disabled",
@@ -4411,33 +4421,30 @@ def render_domain_and_deployment_ui() -> None:
             )
     with delete_column:
         delete_confirmed = st.checkbox(
-            "Löschen bestätigen",
+            action_labels[16],
             key="delete_published_site_confirmation",
             disabled=not st.session_state.deployment_id,
         )
         delete_requested = st.button(
-            "Veröffentlichte Website löschen",
+            action_labels[17],
             icon=":material/delete:",
             type="secondary",
             disabled=not st.session_state.deployment_id or not delete_confirmed,
             key="delete_published_site_from_domain_center",
             width="stretch",
         )
-    st.caption(
-        "Entfernt nur das aktuelle Vercel-Deployment. Der gespeicherte Entwurf und "
-        "das lokale Website-Paket bleiben erhalten."
-    )
+    st.caption(action_labels[18])
     if delete_requested:
-        with st.status("Veröffentlichung wird entfernt ...", expanded=True) as status:
+        with st.status(action_labels[19], expanded=True) as status:
             try:
                 delete_published_website()
                 status.update(
-                    label="Die veröffentlichte Website wurde entfernt.",
+                    label=action_labels[20],
                     state="complete",
                 )
                 st.rerun()
             except ValueError as error:
-                status.update(label="Löschen fehlgeschlagen", state="error")
+                status.update(label=action_labels[21], state="error")
                 st.error(str(error))
 
     st.divider()
