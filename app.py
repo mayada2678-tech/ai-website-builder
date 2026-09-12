@@ -289,6 +289,9 @@ st.markdown(
     .st-key-authentication_shell [data-testid="stTextInput"] input {
         min-height: 2.85rem;
     }
+    .st-key-authentication_shell [data-testid="InputInstructions"] {
+        display: none;
+    }
     .st-key-authentication_shell [data-testid="stFormSubmitButton"] button {
         min-height: 3rem;
     }
