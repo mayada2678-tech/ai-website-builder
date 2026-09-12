@@ -1487,6 +1487,9 @@ def apply_app_language() -> None:
         "en": {"template_hero_heading": "Professional service you can trust", "template_custom_description": "Reliable solutions, clear advice, and personal support for every customer.", "template_sections_text": "Our services | Solutions tailored to your needs.\nPersonal consultation | We take time to answer your questions.\nContact | Speak directly with our team.", "template_footer_text": "Imprint | Privacy"},
         "ar": {"template_hero_heading": "خدمة احترافية يمكنك الوثوق بها", "template_custom_description": "حلول موثوقة واستشارة واضحة ودعم شخصي لكل عميل.", "template_sections_text": "خدماتنا | حلول مناسبة لاحتياجاتك.\nاستشارة شخصية | نخصص الوقت للإجابة عن أسئلتك.\nاتصل بنا | تحدث مباشرة مع فريقنا.", "template_footer_text": "بيانات الموقع | الخصوصية"},
         "ku": {"template_hero_heading": "خزمەتگوزاریی پیشەیی و متمانەپێکراو", "template_custom_description": "چارەسەری متمانەپێکراو، ڕاوێژکاری ڕوون و پشتیوانی تایبەت بۆ هەر کڕیارێک.", "template_sections_text": "خزمەتگوزارییەکانمان | چارەسەری گونجاو بۆ پێداویستییەکانت.\nڕاوێژکاری تایبەت | کات بۆ پرسیارەکانت تەرخان دەکەین.\nپەیوەندی | ڕاستەوخۆ لەگەڵ تیمەکەمان قسە بکە.", "template_footer_text": "زانیاری یاسایی | پاراستنی نهێنی"},
+        "es": {"template_hero_heading": "Servicio profesional en el que puede confiar", "template_custom_description": "Soluciones fiables, asesoramiento claro y atención personal para cada cliente.", "template_sections_text": "Nuestros servicios | Soluciones adaptadas a sus necesidades.\nAsesoramiento personal | Dedicamos tiempo a sus preguntas.\nContacto | Hable directamente con nuestro equipo.", "template_footer_text": "Aviso legal | Privacidad"},
+        "it": {"template_hero_heading": "Servizio professionale di cui fidarsi", "template_custom_description": "Soluzioni affidabili, consulenza chiara e assistenza personale per ogni cliente.", "template_sections_text": "I nostri servizi | Soluzioni adatte alle vostre esigenze.\nConsulenza personale | Dedichiamo tempo alle vostre domande.\nContatti | Parlate direttamente con il nostro team.", "template_footer_text": "Note legali | Privacy"},
+        "hi": {"template_hero_heading": "भरोसेमंद पेशेवर सेवा", "template_custom_description": "हर ग्राहक के लिए विश्वसनीय समाधान, स्पष्ट सलाह और व्यक्तिगत सहायता।", "template_sections_text": "हमारी सेवाएं | आपकी जरूरतों के अनुरूप समाधान।\nव्यक्तिगत परामर्श | हम आपके प्रश्नों के लिए समय देते हैं।\nसंपर्क | हमारी टीम से सीधे बात करें।", "template_footer_text": "कानूनी सूचना | गोपनीयता"},
     }.get(language)
     if preset and localized_defaults:
         for key, localized_value in localized_defaults.items():
@@ -3679,7 +3682,8 @@ def get_industry_chatbot_profile_with_mcp(industry: str) -> dict[str, str]:
     async def run_tool() -> dict[str, str]:
         async with Client(website_mcp_server) as client:
             result = await client.call_tool(
-                "get_industry_chatbot_profile", {"industry": industry}
+                "get_industry_chatbot_profile",
+                {"industry": industry, "language": str(st.session_state.app_language)},
             )
             content = result.structured_content
             if not isinstance(content, dict):
@@ -3737,6 +3741,7 @@ def render_mcp_content_tools_ui() -> None:
                     {
                         "html": st.session_state.generated_html,
                         "section_type": section_options[selected_section_label],
+                        "language": language,
                     },
                 )
                 queue_html_update(updated_html)
@@ -3758,6 +3763,7 @@ def render_mcp_content_tools_ui() -> None:
                         "html": st.session_state.generated_html,
                         "industry": str(st.session_state.get("industry_content_preset", "")),
                         "company_name": str(st.session_state.get("client_company_name", "")),
+                        "language": language,
                     },
                 )
                 queue_html_update(updated_html)
@@ -4761,6 +4767,7 @@ def apply_industry_content_preset() -> None:
     )
     if preset:
         st.session_state.update(preset)
+        apply_app_language()
         mcp_chatbot_profile = get_industry_chatbot_profile_with_mcp(industry)
         chatbot_defaults = {
             "Kfz-Meisterwerkstatt": ("Werkstatt-Assistent", "Mo-Fr: 08:00-18:00 Uhr", "Telefonisch oder per E-Mail während der Öffnungszeiten", "Für Pannen außerhalb der Öffnungszeiten wenden Sie sich bitte an einen Pannendienst."),
