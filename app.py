@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import io
 import json
+import os
 import re
 import secrets
 import sqlite3
@@ -1009,6 +1010,7 @@ except KeyError:
     st.stop()
 
 client = OpenAI(api_key=OPENAI_API_KEY)
+os.environ["OPENAI_API_KEY"] = str(OPENAI_API_KEY)
 STRIPE_PAYMENT_LINK = "https://buy.stripe.com/3cIfZh5qseusaOpdYP5Rm02"
 STRIPE_SECRET_KEY = str(st.secrets.get("stripe_secret_key", "")).strip()
 STRIPE_PRICE_ID = str(st.secrets.get("stripe_price_id", "")).strip()
@@ -1474,27 +1476,52 @@ def add_help_chat_response(prompt: str, display_prompt: str | None = None) -> No
     )
 
 
+def translate_content_fields_with_mcp(
+    fields: dict[str, str], language: str
+) -> dict[str, str]:
+    """Translates a complete set of editable content fields through the local MCP server."""
+    if language == "de":
+        return dict(fields)
+
+    async def run_tool() -> dict[str, str]:
+        async with Client(website_mcp_server) as mcp_client:
+            result = await mcp_client.call_tool(
+                "translate_content_fields",
+                {"fields": fields, "language": language},
+            )
+            content = result.structured_content
+            if not isinstance(content, dict) or set(content) != set(fields):
+                raise ValueError("Der MCP-Server hat nicht alle Inhaltsfelder übersetzt.")
+            return {
+                key: str(content[key]).strip()
+                for key in fields
+            }
+
+    try:
+        return asyncio.run(run_tool())
+    except Exception as error:
+        raise ValueError(f"Die vollständige MCP-Übersetzung ist fehlgeschlagen: {error}") from error
+
+
 def apply_app_language() -> None:
     """Übernimmt die Sprachwahl des Kunden für den nächsten App-Durchlauf."""
     st.session_state.app_language = APP_LANGUAGES[st.session_state.app_language_name]
     st.session_state.target_language = TARGET_LANGUAGE_BY_APP_CODE[
         st.session_state.app_language
     ]
-    applied_industry = str(st.session_state.get("industry_preset_applied", ""))
-    preset = globals().get("INDUSTRY_CONTENT_PRESETS", {}).get(applied_industry)
     language = str(st.session_state.app_language)
-    localized_defaults = {
-        "en": {"template_hero_heading": "Professional service you can trust", "template_custom_description": "Reliable solutions, clear advice, and personal support for every customer.", "template_sections_text": "Our services | Solutions tailored to your needs.\nPersonal consultation | We take time to answer your questions.\nContact | Speak directly with our team.", "template_footer_text": "Imprint | Privacy"},
-        "ar": {"template_hero_heading": "خدمة احترافية يمكنك الوثوق بها", "template_custom_description": "حلول موثوقة واستشارة واضحة ودعم شخصي لكل عميل.", "template_sections_text": "خدماتنا | حلول مناسبة لاحتياجاتك.\nاستشارة شخصية | نخصص الوقت للإجابة عن أسئلتك.\nاتصل بنا | تحدث مباشرة مع فريقنا.", "template_footer_text": "بيانات الموقع | الخصوصية"},
-        "ku": {"template_hero_heading": "خزمەتگوزاریی پیشەیی و متمانەپێکراو", "template_custom_description": "چارەسەری متمانەپێکراو، ڕاوێژکاری ڕوون و پشتیوانی تایبەت بۆ هەر کڕیارێک.", "template_sections_text": "خزمەتگوزارییەکانمان | چارەسەری گونجاو بۆ پێداویستییەکانت.\nڕاوێژکاری تایبەت | کات بۆ پرسیارەکانت تەرخان دەکەین.\nپەیوەندی | ڕاستەوخۆ لەگەڵ تیمەکەمان قسە بکە.", "template_footer_text": "زانیاری یاسایی | پاراستنی نهێنی"},
-        "es": {"template_hero_heading": "Servicio profesional en el que puede confiar", "template_custom_description": "Soluciones fiables, asesoramiento claro y atención personal para cada cliente.", "template_sections_text": "Nuestros servicios | Soluciones adaptadas a sus necesidades.\nAsesoramiento personal | Dedicamos tiempo a sus preguntas.\nContacto | Hable directamente con nuestro equipo.", "template_footer_text": "Aviso legal | Privacidad"},
-        "it": {"template_hero_heading": "Servizio professionale di cui fidarsi", "template_custom_description": "Soluzioni affidabili, consulenza chiara e assistenza personale per ogni cliente.", "template_sections_text": "I nostri servizi | Soluzioni adatte alle vostre esigenze.\nConsulenza personale | Dedichiamo tempo alle vostre domande.\nContatti | Parlate direttamente con il nostro team.", "template_footer_text": "Note legali | Privacy"},
-        "hi": {"template_hero_heading": "भरोसेमंद पेशेवर सेवा", "template_custom_description": "हर ग्राहक के लिए विश्वसनीय समाधान, स्पष्ट सलाह और व्यक्तिगत सहायता।", "template_sections_text": "हमारी सेवाएं | आपकी जरूरतों के अनुरूप समाधान।\nव्यक्तिगत परामर्श | हम आपके प्रश्नों के लिए समय देते हैं।\nसंपर्क | हमारी टीम से सीधे बात करें।", "template_footer_text": "कानूनी सूचना | गोपनीयता"},
-    }.get(language)
-    if preset and localized_defaults:
-        for key, localized_value in localized_defaults.items():
-            if str(st.session_state.get(key, "")) == str(preset.get(key, "")):
-                st.session_state[key] = localized_value
+    source_preset = st.session_state.get("industry_source_preset")
+    if isinstance(source_preset, dict):
+        try:
+            translated_preset = translate_content_fields_with_mcp(
+                {key: str(value) for key, value in source_preset.items()}, language
+            )
+        except ValueError as error:
+            st.session_state.language_translation_error = str(error)
+        else:
+            st.session_state.update(translated_preset)
+            st.session_state.industry_preset_language = language
+            st.session_state.language_translation_error = ""
     reset_help_chat_for_language()
 
 
@@ -2732,6 +2759,11 @@ def render_language_selector() -> tuple[dict[str, str], str]:
     """Leitet Website-Sprache und Leserichtung aus der globalen Sprachwahl ab."""
     target_language = TARGET_LANGUAGE_BY_APP_CODE[st.session_state.app_language]
     st.session_state.target_language = target_language
+    translation_error = str(
+        st.session_state.get("language_translation_error", "")
+    ).strip()
+    if translation_error:
+        st.error(translation_error)
     return SUPPORTED_LANGUAGES[target_language], target_language
 
 
@@ -4766,6 +4798,7 @@ def apply_industry_content_preset() -> None:
         else INDUSTRY_CONTENT_PRESETS.get(industry)
     )
     if preset:
+        st.session_state.industry_source_preset = dict(preset)
         st.session_state.update(preset)
         apply_app_language()
         mcp_chatbot_profile = get_industry_chatbot_profile_with_mcp(industry)

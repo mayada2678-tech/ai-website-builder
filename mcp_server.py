@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 from difflib import get_close_matches
+import json
+import os
 import re
 import time
 
 import requests
 from bs4 import BeautifulSoup, Tag
 from fastmcp import FastMCP
+from openai import OpenAI
 
 
 mcp = FastMCP("AI-Webify-Server")
@@ -75,6 +78,16 @@ CHATBOT_INDUSTRY_PROFILES = {
     },
 }
 
+LANGUAGE_NAMES = {
+    "de": "German",
+    "en": "English",
+    "ar": "Arabic",
+    "ku": "Sorani Kurdish",
+    "es": "Spanish",
+    "it": "Italian",
+    "hi": "Hindi",
+}
+
 
 def require_html_document(html: str) -> str:
     """Validates that a tool receives a complete editable HTML document."""
@@ -131,6 +144,51 @@ def normalize_section_type(section_type: str) -> str:
 
 
 @mcp.tool()
+def translate_content_fields(
+    fields: dict[str, str], language: str
+) -> dict[str, str]:
+    """Translates every natural-language value while preserving the field structure."""
+    target_language = LANGUAGE_NAMES.get(language)
+    if target_language is None:
+        raise ValueError(f"Unsupported target language: {language}")
+    if language == "de":
+        return dict(fields)
+    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY is required for MCP content translation.")
+
+    response = OpenAI(api_key=api_key).chat.completions.create(
+        model="gpt-4o-mini",
+        temperature=0,
+        response_format={"type": "json_object"},
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    f"Translate every natural-language value in the JSON object into {target_language}. "
+                    "Return exactly the same keys as a flat JSON object. Translate sample company names "
+                    "and all headings, descriptions, labels, service lists, offers, footer text, and chatbot "
+                    "content. Preserve line breaks, separators such as |, HTML entities, email addresses, "
+                    "URLs, numbers, currency amounts, and brand names supplied by a real customer. Return "
+                    "JSON only and do not add or remove fields."
+                ),
+            },
+            {"role": "user", "content": json.dumps(fields, ensure_ascii=False)},
+        ],
+    )
+    raw_content = response.choices[0].message.content or ""
+    try:
+        translated = json.loads(raw_content)
+    except json.JSONDecodeError as error:
+        raise ValueError("The translation model returned invalid JSON.") from error
+    if not isinstance(translated, dict) or set(translated) != set(fields):
+        raise ValueError("The translated field structure does not match the source fields.")
+    if not all(isinstance(value, str) for value in translated.values()):
+        raise ValueError("Every translated field must contain text.")
+    return {key: translated[key].strip() for key in fields}
+
+
+@mcp.tool()
 def get_industry_chatbot_profile(industry: str, language: str = "de") -> dict[str, str]:
     """Returns safe, editable default knowledge for a customer chatbot industry."""
     profile = CHATBOT_INDUSTRY_PROFILES.get(industry.strip())
@@ -177,6 +235,21 @@ def inject_section_into_html(
             "testimonials": ("بۆچوونی کڕیاران", "کڕیاران دەربارەمان چی دەڵێن", "ڕاوێژکاری تایبەت و جێبەجێکردنی متمانەپێکراو و ئەنجامێکی سەرکەوتوو.", "کڕیاری بەردەوام", "دۆستانە و پیشەیی و هەمیشە ئاسان بۆ پەیوەندی.", "کڕیاری بەردەوام", "لە یەکەم داواکارییەوە تا تەواوبوون هەموو شتێک بە ئاسانی بەڕێوەچوو.", "کڕیار"),
             "faq": ("زانیاری ڕوون", "پرسیارە باوەکان", "چۆن پەیوەندی بکەم؟", "زانیاری پەیوەندیی ناو ئەم وێبگەیە بەکاربهێنە و بە زوویی وەڵامت دەدەینەوە.", "داواکارییەک چۆن بەڕێوەدەچێت؟", "داواکارییەکەت بە کورتی باس بکە تا هەنگاوی گونجاو دیاری بکەین.", "ڕاوێژکاری تایبەت وەردەگرم؟", "بەڵێ، کات بۆ پرسیارەکانت تەرخان دەکەین."),
             "call_to_action": ("لە خزمەتتداین", "با دەربارەی داواکارییەکەت قسە بکەین.", "ڕاستەوخۆ پەیوەندیمان پێوە بکە تا پرسیارەکانت و هەنگاوی داهاتوو باس بکەین.", "پەیوەندی بکە"),
+        },
+        "es": {
+            "testimonials": ("Opiniones de clientes", "Lo que dicen nuestros clientes", "Asesoramiento personal, ejecución fiable y un resultado convincente.", "Clienta habitual", "Amables, profesionales y siempre disponibles.", "Cliente habitual", "Todo funcionó perfectamente desde la primera consulta hasta la finalización.", "Clienta"),
+            "faq": ("Información clara", "Preguntas frecuentes", "¿Cómo puedo contactar?", "Utilice los datos de contacto de este sitio web. Le responderemos pronto.", "¿Cómo se gestiona una consulta?", "Describa brevemente su solicitud y acordaremos el siguiente paso adecuado.", "¿Recibiré asesoramiento personal?", "Sí. Dedicamos tiempo a sus preguntas y le asesoramos personalmente."),
+            "call_to_action": ("Estamos a su disposición", "Hablemos de su solicitud.", "Contáctenos directamente. Resolveremos sus dudas y comentaremos el siguiente paso.", "Contactar"),
+        },
+        "it": {
+            "testimonials": ("Opinioni dei clienti", "Cosa dicono di noi i clienti", "Consulenza personale, realizzazione affidabile e un risultato convincente.", "Cliente abituale", "Cordiali, professionali e sempre disponibili.", "Cliente abituale", "Tutto si è svolto senza problemi dalla prima richiesta al completamento.", "Cliente"),
+            "faq": ("Informazioni chiare", "Domande frequenti", "Come posso contattarvi?", "Utilizzate i recapiti presenti sul sito. Vi risponderemo al più presto.", "Come viene gestita una richiesta?", "Descrivete brevemente la richiesta e definiremo insieme il passo successivo.", "Riceverò una consulenza personale?", "Sì. Dedichiamo tempo alle vostre domande e offriamo una consulenza individuale."),
+            "call_to_action": ("Siamo a vostra disposizione", "Parliamo della vostra richiesta.", "Contattateci direttamente. Risponderemo alle domande e discuteremo il passo successivo.", "Contattaci"),
+        },
+        "hi": {
+            "testimonials": ("ग्राहकों की राय", "हमारे ग्राहक हमारे बारे में क्या कहते हैं", "व्यक्तिगत सलाह, विश्वसनीय कार्य और प्रभावशाली परिणाम।", "नियमित ग्राहक", "मित्रवत, पेशेवर और हमेशा संपर्क में आसान।", "नियमित ग्राहक", "पहली पूछताछ से काम पूरा होने तक सब कुछ आसानी से हुआ।", "ग्राहक"),
+            "faq": ("स्पष्ट जानकारी", "अक्सर पूछे जाने वाले प्रश्न", "मैं संपर्क कैसे कर सकता हूं?", "इस वेबसाइट पर दिए गए संपर्क विवरण का उपयोग करें। हम शीघ्र उत्तर देंगे।", "पूछताछ की प्रक्रिया क्या है?", "अपनी जरूरत संक्षेप में बताएं और हम अगला सही कदम तय करेंगे।", "क्या मुझे व्यक्तिगत सलाह मिलेगी?", "हां। हम आपके प्रश्नों के लिए समय देते हैं और व्यक्तिगत सलाह देते हैं।"),
+            "call_to_action": ("हम आपके लिए उपलब्ध हैं", "आइए आपकी जरूरत पर बात करें।", "हमसे सीधे संपर्क करें। हम आपके प्रश्नों का उत्तर देकर अगला कदम तय करेंगे।", "संपर्क करें"),
         },
     }
     sections = {
