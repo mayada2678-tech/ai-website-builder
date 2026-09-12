@@ -3829,7 +3829,10 @@ def render_saas_preview_and_testing_window() -> None:
         key="live_preview_height",
     )
     st.components.v1.html(
-        create_preview_html(st.session_state.generated_html),
+        create_preview_html(
+            st.session_state.generated_html,
+            include_customer_chatbot=True,
+        ),
         height=preview_height,
         scrolling=True,
     )
