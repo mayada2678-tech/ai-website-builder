@@ -4270,8 +4270,38 @@ def configure_public_vercel_project(project_id: str) -> None:
         )
 
     
+def create_empty_vercel_project(project_name: str) -> str:
+    """Erstellt ein Vercel-Projekt ohne Website-Dateien für den Domain-Checkout."""
+    try:
+        response = requests.post(
+            "https://api.vercel.com/v10/projects",
+            headers={
+                "Authorization": f"Bearer {VERCEL_TOKEN}",
+                "Content-Type": "application/json",
+            },
+            json={"name": safe_project_name(project_name)},
+            timeout=30,
+        )
+    except requests.RequestException as error:
+        raise ValueError(f"Das Vercel-Projekt konnte nicht vorbereitet werden: {error}") from error
+    if response.status_code not in {200, 201}:
+        raise ValueError(
+            "Das Vercel-Projekt konnte nicht vorbereitet werden "
+            f"(Vercel HTTP {response.status_code})."
+        )
+    project_id = str(response.json().get("id", "")).strip()
+    if not project_id:
+        raise ValueError("Vercel hat keine Projekt-ID zurückgegeben.")
+    return project_id
+
+
 def publish_website() -> None:
     """Veröffentlicht den aktuellen HTML-Entwurf auf Vercel."""
+    user_id = st.session_state.get("user_id")
+    if user_id is None or not get_user_status(int(user_id))["subscribed"]:
+        raise ValueError(
+            "Die Veröffentlichung wird erst nach einer bestätigten Stripe-Zahlung freigeschaltet."
+        )
     html = inject_configured_customer_chatbot(
         require_complete_html(st.session_state.generated_html)
     )
@@ -4622,10 +4652,8 @@ def render_domain_and_deployment_ui() -> None:
             with st.status(automated_domain_copy[2], expanded=True) as status:
                 try:
                     st.session_state.project_name = create_deployment_project_name()
-                    publish_website()
-                    project_id = str(st.session_state.vercel_project_id).strip()
-                    if not project_id:
-                        raise ValueError("Vercel hat keine Projekt-ID geliefert.")
+                    project_id = create_empty_vercel_project(st.session_state.project_name)
+                    st.session_state.vercel_project_id = project_id
                     st.session_state.stripe_checkout_url = create_stripe_checkout_session(
                         current_user_id,
                         st.session_state.user_email,
@@ -4646,20 +4674,10 @@ def render_domain_and_deployment_ui() -> None:
                 width="stretch",
             )
 
-    if not user_info["subscribed"] and not user_info["trial_active"]:
-        st.warning(
-            "Ihre kostenlose 24-Stunden-Testphase ist abgelaufen. Mit Premium können Sie "
-            "Ihre Website veröffentlichen."
-        )
-        render_payment_ui(current_user_id, st.session_state.user_email)
-        return
-
-    if (
-        st.session_state.get("publish_after_checkout")
-        and domain_type == "Vercel-Projektadresse"
-    ):
+    if st.session_state.get("publish_after_checkout"):
         st.session_state.publish_after_checkout = False
-        st.session_state.project_name = safe_project_name(requested_name or "")
+        if domain_type == "Vercel-Projektadresse":
+            st.session_state.project_name = safe_project_name(requested_name or "")
         with st.status("Zahlung bestätigt. Vercel veröffentlicht Ihre Website ...", expanded=True) as status:
             try:
                 publish_website()
@@ -4684,9 +4702,11 @@ def render_domain_and_deployment_ui() -> None:
         )
     else:
         st.info(
-            f"{workspace_copy()['trial_active'].format(hours=user_info['trial_remaining_hours'])} "
-            f"{domain_labels[10]}"
+            "Website-Erstellung und Vorschau sind kostenlos. Für das Vercel-Hosting "
+            "ist eine erfolgreiche Stripe-Testzahlung erforderlich; dabei wird kein "
+            "echtes Geld abgebucht."
         )
+        render_payment_ui(current_user_id, st.session_state.user_email)
     st.divider()
     st.subheader(action_labels[0], anchor=False)
     st.caption(action_labels[1])
@@ -4717,23 +4737,41 @@ def render_domain_and_deployment_ui() -> None:
             key="publish_from_domain_center",
             width="stretch",
         ):
-            st.session_state.project_name = safe_project_name(requested_name or "")
-            with st.status(action_labels[7], expanded=True) as status:
+            if not user_info["subscribed"]:
                 try:
-                    publish_website()
-                    status.update(label=action_labels[8], state="complete")
-                    st.success(action_labels[9].format(url=st.session_state.live_url))
-                    st.link_button(
-                        action_labels[10],
-                        st.session_state.live_url,
-                        icon=":material/open_in_new:",
-                        type="primary",
-                        key="open_customer_site_after_publish",
-                        width="stretch",
+                    st.session_state.stripe_checkout_url = create_stripe_checkout_session(
+                        current_user_id,
+                        st.session_state.user_email,
                     )
                 except ValueError as error:
-                    status.update(label=action_labels[11], state="error")
                     st.error(str(error))
+            else:
+                st.session_state.project_name = safe_project_name(requested_name or "")
+                with st.status(action_labels[7], expanded=True) as status:
+                    try:
+                        publish_website()
+                        status.update(label=action_labels[8], state="complete")
+                        st.success(action_labels[9].format(url=st.session_state.live_url))
+                        st.link_button(
+                            action_labels[10],
+                            st.session_state.live_url,
+                            icon=":material/open_in_new:",
+                            type="primary",
+                            key="open_customer_site_after_publish",
+                            width="stretch",
+                        )
+                    except ValueError as error:
+                        status.update(label=action_labels[11], state="error")
+                        st.error(str(error))
+        checkout_url = str(st.session_state.get("stripe_checkout_url", ""))
+        if not user_info["subscribed"] and checkout_url:
+            st.link_button(
+                "Kostenlose Stripe-Testzahlung öffnen",
+                checkout_url,
+                icon=":material/lock:",
+                type="primary",
+                width="stretch",
+            )
     else:
         custom_domain = str(st.session_state.get("custom_domain", "")).strip()
         if custom_domain:
@@ -6175,24 +6213,43 @@ Alle anderen Inhalte müssen unverändert bleiben.
             key="publish_editor_changes",
             width="stretch",
         ):
-            with st.status(
-                "Website wird auf Vercel veröffentlicht ...",
-                expanded=True,
-            ) as status:
+            editor_user_id = int(st.session_state.user_id)
+            if not get_user_status(editor_user_id)["subscribed"]:
                 try:
-                    publish_website()
-                    status.update(
-                        label="🎉 Änderungen wurden veröffentlicht.",
-                        state="complete",
+                    st.session_state.stripe_checkout_url = create_stripe_checkout_session(
+                        editor_user_id,
+                        st.session_state.user_email,
                     )
-                    st.rerun()
-                except Exception as error:
-                    status.update(
-                        label="❌ Veröffentlichung fehlgeschlagen",
-                        state="error",
-                    )
-                    st.error("Die Veröffentlichung bei Vercel ist fehlgeschlagen.")
-                    st.code(str(error), language="text")
+                except ValueError as error:
+                    st.error(str(error))
+            else:
+                with st.status(
+                    "Website wird auf Vercel veröffentlicht ...",
+                    expanded=True,
+                ) as status:
+                    try:
+                        publish_website()
+                        status.update(
+                            label="🎉 Änderungen wurden veröffentlicht.",
+                            state="complete",
+                        )
+                        st.rerun()
+                    except Exception as error:
+                        status.update(
+                            label="❌ Veröffentlichung fehlgeschlagen",
+                            state="error",
+                        )
+                        st.error("Die Veröffentlichung bei Vercel ist fehlgeschlagen.")
+                        st.code(str(error), language="text")
+        editor_checkout_url = str(st.session_state.get("stripe_checkout_url", ""))
+        if not get_user_status(int(st.session_state.user_id))["subscribed"] and editor_checkout_url:
+            st.link_button(
+                "Kostenlose Stripe-Testzahlung öffnen",
+                editor_checkout_url,
+                icon=":material/lock:",
+                type="primary",
+                width="stretch",
+            )
 
     with delete_column:
         if st.session_state.deployment_id:
