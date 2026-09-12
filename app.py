@@ -4246,7 +4246,7 @@ def configure_vercel_chatbot_environment(project_id: str) -> str:
     )
 
 
-def configure_public_vercel_project(project_id: str) -> None:
+def configure_public_vercel_project(project_id: str) -> str:
     """Entfernt Vercel Authentication vom veröffentlichten Kundenprojekt."""
     try:
         response = requests.patch(
@@ -4259,15 +4259,14 @@ def configure_public_vercel_project(project_id: str) -> None:
             timeout=30,
         )
     except requests.RequestException as error:
-        raise ValueError(
-            f"Die veröffentlichte Website konnte nicht öffentlich freigeschaltet werden: {error}"
-        ) from error
+        return f"Die öffentliche Freigabe konnte nicht automatisch geprüft werden: {error}"
 
     if response.status_code != 200:
-        raise ValueError(
-            "Die veröffentlichte Website konnte nicht öffentlich freigeschaltet werden "
-            f"(Vercel HTTP {response.status_code})."
+        return (
+            "Die Website wurde veröffentlicht, aber die Vercel-Zugriffseinstellung konnte "
+            f"nicht automatisch geändert werden (HTTP {response.status_code})."
         )
+    return ""
 
     
 def create_empty_vercel_project(project_name: str) -> str:
@@ -4394,9 +4393,9 @@ def publish_website() -> None:
     project_id = str(deployment.get("projectId", "")).strip()
     st.session_state.vercel_project_id = project_id
     if project_id:
-        configure_public_vercel_project(project_id)
+        deployment_warnings = [configure_public_vercel_project(project_id)]
         environment_warning = configure_vercel_chatbot_environment(project_id)
-        st.session_state.chatbot_environment_warning = environment_warning
+        deployment_warnings.append(environment_warning)
         if not environment_warning and HF_API_KEY:
             try:
                 redeploy_response = requests.post(
@@ -4415,9 +4414,13 @@ def publish_website() -> None:
                 if not deployment_id or not deployment_url:
                     raise ValueError("Vercel hat keine vollständigen Daten für das Chatbot-Deployment geliefert.")
             except (requests.RequestException, ValueError) as error:
-                raise ValueError(
-                    f"Der Chatbot-Schlüssel wurde gesetzt, aber das aktive Deployment konnte nicht erneuert werden: {error}"
-                ) from error
+                deployment_warnings.append(
+                    "Die Website wurde veröffentlicht, aber das zusätzliche Chatbot-Deployment "
+                    f"ist fehlgeschlagen: {error}"
+                )
+        st.session_state.chatbot_environment_warning = "\n\n".join(
+            warning for warning in deployment_warnings if warning
+        )
 
     deployment = wait_for_vercel_deployment(deployment_id)
 
@@ -4739,7 +4742,11 @@ def render_domain_and_deployment_ui() -> None:
                         width="stretch",
                     )
                 except ValueError as error:
-                    status.update(label=action_labels[11], state="error")
+                    status.update(
+                        label=f"{action_labels[11]}: {error}",
+                        state="error",
+                        expanded=True,
+                    )
                     st.error(str(error))
     else:
         custom_domain = str(st.session_state.get("custom_domain", "")).strip()
