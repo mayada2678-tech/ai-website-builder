@@ -53,7 +53,7 @@ class handler(BaseHTTPRequestHandler):
 
         checkout_session = stripe.checkout.Session.retrieve(event_session["id"])
         metadata = dict(checkout_session.get("metadata") or {})
-        if metadata.get("provisioning_status") == "complete":
+        if metadata.get("provisioning_status") in {"processing", "complete"}:
             self._json_response(200, {"received": True, "duplicate": True})
             return
 
@@ -64,6 +64,10 @@ class handler(BaseHTTPRequestHandler):
             return
 
         try:
+            stripe.checkout.Session.modify(
+                checkout_session["id"],
+                metadata={**metadata, "provisioning_status": "processing"},
+            )
             result = provision_paid_domain(domain, project_id)
             stripe.checkout.Session.modify(
                 checkout_session["id"],

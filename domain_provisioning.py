@@ -141,11 +141,9 @@ def provision_paid_domain(domain: str, project_id: str) -> dict[str, Any]:
     normalized = normalize_domain(domain)
     registrar = InwxClient()
     availability = registrar.check(normalized)
-    registration: dict[str, Any]
-    if availability["available"]:
-        registration = registrar.register(normalized)
-    else:
-        registration = {"already_registered": True}
+    if not availability["available"]:
+        raise ProvisioningError("The requested domain is no longer available.")
+    registration = registrar.register(normalized)
 
     vercel_result = add_domain_to_vercel(normalized, project_id)
     apex_ip = os.environ.get("VERCEL_APEX_IP", "76.76.21.21").strip()

@@ -981,9 +981,35 @@ def confirm_stripe_checkout(user_id: int) -> bool:
         or checkout.get("client_reference_id") != str(user_id)
     ):
         return False
+    metadata = checkout.get("metadata") or {}
+    if metadata.get("domain"):
+        st.session_state.paid_domain_checkout_session_id = str(session_id)
     activate_premium_demo(user_id)
     st.query_params.clear()
     return True
+
+
+def wait_for_domain_provisioning(session_id: str, timeout_seconds: int = 45) -> dict:
+    """Wartet nach Stripe Checkout auf den verifizierten Provisionierungs-Webhook."""
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        try:
+            response = requests.get(
+                f"https://api.stripe.com/v1/checkout/sessions/{session_id}",
+                auth=(STRIPE_SECRET_KEY, ""),
+                timeout=20,
+            )
+        except requests.RequestException as error:
+            raise ValueError("Der Veröffentlichungsstatus konnte nicht geladen werden.") from error
+        if response.status_code != 200:
+            raise ValueError("Der Veröffentlichungsstatus konnte nicht geladen werden.")
+        checkout = response.json()
+        metadata = checkout.get("metadata") or {}
+        status = str(metadata.get("provisioning_status", "pending"))
+        if status in {"complete", "failed"}:
+            return {"status": status, "domain": str(metadata.get("provisioned_domain", ""))}
+        time.sleep(2)
+    return {"status": "pending", "domain": ""}
 
 
 def render_payment_ui(user_id: int, user_email: str) -> None:
@@ -3816,11 +3842,7 @@ def load_uploaded_html_template(uploaded_file) -> None:
 
 def get_public_url(deployment: dict) -> str:
     """Ermittelt die öffentliche URL aus einer Vercel-Deployment-Antwort."""
-    aliases = deployment.get("alias") or []
     deployment_url = deployment.get("url")
-
-    if aliases:
-        return f"https://{aliases[0]}"
 
     if deployment_url:
         return f"https://{deployment_url}"
@@ -4114,6 +4136,30 @@ def configure_vercel_chatbot_environment(project_id: str) -> str:
         f" Die Website wurde trotzdem veröffentlicht; der Chatbot verwendet Branchenwissen als Rückfallantwort.{detail_suffix}"
     )
 
+
+def configure_public_vercel_project(project_id: str) -> None:
+    """Entfernt Vercel Authentication vom veröffentlichten Kundenprojekt."""
+    try:
+        response = requests.patch(
+            f"https://api.vercel.com/v9/projects/{project_id}",
+            headers={
+                "Authorization": f"Bearer {VERCEL_TOKEN}",
+                "Content-Type": "application/json",
+            },
+            json={"ssoProtection": None},
+            timeout=30,
+        )
+    except requests.RequestException as error:
+        raise ValueError(
+            f"Die veröffentlichte Website konnte nicht öffentlich freigeschaltet werden: {error}"
+        ) from error
+
+    if response.status_code != 200:
+        raise ValueError(
+            "Die veröffentlichte Website konnte nicht öffentlich freigeschaltet werden "
+            f"(Vercel HTTP {response.status_code})."
+        )
+
     
 def publish_website() -> None:
     """Veröffentlicht den aktuellen HTML-Entwurf auf Vercel."""
@@ -4214,6 +4260,7 @@ def publish_website() -> None:
     project_id = str(deployment.get("projectId", "")).strip()
     st.session_state.vercel_project_id = project_id
     if project_id:
+        configure_public_vercel_project(project_id)
         environment_warning = configure_vercel_chatbot_environment(project_id)
         st.session_state.chatbot_environment_warning = environment_warning
         if not environment_warning and HF_API_KEY:
@@ -4304,6 +4351,15 @@ def render_domain_and_deployment_ui() -> None:
         "it": ["Verifica del dominio...", "Acquista e pubblica ora", "Preparazione del sito e del pagamento sicuro...", "Apri pagamento sicuro", "L'acquisto automatico del dominio non è al momento disponibile.", "{domain} è disponibile.", "{domain} non è disponibile.", "Verifica dominio desiderato", "Dopo il pagamento, il dominio viene registrato, collegato e pubblicato con SSL automaticamente."],
         "hi": ["डोमेन जांचा जा रहा है...", "अभी खरीदें और प्रकाशित करें", "वेबसाइट और सुरक्षित भुगतान तैयार हो रहा है...", "सुरक्षित भुगतान खोलें", "स्वचालित डोमेन खरीद अभी उपलब्ध नहीं है।", "{domain} उपलब्ध है।", "{domain} उपलब्ध नहीं है।", "पसंदीदा डोमेन जांचें", "सफल भुगतान के बाद आपका डोमेन स्वतः पंजीकृत, कनेक्ट और SSL सहित प्रकाशित होगा।"],
     }.get(language, [])
+    provisioning_copy = {
+        "de": ["Zahlung bestätigt. Ihre Website wird eingerichtet ...", "Ihre Website ist fertig.", "Live-Website öffnen", "Die Einrichtung dauert noch an. Diese Seite kann gleich erneut geprüft werden.", "Die automatische Einrichtung konnte nicht abgeschlossen werden. Der Support wurde informiert."],
+        "en": ["Payment confirmed. Your website is being set up ...", "Your website is ready.", "Open live website", "Setup is still in progress. You can check this page again shortly.", "Automatic setup could not be completed. Support has been notified."],
+        "ar": ["تم تأكيد الدفع. جارٍ إعداد موقعك...", "موقعك جاهز.", "فتح الموقع المباشر", "لا يزال الإعداد جارياً. يمكنك التحقق من هذه الصفحة مرة أخرى بعد قليل.", "تعذر إكمال الإعداد التلقائي. تم إبلاغ الدعم."],
+        "ku": ["پارەدان پشتڕاست کرایەوە. وێبگەکەت ئامادە دەکرێت...", "وێبگەکەت ئامادەیە.", "کردنەوەی وێبگەی ڕاستەوخۆ", "ئامادەکردن هێشتا بەردەوامە. دەتوانیت بەم زووانە دووبارە بپشکنیت.", "ئامادەکردنی خۆکار تەواو نەکرا. پشتگیری ئاگادار کرایەوە."],
+        "es": ["Pago confirmado. Estamos configurando su sitio...", "Su sitio está listo.", "Abrir sitio web", "La configuración continúa. Puede volver a comprobar esta página en breve.", "No se pudo completar la configuración automática. Se ha informado al soporte."],
+        "it": ["Pagamento confermato. Configurazione del sito in corso...", "Il sito è pronto.", "Apri il sito", "La configurazione è ancora in corso. Puoi ricontrollare tra poco.", "Non è stato possibile completare la configurazione automatica. L'assistenza è stata informata."],
+        "hi": ["भुगतान की पुष्टि हो गई। आपकी वेबसाइट तैयार की जा रही है...", "आपकी वेबसाइट तैयार है।", "लाइव वेबसाइट खोलें", "सेटअप अभी जारी है। थोड़ी देर बाद इस पृष्ठ पर फिर जांचें।", "स्वचालित सेटअप पूरा नहीं हो सका। सहायता टीम को सूचित कर दिया गया है।"],
+    }.get(language, [])
     domain_input_copy = {
         "de": ["Ihre Wunschdomain", "z. B. noor.com", "Geben Sie nur Ihren gewünschten Domainnamen ein.", "Gewünschte Domain: {domain}"],
         "en": ["Your preferred domain", "e.g. noor.com", "Enter only your preferred domain name.", "Preferred domain: {domain}"],
@@ -4318,6 +4374,34 @@ def render_domain_and_deployment_ui() -> None:
     if not st.session_state.generated_html:
         st.info(labels["need_site"])
         return
+
+    paid_domain_session_id = str(
+        st.session_state.get("paid_domain_checkout_session_id", "")
+    ).strip()
+    if paid_domain_session_id:
+        with st.status(provisioning_copy[0], expanded=True) as status:
+            try:
+                provisioning = wait_for_domain_provisioning(paid_domain_session_id)
+            except ValueError as error:
+                status.update(label=str(error), state="error")
+            else:
+                if provisioning["status"] == "complete" and provisioning["domain"]:
+                    live_url = f"https://{provisioning['domain']}"
+                    st.session_state.live_url = live_url
+                    st.session_state.paid_domain_checkout_session_id = ""
+                    status.update(label=provisioning_copy[1], state="complete")
+                    st.link_button(
+                        provisioning_copy[2],
+                        live_url,
+                        icon=":material/open_in_new:",
+                        type="primary",
+                        width="stretch",
+                    )
+                elif provisioning["status"] == "failed":
+                    st.session_state.paid_domain_checkout_session_id = ""
+                    status.update(label=provisioning_copy[4], state="error")
+                else:
+                    status.update(label=provisioning_copy[3], state="running")
 
     chatbot_environment_warning = str(
         st.session_state.get("chatbot_environment_warning", "")
