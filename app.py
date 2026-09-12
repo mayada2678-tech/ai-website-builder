@@ -2181,23 +2181,32 @@ def replace_visible_text(html: str, old_text: str, new_text: str) -> str:
 
 def build_offer_page_section(offer_name: str, offer_price: str, offer_details: str) -> str:
     """Erstellt eine lokale Angebots-Unterseite mit professioneller Kartenstruktur."""
-    title = escape(offer_name.strip() or "Unsere Angebote")
-    price = escape(offer_price.strip() or "Preis auf Anfrage")
-    details = escape(offer_details.strip() or "Individuell konfigurierbare Leistungen mit transparenter Beratung.")
+    language = str(st.session_state.app_language)
+    copy = get_template_preview_copy(language)
+    page_title, page_heading, cards = copy["pages"]["angebote"]
+    price_defaults = {
+        "de": "Preis auf Anfrage", "en": "Price on request",
+        "ar": "السعر عند الطلب", "ku": "نرخ بە داواکاری",
+        "es": "Precio a consultar", "it": "Prezzo su richiesta",
+        "hi": "मूल्य अनुरोध पर",
+    }
+    title = escape(offer_name.strip() or page_heading)
+    price = escape(offer_price.strip() or price_defaults.get(language, price_defaults["en"]))
+    details = escape(offer_details.strip() or cards[0][1])
     return f"""
 <section id="angebote" data-page="angebote" class="bg-slate-950 px-6 py-16 text-white">
   <div class="mx-auto max-w-6xl">
-    <p class="text-sm font-semibold uppercase tracking-wide text-cyan-300">Angebote</p>
+    <p class="text-sm font-semibold uppercase tracking-wide text-cyan-300">{page_title}</p>
     <h1 class="mt-3 text-4xl font-bold">{title}</h1>
     <p class="mt-4 max-w-2xl text-slate-300">{details}</p>
     <div class="mt-10 grid gap-6 md:grid-cols-3">
       <article class="rounded-lg border border-slate-700 bg-slate-900 p-6">
-        <p class="text-sm text-cyan-300">Angebot 01</p><h2 class="mt-2 text-xl font-semibold">{title}</h2>
+                <p class="text-sm text-cyan-300">01</p><h2 class="mt-2 text-xl font-semibold">{title}</h2>
         <p class="mt-4 text-slate-300">{details}</p><p class="mt-6 text-2xl font-bold">{price}</p>
-        <a class="mt-6 inline-block rounded bg-cyan-400 px-4 py-2 font-semibold text-slate-950" href="#kontakt">Jetzt anfragen</a>
+                <a class="mt-6 inline-block rounded bg-cyan-400 px-4 py-2 font-semibold text-slate-950" href="#kontakt">{copy["contact"]}</a>
       </article>
-      <article class="rounded-lg border border-slate-700 bg-slate-900 p-6"><p class="text-sm text-cyan-300">Details</p><h2 class="mt-2 text-xl font-semibold">Transparent beraten</h2><p class="mt-4 text-slate-300">Leistung, Umfang und nächster Schritt klar erklärt.</p></article>
-      <article class="rounded-lg border border-slate-700 bg-slate-900 p-6"><p class="text-sm text-cyan-300">Kontakt</p><h2 class="mt-2 text-xl font-semibold">Persönliche Anfrage</h2><p class="mt-4 text-slate-300">Wir beraten Sie passend zu Ihrem Bedarf.</p></article>
+            <article class="rounded-lg border border-slate-700 bg-slate-900 p-6"><p class="text-sm text-cyan-300">02</p><h2 class="mt-2 text-xl font-semibold">{cards[1][0]}</h2><p class="mt-4 text-slate-300">{cards[1][1]}</p></article>
+            <article class="rounded-lg border border-slate-700 bg-slate-900 p-6"><p class="text-sm text-cyan-300">03</p><h2 class="mt-2 text-xl font-semibold">{cards[2][0]}</h2><p class="mt-4 text-slate-300">{cards[2][1]}</p></article>
     </div>
   </div>
 </section>
@@ -2237,14 +2246,32 @@ def build_customized_template_html(
     template_sections: str = "",
 ) -> str:
     """Übernimmt die ausgewählte Vorlage lokal und füllt sie mit Kundendaten."""
+    language = str(st.session_state.app_language)
+    page_copy = get_template_preview_copy(language)
+    nav_copy = page_copy["nav"]
+    services_copy = page_copy["pages"]["leistungen"]
+    about_copy = page_copy["pages"]["ueber_uns"]
+    contact_copy = page_copy["pages"]["kontakt"]
+    direction = "rtl" if language in {"ar", "ku"} else "ltr"
+    localized_template_names = {
+        "en": {"Restaurant und Gastronomie": "Restaurant and hospitality"},
+        "ar": {"Restaurant und Gastronomie": "المطاعم والضيافة"},
+        "ku": {"Restaurant und Gastronomie": "چێشتخانە و میوانداری"},
+        "es": {"Restaurant und Gastronomie": "Restauración y gastronomía"},
+        "it": {"Restaurant und Gastronomie": "Ristorazione e gastronomia"},
+        "hi": {"Restaurant und Gastronomie": "रेस्तरां और आतिथ्य"},
+    }
+    template_display_name = localized_template_names.get(language, {}).get(
+        template_name, template_name if language == "de" else nav_copy["leistungen"]
+    )
     company_name = escape(company_name.strip())
     business_email = escape(business_email.strip())
-    slogan = escape(slogan.strip() or "Qualität, die für Sie arbeitet.")
-    description = escape(description.strip() or "Wir verbinden fachliche Kompetenz mit persönlicher Beratung.")
-    button_text = escape(button_text.strip() or "Ihr Angebot entdecken")
+    slogan = escape(slogan.strip() or str(page_copy["defaults"][0]))
+    description = escape(description.strip() or str(page_copy["defaults"][1]))
+    button_text = escape(button_text.strip() or str(page_copy["defaults"][2]))
     footer_text = escape(
         footer_text.strip()
-        or f"{company_name} | {business_email} | Impressum | Datenschutz"
+        or f'{company_name} | {business_email} | {page_copy["imprint"]} | {page_copy["privacy"]}'
     )
     chatbot_knowledge = escape(
         chatbot_knowledge.strip()
@@ -2278,17 +2305,17 @@ def build_customized_template_html(
         "Supermarkt und Einzelhandel": "header{background:var(--accent);color:#111827}.hero{grid-template-columns:1fr 1fr}.card{border-top-width:5px;border-radius:0}",
     }
     template_style = template_styles.get(template_name, "")
-    image_html = '<div class="image-placeholder">Bild oder Logo hochladen</div>'
+    image_html = f'<div class="image-placeholder">{page_copy["imagePlaceholder"]}</div>'
     if image_file is not None:
         image_name = save_uploaded_image(image_file, "vorlagen-hero")
         image_html = f'<img class="hero-image" src="{image_name}" alt="{company_name}">'
-    phone_html = f'<p>Telefon: {phone}</p>' if phone else ""
+    phone_html = f'<p>{phone}</p>' if phone else ""
     navigation = (
-        '<a href="leistungen.html">Leistungen</a><a href="angebote.html">Angebote</a>'
-        '<a href="projekte.html">Projekte</a><a href="ueber-uns.html">Über uns</a>'
-        '<a href="kontakt.html">Kontakt</a>'
+        f'<a href="leistungen.html">{nav_copy["leistungen"]}</a><a href="angebote.html">{nav_copy["angebote"]}</a>'
+        f'<a href="projekte.html">{nav_copy["projekte"]}</a><a href="ueber-uns.html">{nav_copy["ueber_uns"]}</a>'
+        f'<a href="kontakt.html">{nav_copy["kontakt"]}</a>'
         if multi_page
-        else '<a href="#leistungen">Leistungen</a><a href="#ueber-uns">Über uns</a><a href="#kontakt">Kontakt</a>'
+        else f'<a href="#leistungen">{nav_copy["leistungen"]}</a><a href="#ueber-uns">{nav_copy["ueber_uns"]}</a><a href="#kontakt">{nav_copy["kontakt"]}</a>'
     )
     button_target = "angebote.html" if multi_page else "#leistungen"
     section_cards = []
@@ -2304,7 +2331,7 @@ def build_customized_template_html(
             '<article class="card"><strong>03</strong><h3>Kontakt erleichtern</h3><p>Schnell und direkt zu Ihrer persönlichen Anfrage.</p></article>',
         ]
     section_cards_html = "".join(section_cards)
-    footer_html = f'''<footer class="site-footer"><section><strong>{company_name}</strong><p>{footer_text}</p></section><section><strong>Kontakt</strong><p><a href="mailto:{business_email}">{business_email}</a></p></section><section><strong>Rechtliches</strong><p><a href="#impressum">Impressum</a> · <a href="#datenschutz">Datenschutz</a></p></section><p class="footer-legal">© 2026 {company_name}. Alle Rechte vorbehalten.</p></footer>'''
+    footer_html = f'''<footer class="site-footer"><section><strong>{company_name}</strong><p>{footer_text}</p></section><section><strong>{page_copy["contact"]}</strong><p><a href="mailto:{business_email}">{business_email}</a></p></section><section><strong>{page_copy["legal"]}</strong><p><a href="#impressum">{page_copy["imprint"]}</a> · <a href="#datenschutz">{page_copy["privacy"]}</a></p></section><p class="footer-legal">© 2026 {company_name}. {page_copy["rights"]}</p></footer>'''
     chatbot_widget_html = f'''<style>.customer-chatbot{{{chatbot_css_position}z-index:10000;font-family:Arial,sans-serif}}.customer-chatbot-toggle{{border:0;color:#fff;padding:13px 18px;cursor:pointer;font-weight:700;box-shadow:0 4px 10px rgba(0,0,0,.2)}}.customer-chatbot-window{{position:absolute;right:0;bottom:64px;width:min(350px,calc(100vw - 40px));height:450px;background:#fff;color:#111827;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 5px 15px rgba(0,0,0,.3);overflow:hidden}}.customer-chatbot-window header{{display:flex;justify-content:space-between;align-items:center;padding:14px;color:#fff}}.customer-chatbot-window header button{{border:0;background:transparent;color:#fff;font-size:22px;cursor:pointer}}.customer-chatbot-messages{{height:calc(100% - 110px);overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px}}.customer-chatbot-message{{max-width:85%;margin:0;padding:8px 12px;background:#f3f4f6;border-radius:8px;color:#111827}}.customer-chatbot-message-user{{align-self:flex-end;background:{chatbot_color};color:#fff}}.customer-chatbot-form{{display:flex;gap:6px;padding:10px;border-top:1px solid #e5e7eb}}.customer-chatbot-form input{{min-width:0;flex:1;padding:8px;border:1px solid #d1d5db;border-radius:6px}}.customer-chatbot-form button{{border:0;border-radius:6px;padding:8px 12px;color:#fff;cursor:pointer}}@media(max-width:480px){{.customer-chatbot-window{{height:400px}}}}</style><aside class="customer-chatbot" data-knowledge="{chatbot_knowledge}">
 <button class="customer-chatbot-toggle" type="button" aria-expanded="false" aria-label="{chatbot_name} öffnen" style="background:{chatbot_color};border-radius:{chatbot_radius}">Chat</button>
 <section class="customer-chatbot-window" hidden>
@@ -2317,16 +2344,16 @@ def build_customized_template_html(
         chatbot_name, chatbot_color, chatbot_knowledge
     )
     return f"""<!doctype html>
-<html lang="de">
+<html lang="{language}" dir="{direction}">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{company_name}</title>
 <link rel="stylesheet" href="styles.css">
 <style>:root {{ --background: {background_color}; --accent: {accent_color}; --text: {text_color}; --muted: {muted_color}; --radius: {radius}; }} {template_style}</style></head>
 <body><header><strong>{company_name}</strong><nav>{navigation}</nav></header>
-<main><section class="container hero" id="hero"><div><span class="eyebrow">{escape(template_name)}</span><h1>{slogan}</h1><p>{description}</p><a class="button" href="{button_target}">{button_text}</a></div>{image_html}</section>
-<section class="band"><div class="container" id="leistungen"><span class="eyebrow">Leistungen und Vorteile</span><h2>Kompetent. Persönlich. Verlässlich.</h2><div class="cards">{section_cards_html}</div></div></section>
-<section class="container" id="ueber-uns"><span class="eyebrow">Über uns</span><h2>Ein Auftritt, der zu Ihrem Unternehmen passt.</h2><p>{description}</p></section>
-<section class="band"><div class="container contact" id="kontakt"><div><span class="eyebrow">Kontakt</span><h2>Wir freuen uns auf Ihre Anfrage.</h2><p><a href="mailto:{business_email}">{business_email}</a></p>{phone_html}</div><div class="card"><h3>Persönlich beraten lassen</h3><p>Schreiben Sie uns direkt. Wir melden uns zeitnah bei Ihnen.</p><a class="button" href="mailto:{business_email}">E-Mail schreiben</a></div></div></section></main>
+<main><section class="container hero" id="hero"><div><span class="eyebrow">{escape(template_display_name)}</span><h1>{slogan}</h1><p>{description}</p><a class="button" href="{button_target}">{button_text}</a></div>{image_html}</section>
+<section class="band"><div class="container" id="leistungen"><span class="eyebrow">{nav_copy["leistungen"]}</span><h2>{services_copy[1]}</h2><div class="cards">{section_cards_html}</div></div></section>
+<section class="container" id="ueber-uns"><span class="eyebrow">{nav_copy["ueber_uns"]}</span><h2>{about_copy[1]}</h2><p>{description}</p></section>
+<section class="band"><div class="container contact" id="kontakt"><div><span class="eyebrow">{nav_copy["kontakt"]}</span><h2>{contact_copy[1]}</h2><p><a href="mailto:{business_email}">{business_email}</a></p>{phone_html}</div><div class="card"><h3>{contact_copy[2][1][0]}</h3><p>{contact_copy[2][1][1]}</p><a class="button" href="mailto:{business_email}">{nav_copy["kontakt"]}</a></div></div></section></main>
     {footer_html}{chatbot_widget_html}</body></html>"""
 
 
@@ -2458,18 +2485,31 @@ def build_customized_template_pages(
     chatbot_name: str = "", chatbot_color: str = "#2563EB",
 ) -> dict[str, str]:
     """Erstellt echte statische Angebots- und Kontaktseiten der Kundenwebsite."""
+    language = str(st.session_state.app_language)
+    copy = get_template_preview_copy(language)
+    nav = copy["nav"]
+    direction = "rtl" if language in {"ar", "ku"} else "ltr"
     company_name = escape(company_name.strip())
     business_email = escape(business_email.strip())
-    description = escape(description.strip() or "Individuelle Beratung und passende Lösungen.")
+    description = escape(description.strip() or str(copy["defaults"][1]))
     text_color = contrast_text_color(background_color)
     muted_color = "#334155" if is_light_color(background_color) else "#cbd5e1"
     head = f"""<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{company_name}</title><link rel="stylesheet" href="styles.css"><style>:root{{--background:{background_color};--accent:{accent_color};--text:{text_color};--muted:{muted_color};--radius:10px;}}</style></head>"""
-    navigation = f'<nav><a href="index.html">Start</a><a href="leistungen.html">Leistungen</a><a href="angebote.html">Angebote</a><a href="projekte.html">Projekte</a><a href="ueber-uns.html">Über uns</a><a href="kontakt.html">Kontakt</a></nav>'
-    services = f"""<!doctype html><html lang="de">{head}<body><header><strong>{company_name}</strong>{navigation}</header><main><h1>Leistungen für Ihren Erfolg.</h1><p>{description}</p><section class="card"><h2>Individuelle Beratung</h2><p>Wir analysieren Ihren Bedarf und entwickeln eine passende Lösung.</p></section><section class="card"><h2>Verlässliche Umsetzung</h2><p>Klare Abläufe, hohe Qualität und ein verbindlicher Ansprechpartner.</p></section><section class="card"><h2>Nachhaltiger Service</h2><p>Auch nach dem Projekt bleiben wir persönlich für Sie erreichbar.</p><a class="button" href="kontakt.html">Jetzt anfragen</a></section></main><footer>{company_name} · <a href="mailto:{business_email}">{business_email}</a></footer></body></html>"""
-    projects = f"""<!doctype html><html lang="de">{head}<body><header><strong>{company_name}</strong>{navigation}</header><main><h1>Projekte</h1><p>{description}</p><section class="card"><h2>Ausgewählte Projekte</h2><p>Einblick in Lösungen, die wir gemeinsam mit unseren Kunden umgesetzt haben.</p></section><section class="card"><h2>Unser Vorgehen</h2><p>Von der ersten Idee bis zur verlässlichen Umsetzung begleiten wir jedes Vorhaben.</p></section><section class="card"><h2>Ihr nächstes Projekt</h2><p>Wir freuen uns darauf, mehr über Ihr Vorhaben zu erfahren.</p><a class="button" href="kontakt.html">Projekt anfragen</a></section></main><footer>{company_name} · <a href="mailto:{business_email}">{business_email}</a></footer></body></html>"""
-    about = f"""<!doctype html><html lang="de">{head}<body><header><strong>{company_name}</strong>{navigation}</header><main><h1>Über uns</h1><p>{description}</p><section class="card"><h2>Unsere Arbeitsweise</h2><p>Wir verbinden fachliche Kompetenz mit klarer Kommunikation und persönlicher Beratung.</p></section><section class="card"><h2>Unser Anspruch</h2><p>Qualität, Verlässlichkeit und eine langfristige Zusammenarbeit stehen im Mittelpunkt.</p></section><section class="card"><h2>Persönlich erreichbar</h2><p>Wir nehmen uns Zeit für Ihr Anliegen und entwickeln passende Lösungen.</p><a class="button" href="kontakt.html">Kontakt aufnehmen</a></section></main><footer>{company_name} · <a href="mailto:{business_email}">{business_email}</a></footer></body></html>"""
-    offers = f"""<!doctype html><html lang="de">{head}<body><header><strong>{company_name}</strong>{navigation}</header><main><h1>Unsere Angebote</h1><p>{description}</p><section class="card"><h2>Individuelles Angebot</h2><p>{description}</p><a class="button" href="kontakt.html">Angebot anfragen</a></section></main><footer>{company_name} · <a href="mailto:{business_email}">{business_email}</a></footer></body></html>"""
-    contact = f"""<!doctype html><html lang="de">{head}<body><header><strong>{company_name}</strong>{navigation}</header><main><h1>Kontakt</h1><p>Schreiben Sie uns. Wir melden uns zeitnah bei Ihnen.</p><section class="card"><h2>Kontakt aufnehmen</h2><p><a href="mailto:{business_email}">{business_email}</a></p><a class="button" href="mailto:{business_email}">E-Mail schreiben</a></section></main><footer>{company_name} · <a href="mailto:{business_email}">{business_email}</a></footer></body></html>"""
+    navigation = f'<nav><a href="index.html">{nav["start"]}</a><a href="leistungen.html">{nav["leistungen"]}</a><a href="angebote.html">{nav["angebote"]}</a><a href="projekte.html">{nav["projekte"]}</a><a href="ueber-uns.html">{nav["ueber_uns"]}</a><a href="kontakt.html">{nav["kontakt"]}</a></nav>'
+
+    def page_html(page_key: str) -> str:
+        _title, heading, cards = copy["pages"][page_key]
+        cards_html = "".join(
+            f'<section class="card"><h2>{card_title}</h2><p>{card_text or description}</p></section>'
+            for card_title, card_text in cards
+        )
+        return f'''<!doctype html><html lang="{language}" dir="{direction}">{head}<body><header><strong>{company_name}</strong>{navigation}</header><main><h1>{heading}</h1><p>{description}</p>{cards_html}<a class="button" href="kontakt.html">{nav["kontakt"]}</a></main><footer>{company_name} · <a href="mailto:{business_email}">{business_email}</a></footer></body></html>'''
+
+    services = page_html("leistungen")
+    projects = page_html("projekte")
+    about = page_html("ueber_uns")
+    offers = page_html("angebote")
+    contact = page_html("kontakt")
     chatbot_widget = build_customer_chatbot_widget(
         chatbot_name, chatbot_color, chatbot_knowledge
     )
@@ -2863,7 +2903,10 @@ def render_template_preview(
     description = escape(str(st.session_state.get("template_custom_description", "")).strip() or "Sie ersetzen Unternehmensdaten, Texte und Bilder direkt in dieser Vorlage. Die Gestaltung, Abstände und Inhaltsbereiche bleiben professionell geordnet.")
     business_email = escape(str(st.session_state.get("client_business_email", "")).strip() or "Ihre Kontakt-E-Mail")
     phone = escape(str(st.session_state.get("client_business_phone", "")).strip() or "Telefonnummer ergänzen")
-    button_text = escape(str(st.session_state.get("template_button_text", "")).strip() or "Ihr Angebot entdecken")
+    button_text = escape(
+        str(st.session_state.get("template_button_text", "")).strip()
+        or str(get_template_preview_copy(language)["defaults"][2])
+    )
     image_file = st.session_state.get("initial_image")
     image_data_url = ""
     if image_file is not None:
@@ -4135,7 +4178,29 @@ def publish_website() -> None:
 
     project_id = str(deployment.get("projectId", "")).strip()
     if project_id:
-        st.session_state.chatbot_environment_warning = configure_vercel_chatbot_environment(project_id)
+        environment_warning = configure_vercel_chatbot_environment(project_id)
+        st.session_state.chatbot_environment_warning = environment_warning
+        if not environment_warning and HF_API_KEY:
+            try:
+                redeploy_response = requests.post(
+                    VERCEL_DEPLOYMENTS_URL,
+                    headers={
+                        "Authorization": f"Bearer {VERCEL_TOKEN}",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                    timeout=90,
+                )
+                redeploy_response.raise_for_status()
+                redeployment = redeploy_response.json()
+                deployment_id = str(redeployment.get("id", "")).strip()
+                deployment_url = str(redeployment.get("url", "")).strip()
+                if not deployment_id or not deployment_url:
+                    raise ValueError("Vercel hat keine vollständigen Daten für das Chatbot-Deployment geliefert.")
+            except (requests.RequestException, ValueError) as error:
+                raise ValueError(
+                    f"Der Chatbot-Schlüssel wurde gesetzt, aber das aktive Deployment konnte nicht erneuert werden: {error}"
+                ) from error
 
     deployment = wait_for_vercel_deployment(deployment_id)
 
