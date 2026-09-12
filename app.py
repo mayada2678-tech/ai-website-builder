@@ -3157,11 +3157,51 @@ DESIGN-VORGABEN:
 """
 
 
+def get_creation_form_copy() -> dict[str, object]:
+    """Returns localized labels for section selection and draft creation."""
+    copy = {
+        "de": ["4. Abschnitte und Inhalte", "Welche Bereiche soll die Website enthalten?", "Wählen Sie mindestens einen Abschnitt aus.", "Hauptüberschrift", "Untertitel oder Slogan", "Text für Über uns", "Leistungen oder Produkte, jeweils durch Komma trennen", "Projekt- oder Galeriebeschreibung", "Referenzen oder Vertrauensargumente", "Unternehmensbeschreibung und besondere Wünsche", "Beschreiben Sie Angebot, Zielgruppe, Standort und die wichtigsten Inhalte Ihrer Website.", "5. Bild und Entwurf erstellen", "Logo oder Bild hochladen (optional)", "Wo soll dieses Bild erscheinen?", "Vorlage mit Kundendaten übernehmen", "Website erstellen"],
+        "en": ["4. Sections and content", "Which sections should the website include?", "Select at least one section.", "Main heading", "Subtitle or slogan", "About us text", "Services or products, separated by commas", "Project or gallery description", "References or trust indicators", "Company description and special requests", "Describe your offer, target audience, location, and the key content of your website.", "5. Create image and draft", "Upload logo or image (optional)", "Where should this image appear?", "Apply template with customer data", "Create website"],
+        "ar": ["4. الأقسام والمحتوى", "ما الأقسام التي يجب أن يتضمنها الموقع؟", "اختر قسماً واحداً على الأقل.", "العنوان الرئيسي", "العنوان الفرعي أو الشعار", "نص من نحن", "الخدمات أو المنتجات، مفصولة بفواصل", "وصف المشاريع أو المعرض", "المراجع أو عناصر الثقة", "وصف الشركة والطلبات الخاصة", "صف عرضك والجمهور المستهدف والموقع وأهم محتويات موقعك.", "5. إنشاء الصورة والمسودة", "رفع شعار أو صورة (اختياري)", "أين يجب أن تظهر هذه الصورة؟", "اعتماد القالب مع بيانات العميل", "إنشاء الموقع"],
+        "ku": ["4. بەشەکان و ناوەڕۆک", "وێبگەکە دەبێت کام بەشانە لەخۆبگرێت؟", "لانیکەم بەشێک هەڵبژێرە.", "سەردێڕی سەرەکی", "ژێرسەردێڕ یان دروشم", "دەقی دەربارەی ئێمە", "خزمەتگوزاری یان بەرهەمەکان، بە کۆما جیابکەرەوە", "وەسفی پڕۆژە یان گەلەری", "سەرچاوە یان هۆکاری متمانە", "وەسفی کۆمپانیا و داواکارییە تایبەتەکان", "پێشنیار، ئامانج، شوێن و گرنگترین ناوەڕۆکی وێبگەکەت باس بکە.", "5. دروستکردنی وێنە و ڕەشنووس", "بارکردنی لۆگۆ یان وێنە (ئارەزوومەندانە)", "ئەم وێنەیە لە کوێ دەربکەوێت؟", "بەکارهێنانی قاڵب بە زانیاریی کڕیار", "دروستکردنی وێبگە"],
+        "es": ["4. Secciones y contenido", "¿Qué secciones debe incluir el sitio web?", "Seleccione al menos una sección.", "Título principal", "Subtítulo o eslogan", "Texto sobre nosotros", "Servicios o productos, separados por comas", "Descripción de proyectos o galería", "Referencias o argumentos de confianza", "Descripción de la empresa y requisitos especiales", "Describa su oferta, público objetivo, ubicación y contenidos principales.", "5. Crear imagen y borrador", "Subir logotipo o imagen (opcional)", "¿Dónde debe aparecer esta imagen?", "Aplicar plantilla con datos del cliente", "Crear sitio web"],
+        "it": ["4. Sezioni e contenuti", "Quali sezioni deve includere il sito?", "Selezionate almeno una sezione.", "Titolo principale", "Sottotitolo o slogan", "Testo chi siamo", "Servizi o prodotti, separati da virgole", "Descrizione del progetto o della galleria", "Referenze o elementi di fiducia", "Descrizione dell'azienda e richieste speciali", "Descrivete l'offerta, il pubblico, la sede e i contenuti principali del sito.", "5. Crea immagine e bozza", "Carica logo o immagine (facoltativo)", "Dove deve apparire questa immagine?", "Applica il modello con i dati del cliente", "Crea sito web"],
+        "hi": ["4. अनुभाग और सामग्री", "वेबसाइट में कौन से अनुभाग होने चाहिए?", "कम से कम एक अनुभाग चुनें।", "मुख्य शीर्षक", "उपशीर्षक या नारा", "हमारे बारे में पाठ", "सेवाएं या उत्पाद, अल्पविराम से अलग करें", "परियोजना या गैलरी का विवरण", "संदर्भ या विश्वास के आधार", "कंपनी का विवरण और विशेष अनुरोध", "अपने प्रस्ताव, लक्षित दर्शकों, स्थान और वेबसाइट की मुख्य सामग्री का वर्णन करें।", "5. चित्र और प्रारूप बनाएं", "लोगो या चित्र अपलोड करें (वैकल्पिक)", "यह चित्र कहां दिखाई देना चाहिए?", "ग्राहक डेटा के साथ टेम्पलेट लागू करें", "वेबसाइट बनाएं"],
+    }
+    labels = copy.get(str(st.session_state.app_language), copy["en"])
+    section_names = {
+        "de": ["Hero und Willkommensbereich", "Über uns", "Leistungen oder Produkte", "Galerie oder Projekte", "Kundenstimmen oder Referenzen", "Kontakt und Erreichbarkeit"],
+        "en": ["Hero and welcome section", "About us", "Services or products", "Gallery or projects", "Testimonials or references", "Contact and availability"],
+        "ar": ["الواجهة الرئيسية والترحيب", "من نحن", "الخدمات أو المنتجات", "المعرض أو المشاريع", "آراء العملاء أو المراجع", "الاتصال وإمكانية الوصول"],
+        "ku": ["بەشی سەرەکی و بەخێرهاتن", "دەربارەی ئێمە", "خزمەتگوزاری یان بەرهەمەکان", "گەلەری یان پڕۆژەکان", "بۆچوونی کڕیاران یان سەرچاوەکان", "پەیوەندی و بەردەستبوون"],
+        "es": ["Sección principal y bienvenida", "Sobre nosotros", "Servicios o productos", "Galería o proyectos", "Testimonios o referencias", "Contacto y disponibilidad"],
+        "it": ["Sezione principale e benvenuto", "Chi siamo", "Servizi o prodotti", "Galleria o progetti", "Testimonianze o referenze", "Contatti e disponibilità"],
+        "hi": ["मुख्य और स्वागत अनुभाग", "हमारे बारे में", "सेवाएं या उत्पाद", "गैलरी या परियोजनाएं", "ग्राहक राय या संदर्भ", "संपर्क और उपलब्धता"],
+    }
+    image_placements = {
+        "de": ["Logo", "Hero- und Willkommensbereich", "Über-uns-Bereich", "Projektbereich"],
+        "en": ["Logo", "Hero and welcome section", "About us section", "Project section"],
+        "ar": ["الشعار", "الواجهة الرئيسية والترحيب", "قسم من نحن", "قسم المشاريع"],
+        "ku": ["لۆگۆ", "بەشی سەرەکی و بەخێرهاتن", "بەشی دەربارەی ئێمە", "بەشی پڕۆژەکان"],
+        "es": ["Logotipo", "Sección principal y bienvenida", "Sección sobre nosotros", "Sección de proyectos"],
+        "it": ["Logo", "Sezione principale e benvenuto", "Sezione chi siamo", "Sezione progetti"],
+        "hi": ["लोगो", "मुख्य और स्वागत अनुभाग", "हमारे बारे में अनुभाग", "परियोजना अनुभाग"],
+    }
+    return {
+        "labels": labels,
+        "sections": dict(zip(section_names["de"], section_names.get(str(st.session_state.app_language), section_names["en"]))),
+        "placements": dict(zip(image_placements["de"], image_placements.get(str(st.session_state.app_language), image_placements["en"]))),
+    }
+
+
 def render_section_configuration() -> str:
     """Erfasst den gewünschten Umfang und die Kerninhalte eines Entwurfs."""
-    st.subheader("4. Abschnitte und Inhalte")
+    form_copy = get_creation_form_copy()
+    labels = form_copy["labels"]
+    section_labels = form_copy["sections"]
+    st.subheader(labels[0])
     selected_sections = st.multiselect(
-        "Welche Bereiche soll die Website enthalten?",
+        labels[1],
         [
             "Hero und Willkommensbereich",
             "Über uns",
@@ -3177,34 +3217,35 @@ def render_section_configuration() -> str:
             "Kontakt und Erreichbarkeit",
         ],
         key="selected_website_sections",
+        format_func=lambda section: section_labels.get(section, section),
     )
     if not selected_sections:
-        st.warning("Wählen Sie mindestens einen Abschnitt aus.")
+        st.warning(labels[2])
 
     details: list[str] = []
     if "Hero und Willkommensbereich" in selected_sections:
-        with st.expander("Hero und Willkommensbereich", expanded=True):
-            title = st.text_input("Hauptüberschrift", key="section_hero_title")
-            subtitle = st.text_area("Untertitel oder Slogan", key="section_hero_subtitle")
+        with st.expander(section_labels["Hero und Willkommensbereich"], expanded=True):
+            title = st.text_input(labels[3], key="section_hero_title")
+            subtitle = st.text_area(labels[4], key="section_hero_subtitle")
             details.append(f"Hero: Titel '{title}', Untertitel '{subtitle}'.")
     if "Über uns" in selected_sections:
-        with st.expander("Über uns"):
-            about = st.text_area("Text für Über uns", key="section_about_text")
+        with st.expander(section_labels["Über uns"]):
+            about = st.text_area(labels[5], key="section_about_text")
             details.append(f"Über uns: {about}")
     if "Leistungen oder Produkte" in selected_sections:
-        with st.expander("Leistungen oder Produkte"):
+        with st.expander(section_labels["Leistungen oder Produkte"]):
             services = st.text_area(
-                "Leistungen oder Produkte, jeweils durch Komma trennen",
+                labels[6],
                 key="section_services",
             )
             details.append(f"Leistungen oder Produkte: {services}")
     if "Galerie oder Projekte" in selected_sections:
-        with st.expander("Galerie oder Projekte"):
-            projects = st.text_area("Projekt- oder Galeriebeschreibung", key="section_projects")
+        with st.expander(section_labels["Galerie oder Projekte"]):
+            projects = st.text_area(labels[7], key="section_projects")
             details.append(f"Galerie oder Projekte: {projects}")
     if "Kundenstimmen oder Referenzen" in selected_sections:
-        with st.expander("Kundenstimmen oder Referenzen"):
-            references = st.text_area("Referenzen oder Vertrauensargumente", key="section_references")
+        with st.expander(section_labels["Kundenstimmen oder Referenzen"]):
+            references = st.text_area(labels[8], key="section_references")
             details.append(f"Kundenstimmen oder Referenzen: {references}")
 
     return (
@@ -5231,36 +5272,40 @@ with new_tab:
         section_prompt = render_section_configuration()
 
     if creation_mode != "Bestehenden Entwurf anpassen":
+        creation_copy = get_creation_form_copy()
+        creation_labels = creation_copy["labels"]
+        placement_labels = creation_copy["placements"]
         if creation_mode == "Professionelle Vorlage":
             description = str(st.session_state.get("template_custom_description", ""))
         else:
             description = st.text_area(
-                "Unternehmensbeschreibung und besondere Wünsche",
-                placeholder="Beschreiben Sie Angebot, Zielgruppe, Standort und die wichtigsten Inhalte Ihrer Website.",
+                creation_labels[9],
+                placeholder=creation_labels[10],
                 key="creation_description",
                 height=150,
             )
-        st.subheader("5. Bild und Entwurf erstellen")
+        st.subheader(creation_labels[11])
         initial_image = st.file_uploader(
-            "Logo oder Bild hochladen (optional)",
+            creation_labels[12],
             type=["png", "jpg", "jpeg", "webp"],
             key="initial_image",
         )
         image_placement = st.selectbox(
-            "Wo soll dieses Bild erscheinen?",
+            creation_labels[13],
             [
                 "Logo",
                 "Hero- und Willkommensbereich",
                 "Über-uns-Bereich",
                 "Projektbereich",
             ],
+            format_func=lambda placement: placement_labels.get(placement, placement),
             disabled=initial_image is None,
             key="image_placement",
         )
         submit_label = (
-            "Vorlage mit Kundendaten übernehmen"
+            creation_labels[14]
             if creation_mode == "Professionelle Vorlage"
-            else "Website erstellen"
+            else creation_labels[15]
         )
         if st.button(
             submit_label,
