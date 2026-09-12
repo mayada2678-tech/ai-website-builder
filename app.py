@@ -5918,6 +5918,8 @@ if (
     and st.session_state.get("creation_mode") != "Professionelle Vorlage"
 ):
     st.divider()
+    render_saas_preview_and_testing_window()
+    st.divider()
     st.header(t("edit_website"))
 
     live_editor_tab, direct_edit_tab, content_tab, design_tab, image_tab, html_tab = st.tabs(
@@ -6195,9 +6197,12 @@ Alle anderen Inhalte müssen unverändert bleiben.
     st.divider()
     st.header(t("publish"))
 
+    st.session_state.setdefault(
+        "editor_project_name", str(st.session_state.project_name)
+    )
     st.text_input(
         "Vercel-Projektname",
-        key="project_name",
+        key="editor_project_name",
         help=(
             "Muss exakt dem Namen des Projekts im Vercel-Dashboard entsprechen. "
             "Dann wird dessen Production-Version aktualisiert."
@@ -6228,6 +6233,9 @@ Alle anderen Inhalte müssen unverändert bleiben.
                     expanded=True,
                 ) as status:
                     try:
+                        st.session_state.project_name = safe_project_name(
+                            str(st.session_state.editor_project_name)
+                        )
                         publish_website()
                         status.update(
                             label="🎉 Änderungen wurden veröffentlicht.",
