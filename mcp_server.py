@@ -106,8 +106,10 @@ def get_or_create_head(soup: BeautifulSoup) -> Tag:
     head = soup.new_tag("head")
     if soup.body is not None:
         soup.body.insert_before(head)
-    else:
+    elif soup.html is not None:
         soup.html.insert(0, head)
+    else:
+        raise ValueError("Es wird eine vollständige HTML-Datei benötigt.")
     return head
 
 
@@ -362,7 +364,10 @@ def optimize_seo_and_content(
     heading = soup.find("h1")
     if heading is None:
         heading = soup.new_tag("h1")
-        (soup.body or soup.html).insert(0, heading)
+        heading_parent = soup.body or soup.html
+        if heading_parent is None:
+            raise ValueError("Die HTML-Datei enthält keinen bearbeitbaren Body-Bereich.")
+        heading_parent.insert(0, heading)
     heading.string = seo_heading
     return {"html": str(soup), "message": "SEO-Titel, Meta-Beschreibung und Hauptüberschrift wurden optimiert."}
 
