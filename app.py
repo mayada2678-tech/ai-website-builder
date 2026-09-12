@@ -4294,6 +4294,36 @@ def create_empty_vercel_project(project_name: str) -> str:
     return project_id
 
 
+def upload_vercel_file(file_name: str, content: bytes) -> dict[str, str]:
+    """Laedt eine einzelne Datei hoch und liefert den schlanken Deployment-Verweis."""
+    digest = hashlib.sha1(content).hexdigest()
+    try:
+        response = requests.post(
+            "https://api.vercel.com/v2/files",
+            headers={
+                "Authorization": f"Bearer {VERCEL_TOKEN}",
+                "Content-Type": "application/octet-stream",
+                "Content-Length": str(len(content)),
+                "x-vercel-digest": digest,
+            },
+            data=content,
+            timeout=90,
+        )
+    except requests.RequestException as error:
+        raise ValueError(f"Die Datei {file_name} konnte nicht zu Vercel hochgeladen werden: {error}") from error
+
+    if response.status_code not in (200, 201):
+        try:
+            details = response.json()
+        except ValueError:
+            details = response.text
+        raise ValueError(
+            f"Vercel-Dateiupload für {file_name} fehlgeschlagen "
+            f"(HTTP {response.status_code}): {details}"
+        )
+    return {"file": file_name, "sha": digest}
+
+
 def publish_website() -> None:
     """Veröffentlicht den aktuellen HTML-Entwurf auf Vercel."""
     html = inject_configured_customer_chatbot(
@@ -4321,26 +4351,22 @@ def publish_website() -> None:
     }
     st.session_state.site_pages = site_pages
     site_pages = add_vercel_chat_api(site_pages)
-    files = [
-        {
-            "file": file_name,
-            "data": (
+    deployment_files = {
+        file_name: (
                 require_complete_html(page_content)
                 if file_name.endswith(".html")
                 else page_content
-            ),
-        }
+            ).encode("utf-8")
         for file_name, page_content in site_pages.items()
-    ]
+    }
 
     for file_name, asset in st.session_state.assets.items():
-        files.append(
-            {
-                "file": file_name,
-                "data": asset["base64"],
-                "encoding": "base64",
-            }
-        )
+        deployment_files[file_name] = base64.b64decode(asset["base64"])
+
+    files = [
+        upload_vercel_file(file_name, content)
+        for file_name, content in deployment_files.items()
+    ]
 
     payload = {
         "name": project_name,
