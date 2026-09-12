@@ -3755,7 +3755,11 @@ def check_custom_domain_with_mcp(domain_name: str) -> dict[str, str | bool]:
     async def run_check() -> dict[str, str | bool]:
         async with Client(website_mcp_server) as client:
             result = await client.call_tool(
-                "check_domain_availability", {"domain_name": domain_name}
+                "check_domain_availability",
+                {
+                    "domain_name": domain_name,
+                    "language": str(st.session_state.app_language),
+                },
             )
             content = result.structured_content
             if not isinstance(content, dict):
@@ -4168,6 +4172,17 @@ def render_domain_and_deployment_ui() -> None:
         "hi": ["चैटबॉट के साथ प्रकाशन", "पैकेज में कॉन्फ़िगर किए गए चैटबॉट सहित वर्तमान वेबसाइट प्रारूप शामिल है।", "चैटबॉट सहित Vercel ZIP पैकेज बनाएं", "वेबसाइट पैकेज बनाया जा रहा है...", "वेबसाइट पैकेज डाउनलोड के लिए तैयार है।", "चैटबॉट सहित वेबसाइट डाउनलोड करें (ZIP)", "अब Vercel पर प्रकाशित करें", "Vercel वेबसाइट प्रकाशित कर रहा है...", "वेबसाइट प्रकाशित हो गई है।", "आपके ग्राहक की वेबसाइट तैयार है: {url}", "ग्राहक वेबसाइट अभी खोलें", "प्रकाशन विफल", "वर्तमान प्रकाशन", "आपकी वेबसाइट लाइव है: {url}", "अभी कोई वेबसाइट प्रकाशित नहीं हुई है। प्रकाशन के बाद आप इसे यहां खोल या हटा सकते हैं।", "प्रकाशित पृष्ठ खोलें", "हटाने की पुष्टि करें", "प्रकाशित वेबसाइट हटाएं", "केवल वर्तमान Vercel प्रकाशन हटाया जाएगा। सहेजा गया प्रारूप और स्थानीय पैकेज उपलब्ध रहेंगे।", "प्रकाशन हटाया जा रहा है...", "प्रकाशित वेबसाइट हटा दी गई।", "हटाना विफल"],
     }
     action_labels = action_copy_by_language.get(language, action_copy_by_language["en"])
+    custom_domain_copy = {
+        "de": ["Domain kaufen und verbinden: Anleitung", "1. Geben Sie unten Ihre gewünschte Domain ohne Pfad ein, zum Beispiel `mein-betrieb.de`.\n2. Prüfen Sie mit MCP, ob für die Domain bereits ein öffentlicher RDAP-Eintrag besteht.\n3. Kaufen Sie eine freie Domain direkt bei einem Domainanbieter Ihrer Wahl.\n4. Fügen Sie die Domain anschließend in Vercel hinzu und übernehmen Sie die dort angezeigten DNS-Einträge beim Domainanbieter.", "Preisorientierung: Eine .de-Domain kostet häufig etwa 5-20 EUR pro Jahr, eine .com-Domain etwa 10-25 EUR pro Jahr. Aktionspreise gelten oft nur im ersten Jahr; prüfen Sie deshalb immer den Verlängerungspreis und die Mehrwertsteuer.", "Die App kauft keine Domain automatisch und bucht dafür nichts ab. Der Domainanbieter berechnet die Domain separat. Ein App-Abonnement und mögliche Vercel-Kosten sind ebenfalls getrennte Verträge.", "Offizielle Vercel-Anleitung zur Domain-Verbindung", "Gewünschte oder bereits gekaufte Domain", "z. B. www.mein-unternehmen.de", "Die MCP-Prüfung ist ein Hinweis anhand öffentlicher Registrierungsdaten und keine Kaufgarantie.", "Geplante Domain: {domain}", "Eigene Domain per MCP prüfen", "MCP prüft die Domain ...", "Nächster Schritt: {step}"],
+        "en": ["Buy and connect a domain: instructions", "1. Enter your preferred domain without a path, for example `my-business.com`.\n2. Use MCP to check whether a public RDAP record already exists.\n3. Buy an available domain from a provider of your choice.\n4. Add the domain to Vercel and copy the displayed DNS records to your domain provider.", "Price guide: a .de domain often costs about EUR 5-20 per year and a .com domain about EUR 10-25 per year. Promotional prices often apply only to the first year, so check renewal prices and taxes.", "The app does not buy or charge for a domain automatically. The domain provider bills it separately. The app subscription and possible Vercel costs are separate agreements.", "Official Vercel domain connection guide", "Preferred or already purchased domain", "e.g. www.my-company.com", "The MCP check uses public registration data as guidance and is not a purchase guarantee.", "Planned domain: {domain}", "Check own domain with MCP", "MCP is checking the domain ...", "Next step: {step}"],
+        "ar": ["شراء نطاق وربطه: التعليمات", "1. أدخل النطاق المطلوب أدناه من دون مسار، مثل `my-business.com`.\n2. استخدم MCP للتحقق من وجود سجل RDAP عام للنطاق.\n3. اشترِ النطاق المتاح مباشرة من مزود تختاره.\n4. أضف النطاق إلى Vercel وانسخ سجلات DNS المعروضة إلى مزود النطاق.", "دليل الأسعار: يكلف نطاق .de عادةً نحو 5-20 يورو سنوياً، ونطاق .com نحو 10-25 يورو سنوياً. غالباً ما تسري الأسعار الترويجية في السنة الأولى فقط، لذا تحقق من سعر التجديد والضرائب.", "لا يشتري التطبيق أي نطاق تلقائياً ولا يخصم رسوماً مقابله. يحاسب مزود النطاق بشكل منفصل. كما أن اشتراك التطبيق وتكاليف Vercel المحتملة عقود منفصلة.", "دليل Vercel الرسمي لربط النطاق", "النطاق المطلوب أو الذي تم شراؤه", "مثال: www.my-company.com", "يعتمد فحص MCP على بيانات التسجيل العامة للإرشاد ولا يضمن إمكانية الشراء.", "النطاق المخطط: {domain}", "فحص النطاق الخاص باستخدام MCP", "يفحص MCP النطاق...", "الخطوة التالية: {step}"],
+        "ku": ["کڕین و بەستنەوەی دۆمەین: ڕێنمایی", "1. دۆمەینی دڵخوازت بەبێ ڕێڕەو بنووسە، بۆ نموونە `my-business.com`.\n2. بە MCP بپشکنە کە تۆمارێکی گشتی RDAP هەیە یان نا.\n3. دۆمەینی بەردەست لە دابینکەرێکی هەڵبژێردراو بکڕە.\n4. دۆمەینەکە لە Vercel زیاد بکە و تۆمارەکانی DNS بگوازەرەوە بۆ دابینکەری دۆمەین.", "ڕێنمایی نرخ: دۆمەینی .de زۆرجار ساڵانە نزیکەی 5-20 یۆرۆ و .com نزیکەی 10-25 یۆرۆیە. نرخی داشکاندن زۆرجار تەنها بۆ ساڵی یەکەمە؛ نرخی نوێکردنەوە و باج بپشکنە.", "ئەپەکە خۆکارانە دۆمەین ناکڕێت و هیچ پارەیەک بۆی وەرناگرێت. دابینکەری دۆمەین جیاواز هەژمار دەکات. بەشداریکردنی ئەپ و خەرجییەکانی Vercel گرێبەستی جیاوازن.", "ڕێنمایی فەرمی Vercel بۆ بەستنەوەی دۆمەین", "دۆمەینی دڵخواز یان پێشتر کڕدراو", "بۆ نموونە: www.my-company.com", "پشکنینی MCP تەنها ڕێنماییە بە پشتبەستن بە زانیاری تۆماری گشتی و دڵنیایی کڕین نییە.", "دۆمەینی پلانکراو: {domain}", "پشکنینی دۆمەینی خۆت بە MCP", "MCP دۆمەینەکە دەپشکنێت...", "هەنگاوی داهاتوو: {step}"],
+        "es": ["Comprar y conectar un dominio: instrucciones", "1. Introduzca el dominio deseado sin ruta, por ejemplo `mi-empresa.com`.\n2. Compruebe con MCP si ya existe un registro RDAP público.\n3. Compre un dominio disponible al proveedor que prefiera.\n4. Añada el dominio a Vercel y copie los registros DNS mostrados al proveedor.", "Guía de precios: un dominio .de suele costar entre 5 y 20 EUR al año y un .com entre 10 y 25 EUR. Las promociones suelen aplicarse solo el primer año; compruebe la renovación y los impuestos.", "La aplicación no compra ni cobra dominios automáticamente. El proveedor factura el dominio por separado. La suscripción de la aplicación y los posibles costes de Vercel son contratos independientes.", "Guía oficial de Vercel para conectar dominios", "Dominio deseado o ya adquirido", "p. ej. www.mi-empresa.com", "La comprobación MCP se basa en datos públicos y no garantiza la compra.", "Dominio previsto: {domain}", "Comprobar dominio propio con MCP", "MCP está comprobando el dominio...", "Siguiente paso: {step}"],
+        "it": ["Acquistare e collegare un dominio: istruzioni", "1. Inserite il dominio desiderato senza percorso, ad esempio `mia-azienda.com`.\n2. Verificate con MCP se esiste già un record RDAP pubblico.\n3. Acquistate un dominio disponibile dal provider preferito.\n4. Aggiungete il dominio a Vercel e copiate i record DNS mostrati nel provider.", "Guida ai prezzi: un dominio .de costa spesso circa 5-20 EUR l'anno e un .com circa 10-25 EUR. Le promozioni valgono spesso solo il primo anno; controllate rinnovo e imposte.", "L'app non acquista né addebita automaticamente un dominio. Il provider lo fattura separatamente. L'abbonamento dell'app e gli eventuali costi Vercel sono contratti distinti.", "Guida ufficiale Vercel al collegamento del dominio", "Dominio desiderato o già acquistato", "ad es. www.mia-azienda.com", "Il controllo MCP usa dati pubblici a scopo indicativo e non garantisce l'acquisto.", "Dominio previsto: {domain}", "Controlla il dominio con MCP", "MCP sta controllando il dominio...", "Passo successivo: {step}"],
+        "hi": ["डोमेन खरीदें और जोड़ें: निर्देश", "1. नीचे बिना पथ के अपना पसंदीदा डोमेन लिखें, जैसे `my-business.com`।\n2. MCP से जांचें कि सार्वजनिक RDAP रिकॉर्ड मौजूद है या नहीं।\n3. अपनी पसंद के प्रदाता से उपलब्ध डोमेन खरीदें।\n4. डोमेन को Vercel में जोड़ें और दिखाए गए DNS रिकॉर्ड प्रदाता में दर्ज करें।", "मूल्य मार्गदर्शिका: .de डोमेन प्रायः 5-20 EUR और .com डोमेन 10-25 EUR प्रति वर्ष होता है। प्रचार मूल्य अक्सर केवल पहले वर्ष के लिए होते हैं; नवीनीकरण मूल्य और कर जांचें।", "ऐप अपने आप डोमेन नहीं खरीदता और शुल्क नहीं लेता। डोमेन प्रदाता अलग बिल देता है। ऐप सदस्यता और संभावित Vercel लागत अलग अनुबंध हैं।", "डोमेन जोड़ने की आधिकारिक Vercel मार्गदर्शिका", "पसंदीदा या पहले से खरीदा हुआ डोमेन", "उदा. www.my-company.com", "MCP जांच सार्वजनिक पंजीकरण डेटा पर आधारित संकेत है और खरीद की गारंटी नहीं है।", "नियोजित डोमेन: {domain}", "MCP से अपना डोमेन जांचें", "MCP डोमेन की जांच कर रहा है...", "अगला कदम: {step}"],
+    }.get(language)
+    if custom_domain_copy is None:
+        custom_domain_copy = []
     st.header(labels["title"])
 
     if not st.session_state.generated_html:
@@ -4213,25 +4228,10 @@ def render_domain_and_deployment_ui() -> None:
                 )
             )
     else:
-        with st.expander("Domain kaufen und verbinden: Anleitung", expanded=True):
-            st.markdown(
-                """
-                1. Geben Sie unten Ihre gewünschte Domain ohne Pfad ein, zum Beispiel `mein-betrieb.de`.
-                2. Prüfen Sie mit MCP, ob für die Domain bereits ein öffentlicher RDAP-Eintrag besteht.
-                3. Kaufen Sie eine freie Domain direkt bei einem Domainanbieter Ihrer Wahl.
-                4. Fügen Sie die Domain anschließend in Vercel hinzu und übernehmen Sie die dort angezeigten DNS-Einträge beim Domainanbieter.
-                """
-            )
-            st.info(
-                "Preisorientierung: Eine .de-Domain kostet häufig etwa 5-20 EUR pro Jahr, "
-                "eine .com-Domain etwa 10-25 EUR pro Jahr. Aktionspreise gelten oft nur im "
-                "ersten Jahr; prüfen Sie deshalb immer den Verlängerungspreis und die Mehrwertsteuer."
-            )
-            st.warning(
-                "Die App kauft keine Domain automatisch und bucht dafür nichts ab. Der "
-                "Domainanbieter berechnet die Domain separat. Ein App-Abonnement und mögliche "
-                "Vercel-Kosten sind ebenfalls getrennte Verträge."
-            )
+        with st.expander(custom_domain_copy[0], expanded=True):
+            st.markdown(custom_domain_copy[1])
+            st.info(custom_domain_copy[2])
+            st.warning(custom_domain_copy[3])
             provider_columns = st.columns(3)
             with provider_columns[0]:
                 st.link_button(
@@ -4255,29 +4255,27 @@ def render_domain_and_deployment_ui() -> None:
                     width="stretch",
                 )
             st.link_button(
-                "Offizielle Vercel-Anleitung zur Domain-Verbindung",
+                custom_domain_copy[4],
                 "https://vercel.com/docs/domains/working-with-domains/add-a-domain",
                 icon=":material/help:",
                 width="stretch",
             )
         custom_domain = st.text_input(
-            "Gewünschte oder bereits gekaufte Domain",
-            placeholder="z. B. www.mein-unternehmen.de",
+            custom_domain_copy[5],
+            placeholder=custom_domain_copy[6],
             key="custom_domain",
-            help="Die MCP-Prüfung ist ein Hinweis anhand öffentlicher Registrierungsdaten und keine Kaufgarantie.",
+            help=custom_domain_copy[7],
         )
         if custom_domain:
-            st.caption(
-                f"Geplante Domain: {custom_domain.strip()}"
-            )
+            st.caption(custom_domain_copy[8].format(domain=custom_domain.strip()))
         if st.button(
-            "Eigene Domain per MCP prüfen",
+            custom_domain_copy[9],
             icon=":material/domain_verification:",
             disabled=not custom_domain.strip(),
             key="check_custom_domain_with_mcp",
             width="stretch",
         ):
-            with st.spinner("MCP prüft die Domain ..."):
+            with st.spinner(custom_domain_copy[10]):
                 try:
                     domain_check = check_custom_domain_with_mcp(custom_domain)
                     st.session_state.domain_check_result = domain_check
@@ -4294,7 +4292,7 @@ def render_domain_and_deployment_ui() -> None:
             checked_domain = str(domain_check.get("domain", ""))
             if checked_domain == custom_domain.strip().lower().removeprefix("https://").removeprefix("http://").rstrip("/"):
                 if domain_check.get("next_step"):
-                    st.info(f"Nächster Schritt: {domain_check['next_step']}")
+                    st.info(custom_domain_copy[11].format(step=domain_check["next_step"]))
                 if domain_check.get("cost_guidance"):
                     st.caption(str(domain_check["cost_guidance"]))
 

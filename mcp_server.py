@@ -368,8 +368,21 @@ def optimize_seo_and_content(
 
 
 @mcp.tool()
-def check_domain_availability(domain_name: str) -> dict[str, str | bool]:
+def check_domain_availability(
+    domain_name: str, language: str = "de"
+) -> dict[str, str | bool]:
     """Checks whether a valid domain is currently registered via public RDAP data."""
+    copy = {
+        "de": ["Bitte geben Sie eine gültige Domain wie beispiel.de ein.", "Die Domain-Prüfung ist momentan nicht erreichbar.", "Für {domain} wurde kein RDAP-Eintrag gefunden.", "Registrieren Sie die Domain jetzt bei einem Registrar und verbinden Sie sie danach über die von Vercel angezeigten DNS-Einträge.", "{domain} ist bereits registriert.", "Falls die Domain Ihnen gehört, öffnen Sie die DNS-Verwaltung bei Ihrem Anbieter. Andernfalls prüfen Sie einen anderen Namen.", "Der Registrierungsstatus konnte nicht zuverlässig ermittelt werden.", "Prüfen Sie die Domain zusätzlich direkt bei einem Registrar.", DOMAIN_COST_GUIDANCE],
+        "en": ["Enter a valid domain such as example.com.", "The domain check is currently unavailable.", "No RDAP record was found for {domain}.", "Register the domain with a registrar and then connect it using the DNS records shown by Vercel.", "{domain} is already registered.", "If you own the domain, open its DNS settings at your provider. Otherwise, try another name.", "The registration status could not be determined reliably.", "Also check the domain directly with a registrar.", "Typical registration cost: .de about EUR 5-20/year, .com about EUR 10-25/year. Promotional, renewal, and additional prices vary by provider."],
+        "ar": ["أدخل نطاقاً صالحاً مثل example.com.", "خدمة فحص النطاق غير متاحة حالياً.", "لم يتم العثور على سجل RDAP للنطاق {domain}.", "سجّل النطاق لدى مزود تسجيل ثم اربطه باستخدام سجلات DNS التي يعرضها Vercel.", "النطاق {domain} مسجل بالفعل.", "إذا كان النطاق ملكك، فافتح إعدادات DNS لدى المزود. وإلا فجرّب اسماً آخر.", "تعذر تحديد حالة التسجيل بشكل موثوق.", "تحقق من النطاق أيضاً مباشرة لدى مزود تسجيل.", "تكلفة التسجيل المعتادة: نحو 5-20 يورو سنوياً لنطاق .de ونحو 10-25 يورو لنطاق .com. تختلف أسعار العروض والتجديد والخدمات الإضافية حسب المزود."],
+        "ku": ["دۆمەینێکی دروست وەک example.com بنووسە.", "پشکنینی دۆمەین لە ئێستادا بەردەست نییە.", "هیچ تۆمارێکی RDAP بۆ {domain} نەدۆزرایەوە.", "دۆمەینەکە لە تۆمارکەرێک تۆمار بکە و دواتر بە تۆمارەکانی DNS کە Vercel پیشانی دەدات بیبەستەوە.", "{domain} پێشتر تۆمار کراوە.", "ئەگەر دۆمەینەکە هی تۆیە، ڕێکخستنەکانی DNS لە دابینکەرەکەت بکەرەوە؛ ئەگەر نا، ناوێکی تر تاقی بکەرەوە.", "دۆخی تۆمارکردن بە دڵنیایی دیاری نەکرا.", "دۆمەینەکە ڕاستەوخۆ لە تۆمارکەرێکیش بپشکنە.", "خەرجی ئاسایی تۆمارکردن: .de نزیکەی 5-20 یۆرۆ و .com نزیکەی 10-25 یۆرۆ لە ساڵێکدا. نرخی داشکاندن و نوێکردنەوە بە دابینکەر دەگۆڕێت."],
+        "es": ["Introduzca un dominio válido, como example.com.", "La comprobación del dominio no está disponible en este momento.", "No se encontró ningún registro RDAP para {domain}.", "Registre el dominio y conéctelo después mediante los registros DNS mostrados por Vercel.", "{domain} ya está registrado.", "Si el dominio le pertenece, abra la configuración DNS del proveedor. De lo contrario, pruebe otro nombre.", "No se pudo determinar el estado del registro de forma fiable.", "Compruebe también el dominio directamente con un registrador.", "Coste habitual: .de unos 5-20 EUR/año y .com unos 10-25 EUR/año. Los precios promocionales y de renovación varían según el proveedor."],
+        "it": ["Inserite un dominio valido, ad esempio example.com.", "Il controllo del dominio non è al momento disponibile.", "Nessun record RDAP trovato per {domain}.", "Registrate il dominio e collegatelo poi con i record DNS mostrati da Vercel.", "{domain} è già registrato.", "Se il dominio vi appartiene, aprite le impostazioni DNS del provider. Altrimenti provate un altro nome.", "Non è stato possibile determinare in modo affidabile lo stato della registrazione.", "Controllate il dominio anche direttamente presso un registrar.", "Costo tipico: .de circa 5-20 EUR/anno e .com circa 10-25 EUR/anno. Promozioni e rinnovi variano secondo il provider."],
+        "hi": ["example.com जैसा मान्य डोमेन दर्ज करें।", "डोमेन जांच अभी उपलब्ध नहीं है।", "{domain} के लिए कोई RDAP रिकॉर्ड नहीं मिला।", "डोमेन को किसी रजिस्ट्रार के पास पंजीकृत करें और फिर Vercel द्वारा दिखाए गए DNS रिकॉर्ड से जोड़ें।", "{domain} पहले से पंजीकृत है।", "यदि डोमेन आपका है, तो प्रदाता की DNS सेटिंग खोलें। अन्यथा दूसरा नाम आजमाएं।", "पंजीकरण स्थिति विश्वसनीय रूप से निर्धारित नहीं की जा सकी।", "डोमेन को सीधे किसी रजिस्ट्रार के पास भी जांचें।", "सामान्य लागत: .de लगभग 5-20 EUR/वर्ष और .com लगभग 10-25 EUR/वर्ष। प्रचार और नवीनीकरण मूल्य प्रदाता के अनुसार बदलते हैं।"],
+    }.get(language)
+    if copy is None:
+        copy = []
     normalized_domain = domain_name.strip().lower().rstrip(".")
     if normalized_domain.startswith(("https://", "http://")):
         normalized_domain = normalized_domain.split("://", maxsplit=1)[1].split("/", maxsplit=1)[0]
@@ -379,10 +392,11 @@ def check_domain_availability(domain_name: str) -> dict[str, str | bool]:
             "domain": normalized_domain,
             "available": False,
             "status": "invalid",
-            "message": "Bitte geben Sie eine gültige Domain wie beispiel.de ein.",
+            "message": copy[0],
         }
 
-    cached_result = domain_cache.get(normalized_domain)
+    cache_key = f"{language}:{normalized_domain}"
+    cached_result = domain_cache.get(cache_key)
     if cached_result and time.monotonic() - cached_result[0] < DOMAIN_CACHE_TTL_SECONDS:
         return cached_result[1]
 
@@ -393,9 +407,9 @@ def check_domain_availability(domain_name: str) -> dict[str, str | bool]:
             "domain": normalized_domain,
             "available": False,
             "status": "unknown",
-            "message": "Die Domain-Prüfung ist momentan nicht erreichbar.",
+            "message": copy[1],
         }
-        domain_cache[normalized_domain] = (time.monotonic(), result)
+        domain_cache[cache_key] = (time.monotonic(), result)
         return result
 
     if response.status_code == 404:
@@ -403,35 +417,29 @@ def check_domain_availability(domain_name: str) -> dict[str, str | bool]:
             "domain": normalized_domain,
             "available": True,
             "status": "not_registered",
-            "message": f"Für {normalized_domain} wurde kein RDAP-Eintrag gefunden.",
-            "next_step": (
-                "Registrieren Sie die Domain jetzt bei einem Registrar und verbinden Sie "
-                "sie danach über die von Vercel angezeigten DNS-Einträge."
-            ),
-            "cost_guidance": DOMAIN_COST_GUIDANCE,
+            "message": copy[2].format(domain=normalized_domain),
+            "next_step": copy[3],
+            "cost_guidance": copy[8],
         }
     elif response.status_code == 200:
         result = {
             "domain": normalized_domain,
             "available": False,
             "status": "registered",
-            "message": f"{normalized_domain} ist bereits registriert.",
-            "next_step": (
-                "Falls die Domain Ihnen gehört, öffnen Sie die DNS-Verwaltung bei Ihrem "
-                "Anbieter. Andernfalls prüfen Sie einen anderen Namen."
-            ),
-            "cost_guidance": DOMAIN_COST_GUIDANCE,
+            "message": copy[4].format(domain=normalized_domain),
+            "next_step": copy[5],
+            "cost_guidance": copy[8],
         }
     else:
         result = {
             "domain": normalized_domain,
             "available": False,
             "status": "unknown",
-            "message": "Der Registrierungsstatus konnte nicht zuverlässig ermittelt werden.",
-            "next_step": "Prüfen Sie die Domain zusätzlich direkt bei einem Registrar.",
-            "cost_guidance": DOMAIN_COST_GUIDANCE,
+            "message": copy[6],
+            "next_step": copy[7],
+            "cost_guidance": copy[8],
         }
-    domain_cache[normalized_domain] = (time.monotonic(), result)
+    domain_cache[cache_key] = (time.monotonic(), result)
     return result
 
 
