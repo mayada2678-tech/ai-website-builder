@@ -5682,23 +5682,33 @@ with new_tab:
                 key="creation_description",
                 height=150,
             )
-        document_copy = {
-            "de": ("Unternehmensdokumente für die KI (optional)", "PDF-, TXT- oder Markdown-Dateien werden zerlegt und per Vektorsuche als belegte Inhaltsquelle verwendet."),
-            "en": ("Business documents for AI (optional)", "PDF, TXT, or Markdown files are chunked and used as verified content sources through vector search."),
-            "ar": ("مستندات الشركة للذكاء الاصطناعي (اختياري)", "تُقسّم ملفات PDF أو TXT أو Markdown وتُستخدم كمصادر موثوقة عبر البحث المتجهي."),
-            "ku": ("بەڵگەنامەکانی کۆمپانیا بۆ زیرەکی دەستکرد (ئارەزوومەندانە)", "فایلەکانی PDF و TXT یان Markdown پارچە دەکرێن و بە گەڕانی ڤێکتەر وەک سەرچاوە بەکاردێن."),
-            "es": ("Documentos de empresa para la IA (opcional)", "Los archivos PDF, TXT o Markdown se dividen y se usan como fuentes verificadas mediante búsqueda vectorial."),
-            "it": ("Documenti aziendali per l'IA (facoltativi)", "I file PDF, TXT o Markdown vengono suddivisi e usati come fonti verificate tramite ricerca vettoriale."),
-            "hi": ("एआई के लिए व्यावसायिक दस्तावेज़ (वैकल्पिक)", "PDF, TXT या Markdown फ़ाइलों को भागों में बांटकर वेक्टर खोज से प्रमाणित स्रोत के रूप में उपयोग किया जाता है।"),
-        }.get(str(st.session_state.app_language), ("Business documents for AI (optional)", "Documents are used as verified content sources."))
-        source_documents = st.file_uploader(
-            document_copy[0],
-            type=["pdf", "txt", "md"],
-            accept_multiple_files=True,
-            help=document_copy[1],
-            key="website_source_documents",
-        )
-        st.caption(document_copy[1])
+        source_documents = []
+        if creation_mode != "Professionelle Vorlage":
+            document_copy = {
+                "de": ("Unternehmensdokumente für die KI (optional)", "PDF-, TXT- oder Markdown-Dateien werden zerlegt und per Vektorsuche als belegte Inhaltsquelle verwendet."),
+                "en": ("Business documents for AI (optional)", "PDF, TXT, or Markdown files are chunked and used as verified content sources through vector search."),
+                "ar": ("مستندات الشركة للذكاء الاصطناعي (اختياري)", "تُقسّم ملفات PDF أو TXT أو Markdown وتُستخدم كمصادر موثوقة عبر البحث المتجهي."),
+                "ku": ("بەڵگەنامەکانی کۆمپانیا بۆ زیرەکی دەستکرد (ئارەزوومەندانە)", "فایلەکانی PDF و TXT یان Markdown پارچە دەکرێن و بە گەڕانی ڤێکتەر وەک سەرچاوە بەکاردێن."),
+                "es": ("Documentos de empresa para la IA (opcional)", "Los archivos PDF, TXT o Markdown se dividen y se usan como fuentes verificadas mediante búsqueda vectorial."),
+                "it": ("Documenti aziendali per l'IA (facoltativi)", "I file PDF, TXT o Markdown vengono suddivisi e usati come fonti verificate tramite ricerca vettoriale."),
+                "hi": ("एआई के लिए व्यावसायिक दस्तावेज़ (वैकल्पिक)", "PDF, TXT या Markdown फ़ाइलों को भागों में बांटकर वेक्टर खोज से प्रमाणित स्रोत के रूप में उपयोग किया जाता है।"),
+            }.get(str(st.session_state.app_language), ("Business documents for AI (optional)", "Documents are used as verified content sources."))
+            source_documents = st.file_uploader(
+                document_copy[0],
+                type=["pdf", "txt", "md"],
+                accept_multiple_files=True,
+                help=document_copy[1],
+                key="website_source_documents",
+            )
+            st.caption(document_copy[1])
+            if source_documents:
+                st.success(
+                    f"{len(source_documents)} Dokument(e) bereit: "
+                    + ", ".join(document.name for document in source_documents)
+                )
+            used_sources = st.session_state.get("document_source_names", [])
+            if used_sources:
+                st.info("Für den letzten Entwurf verwendete Quellen: " + ", ".join(used_sources))
         st.subheader(creation_labels[11])
         initial_image = st.file_uploader(
             creation_labels[12],
