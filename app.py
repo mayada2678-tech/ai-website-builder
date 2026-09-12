@@ -20,6 +20,7 @@ import streamlit as st
 from fastmcp import Client
 from openai import OpenAI
 
+from domain_provisioning import ProvisioningError, check_domain_with_registrar
 from mcp_server import mcp as website_mcp_server
 
 
@@ -907,7 +908,12 @@ def activate_premium_demo(user_id: int) -> None:
         )
 
 
-def create_stripe_checkout_session(user_id: int, user_email: str) -> str:
+def create_stripe_checkout_session(
+    user_id: int,
+    user_email: str,
+    domain: str = "",
+    vercel_project_id: str = "",
+) -> str:
     """Erstellt eine Stripe-Checkout-Sitzung für die Veröffentlichungsfreigabe."""
     if not STRIPE_SECRET_KEY or not STRIPE_PRICE_ID or not STRIPE_SUCCESS_URL:
         raise ValueError("Stripe ist noch nicht eingerichtet.")
@@ -917,18 +923,29 @@ def create_stripe_checkout_session(user_id: int, user_email: str) -> str:
         f"{STRIPE_SUCCESS_URL}{separator}checkout_session_id={{CHECKOUT_SESSION_ID}}"
         "&publish=1"
     )
+    checkout_data = {
+        "mode": "subscription",
+        "customer_email": user_email,
+        "client_reference_id": str(user_id),
+        "line_items[0][price]": STRIPE_PRICE_ID,
+        "line_items[0][quantity]": "1",
+        "success_url": success_url,
+        "cancel_url": STRIPE_SUCCESS_URL,
+    }
+    if domain and vercel_project_id:
+        checkout_data.update(
+            {
+                "metadata[domain]": domain,
+                "metadata[vercel_project_id]": vercel_project_id,
+                "metadata[provisioning_status]": "pending",
+                "subscription_data[metadata][domain]": domain,
+                "subscription_data[metadata][vercel_project_id]": vercel_project_id,
+            }
+        )
     response = requests.post(
         "https://api.stripe.com/v1/checkout/sessions",
         auth=(STRIPE_SECRET_KEY, ""),
-        data={
-            "mode": "subscription",
-            "customer_email": user_email,
-            "client_reference_id": str(user_id),
-            "line_items[0][price]": STRIPE_PRICE_ID,
-            "line_items[0][quantity]": "1",
-            "success_url": success_url,
-            "cancel_url": STRIPE_SUCCESS_URL,
-        },
+        data=checkout_data,
         timeout=30,
     )
     if response.status_code != 200:
@@ -1015,6 +1032,16 @@ STRIPE_PAYMENT_LINK = "https://buy.stripe.com/3cIfZh5qseusaOpdYP5Rm02"
 STRIPE_SECRET_KEY = str(st.secrets.get("stripe_secret_key", "")).strip()
 STRIPE_PRICE_ID = str(st.secrets.get("stripe_price_id", "")).strip()
 STRIPE_SUCCESS_URL = str(st.secrets.get("stripe_success_url", "")).strip().rstrip("?")
+INWX_USERNAME = str(st.secrets.get("inwx_username", "")).strip()
+INWX_PASSWORD = str(st.secrets.get("inwx_password", "")).strip()
+INWX_ENVIRONMENT = str(st.secrets.get("inwx_environment", "ote")).strip().lower()
+for environment_key, environment_value in {
+    "INWX_USERNAME": INWX_USERNAME,
+    "INWX_PASSWORD": INWX_PASSWORD,
+    "INWX_ENVIRONMENT": INWX_ENVIRONMENT,
+}.items():
+    if environment_value:
+        os.environ[environment_key] = environment_value
 HF_API_KEY = str(st.secrets.get("HF_API_KEY", "")).strip()
 HF_TEXT_MODEL_URL = (
     "https://router.huggingface.co/hf-inference/models/Qwen/Qwen2.5-7B-Instruct"
@@ -1042,6 +1069,7 @@ DEFAULT_STATE = {
     "live_url": "",
     "deployment_url": "",
     "deployment_id": "",
+    "vercel_project_id": "",
     "project_name": "ai-website-builder",
     "stripe_checkout_url": "",
     "publish_after_checkout": False,
@@ -4177,6 +4205,7 @@ def publish_website() -> None:
         raise ValueError(f"Unvollständige Vercel-Antwort: {deployment}")
 
     project_id = str(deployment.get("projectId", "")).strip()
+    st.session_state.vercel_project_id = project_id
     if project_id:
         environment_warning = configure_vercel_chatbot_environment(project_id)
         st.session_state.chatbot_environment_warning = environment_warning
@@ -4259,6 +4288,15 @@ def render_domain_and_deployment_ui() -> None:
     }.get(language)
     if custom_domain_copy is None:
         custom_domain_copy = []
+    automated_domain_copy = {
+        "de": ["INWX prüft Verfügbarkeit und Einkaufspreis ...", "Jetzt kaufen & veröffentlichen", "Vercel-Vorschau und sicherer Checkout werden vorbereitet ...", "Sicheren Domain-Checkout öffnen", "INWX ist noch nicht eingerichtet. Der Kauf bleibt gesperrt; die öffentliche MCP-Prüfung dient nur als Hinweis.", "Registrar bestätigt: {domain} ist verfügbar.", "Registrar meldet: {domain} ist nicht verfügbar."],
+        "en": ["INWX is checking availability and wholesale price ...", "Buy & publish now", "Preparing the Vercel preview and secure checkout ...", "Open secure domain checkout", "INWX is not configured yet. Purchasing remains disabled; the public MCP check is guidance only.", "Registrar confirms: {domain} is available.", "Registrar reports: {domain} is unavailable."],
+        "ar": ["يتحقق INWX من التوفر وسعر الجملة...", "الشراء والنشر الآن", "جارٍ إعداد معاينة Vercel والدفع الآمن...", "فتح الدفع الآمن للنطاق", "لم يتم إعداد INWX بعد. يبقى الشراء معطلاً، وفحص MCP العام للإرشاد فقط.", "يؤكد المسجل أن النطاق {domain} متاح.", "يفيد المسجل بأن النطاق {domain} غير متاح."],
+        "ku": ["INWX بەردەستبوون و نرخی کڕین دەپشکنێت...", "ئێستا بیکڕە و بڵاوی بکەرەوە", "پێشبینینی Vercel و پارەدانی پارێزراو ئامادە دەکرێت...", "کردنەوەی پارەدانی پارێزراوی دۆمەین", "INWX هێشتا ڕێکنەخراوە. کڕین ناچالاکە و پشکنینی گشتی MCP تەنها ڕێنماییە.", "تۆمارکەر پشتڕاستی دەکاتەوە کە {domain} بەردەستە.", "تۆمارکەر دەڵێت {domain} بەردەست نییە."],
+        "es": ["INWX comprueba la disponibilidad y el precio mayorista...", "Comprar y publicar ahora", "Preparando la vista previa de Vercel y el pago seguro...", "Abrir pago seguro del dominio", "INWX aún no está configurado. La compra permanece bloqueada; la comprobación pública de MCP es solo orientativa.", "El registrador confirma que {domain} está disponible.", "El registrador indica que {domain} no está disponible."],
+        "it": ["INWX verifica disponibilità e prezzo all'ingrosso...", "Acquista e pubblica ora", "Preparazione dell'anteprima Vercel e del pagamento sicuro...", "Apri il pagamento sicuro del dominio", "INWX non è ancora configurato. L'acquisto resta bloccato; il controllo MCP pubblico è solo indicativo.", "Il registrar conferma che {domain} è disponibile.", "Il registrar indica che {domain} non è disponibile."],
+        "hi": ["INWX उपलब्धता और थोक मूल्य जांच रहा है...", "अभी खरीदें और प्रकाशित करें", "Vercel पूर्वावलोकन और सुरक्षित भुगतान तैयार हो रहा है...", "सुरक्षित डोमेन भुगतान खोलें", "INWX अभी कॉन्फ़िगर नहीं है। खरीद अक्षम रहेगी; सार्वजनिक MCP जांच केवल मार्गदर्शन है।", "रजिस्ट्रार पुष्टि करता है कि {domain} उपलब्ध है।", "रजिस्ट्रार के अनुसार {domain} उपलब्ध नहीं है।"],
+    }.get(language, [])
     st.header(labels["title"])
 
     if not st.session_state.generated_html:
@@ -4353,7 +4391,15 @@ def render_domain_and_deployment_ui() -> None:
         ):
             with st.spinner(custom_domain_copy[10]):
                 try:
-                    domain_check = check_custom_domain_with_mcp(custom_domain)
+                    if INWX_USERNAME and INWX_PASSWORD:
+                        domain_check = check_domain_with_registrar(custom_domain)
+                        domain_check["source"] = "inwx"
+                        domain_check["message"] = automated_domain_copy[
+                            5 if domain_check.get("available") else 6
+                        ].format(domain=domain_check["domain"])
+                    else:
+                        domain_check = check_custom_domain_with_mcp(custom_domain)
+                        domain_check["source"] = "rdap"
                     st.session_state.domain_check_result = domain_check
                     if domain_check.get("available"):
                         st.success(str(domain_check["message"]))
@@ -4363,6 +4409,8 @@ def render_domain_and_deployment_ui() -> None:
                         st.error(str(domain_check["message"]))
                 except ValueError as error:
                     st.error(str(error))
+                except ProvisioningError as error:
+                    st.error(str(error))
         domain_check = st.session_state.get("domain_check_result")
         if isinstance(domain_check, dict) and domain_check.get("domain"):
             checked_domain = str(domain_check.get("domain", ""))
@@ -4371,6 +4419,53 @@ def render_domain_and_deployment_ui() -> None:
                     st.info(custom_domain_copy[11].format(step=domain_check["next_step"]))
                 if domain_check.get("cost_guidance"):
                     st.caption(str(domain_check["cost_guidance"]))
+        registrar_ready = bool(INWX_USERNAME and INWX_PASSWORD)
+        normalized_custom_domain = (
+            custom_domain.strip().lower().removeprefix("https://")
+            .removeprefix("http://").removeprefix("www.").rstrip("/")
+        )
+        domain_available = bool(
+            isinstance(domain_check, dict)
+            and domain_check.get("source") == "inwx"
+            and domain_check.get("available")
+            and str(domain_check.get("domain", "")) == normalized_custom_domain
+        )
+        if not registrar_ready:
+            st.warning(automated_domain_copy[4])
+        if st.button(
+            automated_domain_copy[1],
+            icon=":material/shopping_cart_checkout:",
+            type="primary",
+            disabled=not domain_available,
+            key="buy_and_publish_custom_domain",
+            width="stretch",
+        ):
+            with st.status(automated_domain_copy[2], expanded=True) as status:
+                try:
+                    st.session_state.project_name = create_deployment_project_name()
+                    publish_website()
+                    project_id = str(st.session_state.vercel_project_id).strip()
+                    if not project_id:
+                        raise ValueError("Vercel hat keine Projekt-ID geliefert.")
+                    st.session_state.stripe_checkout_url = create_stripe_checkout_session(
+                        current_user_id,
+                        st.session_state.user_email,
+                        str(domain_check["domain"]),
+                        project_id,
+                    )
+                    status.update(label=automated_domain_copy[3], state="complete")
+                except (ValueError, ProvisioningError) as error:
+                    status.update(label=action_labels[11], state="error")
+                    st.error(str(error))
+        custom_checkout_url = str(st.session_state.get("stripe_checkout_url", ""))
+        if domain_available and custom_checkout_url:
+            st.link_button(
+                automated_domain_copy[3],
+                custom_checkout_url,
+                icon=":material/lock:",
+                type="primary",
+                width="stretch",
+            )
 
     if not user_info["subscribed"] and not user_info["trial_active"]:
         st.warning(

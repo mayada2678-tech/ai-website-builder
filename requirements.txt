@@ -4,3 +4,4 @@ requests
 mcp
 fastmcp
 beautifulsoup4
+stripe
