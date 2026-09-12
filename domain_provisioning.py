@@ -25,8 +25,11 @@ class ProvisioningError(RuntimeError):
 
 def normalize_domain(domain: str) -> str:
     normalized = domain.strip().lower().rstrip(".")
+    normalized = re.sub(r"^[a-z][a-z0-9+.-]*://", "", normalized)
+    normalized = normalized.removeprefix("://").removeprefix("//")
     if normalized.startswith(("https://", "http://")):
         normalized = normalized.split("://", maxsplit=1)[1].split("/", maxsplit=1)[0]
+    normalized = normalized.split("/", maxsplit=1)[0]
     if normalized.startswith("www."):
         normalized = normalized[4:]
     if not DOMAIN_PATTERN.fullmatch(normalized):

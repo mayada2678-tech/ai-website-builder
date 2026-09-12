@@ -20,7 +20,11 @@ import streamlit as st
 from fastmcp import Client
 from openai import OpenAI
 
-from domain_provisioning import ProvisioningError, check_domain_with_registrar
+from domain_provisioning import (
+    ProvisioningError,
+    check_domain_with_registrar,
+    normalize_domain,
+)
 from mcp_server import mcp as website_mcp_server
 
 
@@ -4292,13 +4296,22 @@ def render_domain_and_deployment_ui() -> None:
     if custom_domain_copy is None:
         custom_domain_copy = []
     automated_domain_copy = {
-        "de": ["INWX prüft Verfügbarkeit und Einkaufspreis ...", "Jetzt kaufen & veröffentlichen", "Vercel-Vorschau und sicherer Checkout werden vorbereitet ...", "Sicheren Domain-Checkout öffnen", "INWX ist noch nicht eingerichtet. Der Kauf bleibt gesperrt; die öffentliche MCP-Prüfung dient nur als Hinweis.", "Registrar bestätigt: {domain} ist verfügbar.", "Registrar meldet: {domain} ist nicht verfügbar."],
-        "en": ["INWX is checking availability and wholesale price ...", "Buy & publish now", "Preparing the Vercel preview and secure checkout ...", "Open secure domain checkout", "INWX is not configured yet. Purchasing remains disabled; the public MCP check is guidance only.", "Registrar confirms: {domain} is available.", "Registrar reports: {domain} is unavailable."],
-        "ar": ["يتحقق INWX من التوفر وسعر الجملة...", "الشراء والنشر الآن", "جارٍ إعداد معاينة Vercel والدفع الآمن...", "فتح الدفع الآمن للنطاق", "لم يتم إعداد INWX بعد. يبقى الشراء معطلاً، وفحص MCP العام للإرشاد فقط.", "يؤكد المسجل أن النطاق {domain} متاح.", "يفيد المسجل بأن النطاق {domain} غير متاح."],
-        "ku": ["INWX بەردەستبوون و نرخی کڕین دەپشکنێت...", "ئێستا بیکڕە و بڵاوی بکەرەوە", "پێشبینینی Vercel و پارەدانی پارێزراو ئامادە دەکرێت...", "کردنەوەی پارەدانی پارێزراوی دۆمەین", "INWX هێشتا ڕێکنەخراوە. کڕین ناچالاکە و پشکنینی گشتی MCP تەنها ڕێنماییە.", "تۆمارکەر پشتڕاستی دەکاتەوە کە {domain} بەردەستە.", "تۆمارکەر دەڵێت {domain} بەردەست نییە."],
-        "es": ["INWX comprueba la disponibilidad y el precio mayorista...", "Comprar y publicar ahora", "Preparando la vista previa de Vercel y el pago seguro...", "Abrir pago seguro del dominio", "INWX aún no está configurado. La compra permanece bloqueada; la comprobación pública de MCP es solo orientativa.", "El registrador confirma que {domain} está disponible.", "El registrador indica que {domain} no está disponible."],
-        "it": ["INWX verifica disponibilità e prezzo all'ingrosso...", "Acquista e pubblica ora", "Preparazione dell'anteprima Vercel e del pagamento sicuro...", "Apri il pagamento sicuro del dominio", "INWX non è ancora configurato. L'acquisto resta bloccato; il controllo MCP pubblico è solo indicativo.", "Il registrar conferma che {domain} è disponibile.", "Il registrar indica che {domain} non è disponibile."],
-        "hi": ["INWX उपलब्धता और थोक मूल्य जांच रहा है...", "अभी खरीदें और प्रकाशित करें", "Vercel पूर्वावलोकन और सुरक्षित भुगतान तैयार हो रहा है...", "सुरक्षित डोमेन भुगतान खोलें", "INWX अभी कॉन्फ़िगर नहीं है। खरीद अक्षम रहेगी; सार्वजनिक MCP जांच केवल मार्गदर्शन है।", "रजिस्ट्रार पुष्टि करता है कि {domain} उपलब्ध है।", "रजिस्ट्रार के अनुसार {domain} उपलब्ध नहीं है।"],
+        "de": ["Domain wird geprüft ...", "Jetzt kaufen & veröffentlichen", "Website und sicherer Checkout werden vorbereitet ...", "Sichere Zahlung öffnen", "Der automatische Domainkauf ist momentan nicht verfügbar.", "{domain} ist verfügbar.", "{domain} ist nicht verfügbar.", "Wunschdomain prüfen", "Nach erfolgreicher Zahlung wird Ihre Domain automatisch registriert, verbunden und mit SSL veröffentlicht."],
+        "en": ["Checking domain ...", "Buy & publish now", "Preparing your website and secure checkout ...", "Open secure payment", "Automated domain purchasing is currently unavailable.", "{domain} is available.", "{domain} is unavailable.", "Check preferred domain", "After successful payment, your domain is registered, connected, and published with SSL automatically."],
+        "ar": ["جارٍ التحقق من النطاق...", "الشراء والنشر الآن", "جارٍ إعداد موقعك والدفع الآمن...", "فتح الدفع الآمن", "شراء النطاق تلقائياً غير متاح حالياً.", "النطاق {domain} متاح.", "النطاق {domain} غير متاح.", "التحقق من النطاق المطلوب", "بعد نجاح الدفع، يتم تسجيل نطاقك وربطه ونشره مع SSL تلقائياً."],
+        "ku": ["دۆمەینەکە دەپشکنرێت...", "ئێستا بیکڕە و بڵاوی بکەرەوە", "وێبگە و پارەدانی پارێزراو ئامادە دەکرێت...", "کردنەوەی پارەدانی پارێزراو", "کڕینی خۆکاری دۆمەین لە ئێستادا بەردەست نییە.", "{domain} بەردەستە.", "{domain} بەردەست نییە.", "پشکنینی دۆمەینی دڵخواز", "دوای پارەدانی سەرکەوتوو، دۆمەینەکەت خۆکارانە تۆمار و پەیوەست و بە SSL بڵاودەکرێتەوە."],
+        "es": ["Comprobando dominio...", "Comprar y publicar ahora", "Preparando su sitio y el pago seguro...", "Abrir pago seguro", "La compra automática de dominios no está disponible actualmente.", "{domain} está disponible.", "{domain} no está disponible.", "Comprobar dominio deseado", "Tras el pago, su dominio se registra, conecta y publica con SSL automáticamente."],
+        "it": ["Verifica del dominio...", "Acquista e pubblica ora", "Preparazione del sito e del pagamento sicuro...", "Apri pagamento sicuro", "L'acquisto automatico del dominio non è al momento disponibile.", "{domain} è disponibile.", "{domain} non è disponibile.", "Verifica dominio desiderato", "Dopo il pagamento, il dominio viene registrato, collegato e pubblicato con SSL automaticamente."],
+        "hi": ["डोमेन जांचा जा रहा है...", "अभी खरीदें और प्रकाशित करें", "वेबसाइट और सुरक्षित भुगतान तैयार हो रहा है...", "सुरक्षित भुगतान खोलें", "स्वचालित डोमेन खरीद अभी उपलब्ध नहीं है।", "{domain} उपलब्ध है।", "{domain} उपलब्ध नहीं है।", "पसंदीदा डोमेन जांचें", "सफल भुगतान के बाद आपका डोमेन स्वतः पंजीकृत, कनेक्ट और SSL सहित प्रकाशित होगा।"],
+    }.get(language, [])
+    domain_input_copy = {
+        "de": ["Ihre Wunschdomain", "z. B. noor.com", "Geben Sie nur Ihren gewünschten Domainnamen ein.", "Gewünschte Domain: {domain}"],
+        "en": ["Your preferred domain", "e.g. noor.com", "Enter only your preferred domain name.", "Preferred domain: {domain}"],
+        "ar": ["النطاق المطلوب", "مثال: noor.com", "أدخل اسم النطاق الذي تريده فقط.", "النطاق المطلوب: {domain}"],
+        "ku": ["دۆمەینی دڵخوازت", "بۆ نموونە: noor.com", "تەنها ناوی دۆمەینی دڵخوازت بنووسە.", "دۆمەینی دڵخواز: {domain}"],
+        "es": ["Su dominio deseado", "p. ej. noor.com", "Introduzca únicamente el nombre de dominio deseado.", "Dominio deseado: {domain}"],
+        "it": ["Il dominio desiderato", "ad es. noor.com", "Inserite solo il nome del dominio desiderato.", "Dominio desiderato: {domain}"],
+        "hi": ["आपका पसंदीदा डोमेन", "उदा. noor.com", "केवल अपना पसंदीदा डोमेन नाम दर्ज करें।", "पसंदीदा डोमेन: {domain}"],
     }.get(language, [])
     st.header(labels["title"])
 
@@ -4345,64 +4358,34 @@ def render_domain_and_deployment_ui() -> None:
                 )
             )
     else:
-        with st.expander(custom_domain_copy[0], expanded=True):
-            st.markdown(custom_domain_copy[1])
-            st.info(custom_domain_copy[2])
-            st.warning(custom_domain_copy[3])
-            provider_columns = st.columns(3)
-            with provider_columns[0]:
-                st.link_button(
-                    "IONOS Domains",
-                    "https://www.ionos.de/domains/domain-kaufen",
-                    icon=":material/open_in_new:",
-                    width="stretch",
-                )
-            with provider_columns[1]:
-                st.link_button(
-                    "STRATO Domains",
-                    "https://www.strato.de/domains/",
-                    icon=":material/open_in_new:",
-                    width="stretch",
-                )
-            with provider_columns[2]:
-                st.link_button(
-                    "Cloudflare Registrar",
-                    "https://www.cloudflare.com/products/registrar/",
-                    icon=":material/open_in_new:",
-                    width="stretch",
-                )
-            st.link_button(
-                custom_domain_copy[4],
-                "https://vercel.com/docs/domains/working-with-domains/add-a-domain",
-                icon=":material/help:",
-                width="stretch",
-            )
+        st.info(automated_domain_copy[8])
         custom_domain = st.text_input(
-            custom_domain_copy[5],
-            placeholder=custom_domain_copy[6],
+            domain_input_copy[0],
+            placeholder=domain_input_copy[1],
             key="custom_domain",
-            help=custom_domain_copy[7],
+            help=domain_input_copy[2],
         )
         if custom_domain:
-            st.caption(custom_domain_copy[8].format(domain=custom_domain.strip()))
+            try:
+                displayed_domain = normalize_domain(custom_domain)
+            except ProvisioningError:
+                displayed_domain = custom_domain.strip()
+            st.caption(domain_input_copy[3].format(domain=displayed_domain))
         if st.button(
-            custom_domain_copy[9],
+            automated_domain_copy[7],
             icon=":material/domain_verification:",
-            disabled=not custom_domain.strip(),
+            disabled=not custom_domain.strip() or not (INWX_USERNAME and INWX_PASSWORD),
             key="check_custom_domain_with_mcp",
             width="stretch",
         ):
-            with st.spinner(custom_domain_copy[10]):
+            with st.spinner(automated_domain_copy[0]):
                 try:
                     if INWX_USERNAME and INWX_PASSWORD:
                         domain_check = check_domain_with_registrar(custom_domain)
-                        domain_check["source"] = "inwx"
+                        domain_check["source"] = "authoritative"
                         domain_check["message"] = automated_domain_copy[
                             5 if domain_check.get("available") else 6
                         ].format(domain=domain_check["domain"])
-                    else:
-                        domain_check = check_custom_domain_with_mcp(custom_domain)
-                        domain_check["source"] = "rdap"
                     st.session_state.domain_check_result = domain_check
                     if domain_check.get("available"):
                         st.success(str(domain_check["message"]))
@@ -4423,13 +4406,13 @@ def render_domain_and_deployment_ui() -> None:
                 if domain_check.get("cost_guidance"):
                     st.caption(str(domain_check["cost_guidance"]))
         registrar_ready = bool(INWX_USERNAME and INWX_PASSWORD)
-        normalized_custom_domain = (
-            custom_domain.strip().lower().removeprefix("https://")
-            .removeprefix("http://").removeprefix("www.").rstrip("/")
-        )
+        try:
+            normalized_custom_domain = normalize_domain(custom_domain)
+        except ProvisioningError:
+            normalized_custom_domain = ""
         domain_available = bool(
             isinstance(domain_check, dict)
-            and domain_check.get("source") == "inwx"
+            and domain_check.get("source") == "authoritative"
             and domain_check.get("available")
             and str(domain_check.get("domain", "")) == normalized_custom_domain
         )
