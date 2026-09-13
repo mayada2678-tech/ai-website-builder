@@ -44,10 +44,14 @@ class SupabaseAnalyticsClient:
         }
 
     def _request(self, method: str, path: str, **kwargs: Any) -> requests.Response:
+        request_headers = {
+            **self.headers,
+            **dict(kwargs.pop("headers", {})),
+        }
         response = requests.request(
             method,
             f"{self.base_url}/{path}",
-            headers=self.headers,
+            headers=request_headers,
             timeout=30,
             **kwargs,
         )
