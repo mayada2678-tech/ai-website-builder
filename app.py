@@ -2318,11 +2318,15 @@ export default async function handler(request, response) {{
 
     const prompt = `<|im_start|>system\nYou are a warm, intelligent customer-service assistant. Respond only in ${{CHAT_COPY.name}} and keep answers concise. Hold natural conversations, including greetings, thanks, farewells, and light small talk. For factual questions about the company, use only the verified details below and never invent prices, opening hours, availability, policies, or contact details. If a requested company fact is unavailable, say so naturally and offer the website contact options. Verified company details:\n${{CHATBOT_KNOWLEDGE}}<|im_end|>\n<|im_start|>user\n${{question}}<|im_end|>\n<|im_start|>assistant\n`;
     try {{
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 12000);
         const hfResponse = await fetch(MODEL_URL, {{
             method: "POST",
             headers: {{ Authorization: `Bearer ${{apiKey}}`, "Content-Type": "application/json" }},
             body: JSON.stringify({{ inputs: prompt, parameters: {{ max_new_tokens: 120, temperature: 0.2, return_full_text: false }} }}),
+            signal: controller.signal,
         }});
+        clearTimeout(timeout);
         const data = await hfResponse.json();
         if (!hfResponse.ok) {{
             return response.status(200).json({{ answer: offlineAnswer(question) }});
@@ -2440,6 +2444,12 @@ def build_analytics_widget(site_id: str) -> str:
     return f'''<style data-site-analytics-style>
 #dsgvo-banner{{position:fixed;bottom:20px;left:20px;right:20px;max-width:500px;margin:auto;background:#fff;color:#333;box-shadow:0 10px 30px rgba(0,0,0,.15);border-radius:8px;padding:20px;z-index:99999;font-family:Arial,sans-serif;border:1px solid #e1e4e8}}
 #dsgvo-banner[hidden]{{display:none!important}}#dsgvo-banner p{{margin:0 0 15px;font-size:14px;line-height:1.5;color:#555}}.dsgvo-buttons{{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}}.dsgvo-btn{{padding:8px 16px;border-radius:6px;border:0;font-size:13px;font-weight:700;cursor:pointer;transition:background .2s ease}}.dsgvo-accept{{background:#4a154b;color:#fff}}.dsgvo-accept:hover{{background:#381039}}.dsgvo-decline{{background:#eef2f7;color:#555}}.dsgvo-decline:hover{{background:#e1e6eb}}.dsgvo-btn:focus-visible,#analytics-consent-reset:focus-visible{{outline:3px solid #f59e0b;outline-offset:2px}}#datenschutz{{max-width:1120px;margin:0 auto;padding:48px 24px;font:15px/1.65 Arial,sans-serif}}#datenschutz h2{{margin-top:0}}#datenschutz h3{{margin:24px 0 6px;font-size:17px}}#analytics-consent-reset{{margin-top:12px;padding:9px 14px;border:1px solid currentColor;border-radius:6px;background:transparent;color:inherit;cursor:pointer;font-weight:700}}@media(max-width:540px){{#dsgvo-banner{{left:12px;right:12px;bottom:12px;padding:16px}}.dsgvo-buttons{{justify-content:stretch}}.dsgvo-btn{{flex:1}}}}
+#datenschutz{{box-sizing:border-box;margin:56px auto;background:#f8fafc;border-top:4px solid #2563eb;border-bottom:1px solid #dbe3ec;color:#1e293b}}
+#datenschutz h2{{max-width:760px;margin:0 0 32px;font-size:clamp(26px,4vw,38px);line-height:1.15;color:#0f172a}}
+#datenschutz h3{{margin:30px 0 8px;padding-left:14px;border-left:3px solid #2563eb;font-size:18px;line-height:1.35;color:#0f172a}}
+#datenschutz p{{max-width:900px;margin:0;color:#475569;font-size:15px;line-height:1.75}}
+#analytics-consent-reset{{margin-top:28px;background:#fff;color:#1d4ed8}}
+@media(max-width:540px){{#datenschutz{{margin:32px auto;padding:36px 20px}}#datenschutz h2{{font-size:27px}}}}
 </style>
 <section id="datenschutz" aria-labelledby="analytics-privacy-title"><h2 id="analytics-privacy-title">Datenschutz: Nutzungsanalyse und A/B-Testing</h2><h3>Verantwortlicher</h3><p>{company_name}<br>{company_address}</p><h3>Art und Zweck der Verarbeitung</h3><p>Nach Ihrer ausdrücklichen Einwilligung erfassen wir Interaktionen wie Klicks auf Links und Schaltflächen, das Erreichen von Kontaktmöglichkeiten, die Scrolltiefe, die Sitzungsdauer und die Geräteklasse. Die Angaben dienen ausschließlich dazu, Benutzerfreundlichkeit und Leistung dieser Website zu bewerten und zu verbessern. Zeitweise werden zwei Gestaltungsvarianten verglichen. Dafür wird einer Browsersitzung automatisiert Variante A oder B zugeordnet.</p><h3>Sitzungskennung und Speicherdauer</h3><p>Zur Zusammenfassung der Ereignisse innerhalb eines Besuchs wird eine zufällige Sitzungskennung vorübergehend im Session Storage des Browsers gespeichert. Wir übermitteln keine Namen, E-Mail-Adressen oder Inhalte aus Formularfeldern als Analysedaten. Ereignisdaten werden höchstens {ANALYTICS_RETENTION_DAYS} Tage gespeichert und danach automatisiert gelöscht.</p><h3>Auftragsverarbeitung und Drittlandübermittlung</h3><p>Die technische Verarbeitung erfolgt im Auftrag über {processor_name} sowie die Hosting- und Datenbankdienstleister Vercel und Supabase. Soweit personenbezogene Daten in die USA oder andere Drittländer übermittelt werden, stützt sich die Übermittlung je nach Anbieter und Verfügbarkeit auf einen Angemessenheitsbeschluss, insbesondere das EU-US Data Privacy Framework, und/oder die Standardvertragsklauseln der Europäischen Kommission. Angaben zum aktuellen Zertifizierungsstatus und zu den abgeschlossenen Auftragsverarbeitungsverträgen sind vom Verantwortlichen regelmäßig zu prüfen.</p><h3>Rechtsgrundlage und Widerruf</h3><p>Rechtsgrundlage ist Ihre Einwilligung gemäß Art. 6 Abs. 1 lit. a DSGVO. Sie können diese jederzeit mit Wirkung für die Zukunft widerrufen. Der Widerruf berührt nicht die Rechtmäßigkeit der Verarbeitung vor dem Widerruf.</p><button id="analytics-consent-reset" type="button">Einwilligung ändern oder widerrufen</button></section>
 <div id="dsgvo-banner" hidden role="dialog" aria-label="Datenschutz-Hinweis" aria-live="polite"><p><strong>Datenschutz-Hinweis:</strong> Um diese Website kontinuierlich zu verbessern, analysieren wir nach Ihrer Zustimmung das Nutzungsverhalten mit einer zufälligen Sitzungskennung, zum Beispiel Klicks und Scrolltiefe. Es werden keine Namen, Kontaktdaten oder Formulareingaben als Analysedaten gespeichert.</p><div class="dsgvo-buttons"><button type="button" class="dsgvo-btn dsgvo-decline" data-consent="denied">Ablehnen</button><button type="button" class="dsgvo-btn dsgvo-accept" data-consent="granted">Akzeptieren</button></div></div>
@@ -4729,7 +4739,7 @@ def publish_website() -> None:
         deployment_warnings = [configure_public_vercel_project(project_id)]
         environment_warning = configure_vercel_chatbot_environment(project_id)
         deployment_warnings.append(environment_warning)
-        if not environment_warning and HF_API_KEY:
+        if HF_API_KEY:
             try:
                 redeploy_response = requests.post(
                     VERCEL_DEPLOYMENTS_URL,
