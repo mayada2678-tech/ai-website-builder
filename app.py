@@ -1271,7 +1271,7 @@ HELP_CHAT_TEXTS = {
         "title": "Hilfe-Chat", "input": "Schreiben Sie Ihre Frage",
         "greeting": "Herzlich willkommen. Ich unterstütze Sie bei der Erstellung, Vorschau und Veröffentlichung Ihrer Website.",
         "publish": "Wählen Sie nach dem Erstellen Ihrer Website den Bereich „Veröffentlichung und Liveschaltung“. Dort können Sie einen Vercel-Projektnamen festlegen und die Website veröffentlichen.",
-        "preview": "In der Live-Vorschau können Sie Ihre Website prüfen und den HTML-Code direkt anpassen.",
+        "preview": "Öffnen Sie den Entwurf über die Vorschau-Schaltfläche. Den Quellcode bearbeiten Sie separat im Tab „HTML-Code“.",
         "image": "Sie können beim Erstellen ein Logo oder Bild hochladen. Weitere Bilder lassen sich später im Bereich „Bilder“ austauschen.",
         "default": "Beschreiben Sie Ihr Unternehmen, wählen Sie Branche und Design und erstellen Sie anschließend Ihren Website-Entwurf. Wobei darf ich Ihnen helfen?",
     },
@@ -1279,7 +1279,7 @@ HELP_CHAT_TEXTS = {
         "title": "Help chat", "input": "Write your question",
         "greeting": "Welcome. I can help you create, preview, and publish your website.",
         "publish": "After creating your website, open Publishing and go live. There you can choose a Vercel project name and publish the website.",
-        "preview": "Use the live preview to review your website and adjust its HTML directly.",
+        "preview": "Open the draft with the preview button. Edit the source separately in the HTML Code tab.",
         "image": "You can upload a logo or image while creating the website. Replace additional images later in the Images section.",
         "default": "Describe your business, choose an industry and design, then create your website draft. How can I help?",
     },
@@ -1287,7 +1287,7 @@ HELP_CHAT_TEXTS = {
         "title": "Chat de ayuda", "input": "Escribe tu pregunta",
         "greeting": "Bienvenido. Te ayudo a crear, revisar y publicar tu sitio web.",
         "publish": "Después de crear tu sitio, abre la sección de publicación. Allí puedes elegir un nombre de proyecto de Vercel y publicar el sitio.",
-        "preview": "Usa la vista previa en vivo para revisar tu sitio y ajustar el HTML directamente.",
+        "preview": "Abre el borrador con el botón de vista previa. Edita el código por separado en la pestaña HTML.",
         "image": "Puedes subir un logo o imagen al crear el sitio. Cambia más imágenes después en la sección Imágenes.",
         "default": "Describe tu empresa, elige un sector y diseño y crea tu borrador. ¿Cómo puedo ayudarte?",
     },
@@ -1295,7 +1295,7 @@ HELP_CHAT_TEXTS = {
         "title": "Chat di assistenza", "input": "Scrivi la tua domanda",
         "greeting": "Benvenuto. Ti aiuto a creare, visualizzare e pubblicare il tuo sito web.",
         "publish": "Dopo aver creato il sito, apri la sezione Pubblicazione. Qui puoi scegliere il nome di un progetto Vercel e pubblicare il sito.",
-        "preview": "Usa l'anteprima dal vivo per controllare il sito e modificare direttamente l'HTML.",
+        "preview": "Apri la bozza con il pulsante di anteprima. Modifica il codice separatamente nella scheda HTML.",
         "image": "Puoi caricare un logo o un'immagine durante la creazione. Sostituisci altre immagini nella sezione Immagini.",
         "default": "Descrivi la tua azienda, scegli settore e design e crea la bozza del sito. Come posso aiutarti?",
     },
@@ -1303,7 +1303,7 @@ HELP_CHAT_TEXTS = {
         "title": "دردشة المساعدة", "input": "اكتب سؤالك",
         "greeting": "مرحباً. أساعدك في إنشاء موقعك ومعاينته ونشره.",
         "publish": "بعد إنشاء موقعك، افتح قسم النشر. هناك يمكنك اختيار اسم مشروع Vercel ونشر الموقع.",
-        "preview": "استخدم المعاينة المباشرة لمراجعة موقعك وتعديل HTML مباشرة.",
+        "preview": "افتح المسودة عبر زر المعاينة، وعدّل الكود بشكل منفصل في تبويب HTML.",
         "image": "يمكنك رفع شعار أو صورة أثناء إنشاء الموقع، وتغيير الصور الأخرى لاحقاً في قسم الصور.",
         "default": "صف شركتك واختر المجال والتصميم ثم أنشئ مسودة موقعك. كيف يمكنني مساعدتك؟",
     },
@@ -1311,7 +1311,7 @@ HELP_CHAT_TEXTS = {
         "title": "چاتی یارمەتی", "input": "پرسیارەکەت بنووسە",
         "greeting": "بەخێربێیت. یارمەتیت دەدەم وێبگەکەت دروست بکەیت، پشکنینی بکەیت و بڵاوی بکەیتەوە.",
         "publish": "دوای دروستکردنی وێبگەکەت، بەشی بڵاوکردنەوە بکەرەوە. لەوێ دەتوانیت ناوی پڕۆژەی Vercel هەڵبژێریت و بڵاوی بکەیتەوە.",
-        "preview": "پیشاندانی ڕاستەوخۆ بەکاربهێنە بۆ پشکنینی وێبگەکەت و دەستکاریکردنی HTML.",
+        "preview": "ڕەشنووسەکە بە دوگمەی پێشبینین بکەرەوە و کۆدەکە لە تابی HTML دەستکاری بکە.",
         "image": "دەتوانیت لە کاتی دروستکردندا لۆگۆ یان وێنە باربکەیت و وێنەکانی تر لە بەشی وێنەکان بگۆڕیت.",
         "default": "کۆمپانیاکەت باس بکە، بوار و دیزاین هەڵبژێرە و ڕەشنووسی وێبگەکەت دروست بکە. چۆن یارمەتیت بدەم؟",
     },
@@ -1319,7 +1319,7 @@ HELP_CHAT_TEXTS = {
         "title": "सहायता चैट", "input": "अपना प्रश्न लिखें",
         "greeting": "स्वागत है। मैं आपकी वेबसाइट बनाने, देखने और प्रकाशित करने में सहायता कर सकता हूं।",
         "publish": "वेबसाइट बनाने के बाद प्रकाशन अनुभाग खोलें। वहां आप Vercel प्रोजेक्ट नाम चुनकर वेबसाइट प्रकाशित कर सकते हैं।",
-        "preview": "अपनी वेबसाइट जांचने और HTML बदलने के लिए लाइव प्रीव्यू का उपयोग करें।",
+        "preview": "पूर्वावलोकन बटन से प्रारूप खोलें। कोड को अलग HTML टैब में संपादित करें।",
         "image": "वेबसाइट बनाते समय आप लोगो या चित्र अपलोड कर सकते हैं। अतिरिक्त चित्र बाद में Images अनुभाग में बदलें।",
         "default": "अपने व्यवसाय का वर्णन करें, उद्योग और डिज़ाइन चुनें, फिर वेबसाइट ड्राफ्ट बनाएं। मैं कैसे मदद कर सकता हूं?",
     },
@@ -4232,87 +4232,6 @@ def render_direct_content_editor() -> None:
             st.rerun()
 
 
-def update_preview_from_test_editor() -> None:
-    """Uebernimmt geprueften HTML-Code aus dem Testzentrum in die Vorschau."""
-    st.session_state.generated_html = require_complete_html(
-        str(st.session_state.preview_html_editor)
-    )
-    st.session_state.html_editor = st.session_state.generated_html
-
-
-def discard_test_editor_changes() -> None:
-    """Stellt den Testeditor auf den aktuell gespeicherten Entwurf zurueck."""
-    st.session_state.preview_html_editor = st.session_state.generated_html
-
-
-def render_saas_preview_and_testing_window() -> None:
-    """Rendert die direkte Vorschau und optionale HTML-Feinbearbeitung."""
-    if (
-        st.session_state.get("creation_mode") == "Professionelle Vorlage"
-        and not st.session_state.generated_html
-    ):
-        return
-
-    st.header("Live-Vorschau")
-
-    if not st.session_state.generated_html:
-        st.info(
-            "Erstellen oder laden Sie zuerst eine Website. Ihre Vorschau erscheint anschließend hier."
-        )
-        return
-
-    preview_height = st.slider(
-        "Vorschauhöhe",
-        min_value=400,
-        max_value=1200,
-        value=650,
-        step=50,
-        key="live_preview_height",
-    )
-    st.components.v1.html(
-        create_preview_html(
-            st.session_state.generated_html,
-            include_customer_chatbot=True,
-        ),
-        height=preview_height,
-        scrolling=True,
-    )
-
-    with st.expander("HTML-Code und Details direkt anpassen", icon=":material/code:"):
-        st.subheader("HTML-Code fein abstimmen")
-        st.session_state.setdefault(
-            "preview_html_editor", st.session_state.generated_html
-        )
-        st.text_area(
-            "HTML und Design-Code",
-            key="preview_html_editor",
-            height=400,
-        )
-        apply_column, discard_column = st.columns(2)
-        with apply_column:
-            if st.button(
-                "Aenderungen in Vorschau uebernehmen",
-                icon=":material/refresh:",
-                key="apply_preview_html",
-                width="stretch",
-            ):
-                try:
-                    update_preview_from_test_editor()
-                    st.success("Die Änderungen wurden in die Vorschau übernommen.")
-                    st.rerun()
-                except ValueError as error:
-                    st.error(str(error))
-        with discard_column:
-            if st.button(
-                "Manuelle Aenderungen verwerfen",
-                icon=":material/delete:",
-                key="discard_preview_html",
-                width="stretch",
-            ):
-                discard_test_editor_changes()
-                st.rerun()
-
-
 def is_vercel_login_page(response: requests.Response) -> bool:
     """Erkennt Vercel-Login- und Deployment-Schutzseiten."""
     content = response.text.lower()
@@ -6441,8 +6360,6 @@ if st.session_state.generated_html:
                         status.update(label="Entwurf konnte nicht erstellt werden.", state="error")
                         st.error(str(error))
         st.divider()
-    render_saas_preview_and_testing_window()
-    st.divider()
     st.header(t("edit_website"))
 
     live_editor_tab, direct_edit_tab, content_tab, design_tab, image_tab, html_tab = st.tabs(
