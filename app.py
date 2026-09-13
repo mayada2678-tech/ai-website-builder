@@ -2471,7 +2471,7 @@ def build_analytics_widget(site_id: str) -> str:
         or "Anschrift ist im Impressum angegeben"
     )
     processor_name = escape(PRIVACY_PROCESSOR_NAME or "Betreiber der Website-Plattform")
-    return f'''<style data-site-analytics-style>
+    widget = f'''<style data-site-analytics-style>
 #dsgvo-banner{{position:fixed;bottom:20px;left:20px;right:20px;max-width:500px;margin:auto;background:#fff;color:#333;box-shadow:0 10px 30px rgba(0,0,0,.15);border-radius:8px;padding:20px;z-index:99999;font-family:Arial,sans-serif;border:1px solid #e1e4e8}}
 #dsgvo-banner[hidden]{{display:none!important}}#dsgvo-banner p{{margin:0 0 15px;font-size:14px;line-height:1.5;color:#555}}.dsgvo-buttons{{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}}.dsgvo-btn{{padding:8px 16px;border-radius:6px;border:0;font-size:13px;font-weight:700;cursor:pointer;transition:background .2s ease}}.dsgvo-accept{{background:#4a154b;color:#fff}}.dsgvo-accept:hover{{background:#381039}}.dsgvo-decline{{background:#eef2f7;color:#555}}.dsgvo-decline:hover{{background:#e1e6eb}}.dsgvo-btn:focus-visible,#analytics-consent-reset:focus-visible{{outline:3px solid #f59e0b;outline-offset:2px}}#datenschutz{{max-width:1120px;margin:0 auto;padding:48px 24px;font:15px/1.65 Arial,sans-serif}}#datenschutz h2{{margin-top:0}}#datenschutz h3{{margin:24px 0 6px;font-size:17px}}#analytics-consent-reset{{margin-top:12px;padding:9px 14px;border:1px solid currentColor;border-radius:6px;background:transparent;color:inherit;cursor:pointer;font-weight:700}}@media(max-width:540px){{#dsgvo-banner{{left:12px;right:12px;bottom:12px;padding:16px}}.dsgvo-buttons{{justify-content:stretch}}.dsgvo-btn{{flex:1}}}}
 #datenschutz{{box-sizing:border-box;margin:56px auto;background:#f8fafc;border-top:4px solid #2563eb;border-bottom:1px solid #dbe3ec;color:#1e293b}}
@@ -2495,6 +2495,17 @@ const start=()=>{{const params=new URLSearchParams(location.search);if(assignedV
 if(!consent)banner.hidden=false;else if(consent==='granted')start();banner.querySelectorAll('[data-consent]').forEach(button=>button.onclick=()=>{{consent=button.dataset.consent;localStorage.setItem(consentKey,consent);banner.hidden=true;if(consent==='granted')start();}});
 document.getElementById('analytics-consent-reset').onclick=()=>{{localStorage.removeItem(consentKey);sessionStorage.removeItem(sessionKey);location.reload();}};
 }})();</script>'''
+    widget = re.sub(
+        r'(?is)<section id="datenschutz".*?</section>',
+        "",
+        widget,
+        count=1,
+    )
+    return widget.replace(
+        "document.getElementById('analytics-consent-reset').onclick=()=>{",
+        "const resetButton=document.getElementById('analytics-consent-reset');"
+        "if(resetButton)resetButton.onclick=()=>{",
+    )
 
 
 def inject_site_analytics(html: str, site_id: str) -> str:
