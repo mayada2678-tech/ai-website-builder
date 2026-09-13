@@ -2091,11 +2091,29 @@ def ensure_multi_page_navigation(html: str) -> str:
         return re.sub(r"(?i)</body\s*>", f"{router_script}</body>", html, count=1)
 
 
+def build_customer_chatbot_resilience_script(chatbot_knowledge: str) -> str:
+    """Haelt den Kundenchat auch bei einer nicht erreichbaren API bedienbar."""
+    knowledge_json = json.dumps(chatbot_knowledge.strip(), ensure_ascii=False).replace(
+        "</", "<\\/"
+    )
+    return rf'''<script data-customer-chatbot-resilience>(()=>{{
+const root=document.getElementById("customer-chatbot");
+if(!root)return;
+const form=root.querySelector("#customer-chat-form"),input=root.querySelector("#customer-chat-input"),answer=root.querySelector("#customer-chat-answer"),send=root.querySelector("#customer-chat-send");
+if(!form||!input||!answer||!send)return;
+const knowledge={knowledge_json};
+const detail=(...labels)=>{{for(const label of labels){{const escaped=label.replace(/[.*+?^${{}}()|[\]\\]/g,"\\$&");const match=knowledge.match(new RegExp(escaped+":\\s*([^\\n]+)","i"));if(match)return match[1].trim();}}return "";}};
+const localAnswer=question=>{{const normalized=question.toLocaleLowerCase();const contact=detail("Kontaktwege");const hours=detail("Öffnungszeiten");const services=detail("Preise und Leistungen","Typische Leistungen dieser Branche");const emergency=detail("Notfall und Bereitschaft");if(/(kontakt|telefon|e-mail|mail|erreich)/.test(normalized)&&contact)return `Sie erreichen uns: ${{contact}}`;if(/(öffnungs|uhrzeit|geöffnet|termin|wann)/.test(normalized)&&hours)return `Unsere Öffnungszeiten bzw. Terminzeiten: ${{hours}}`;if(/(preis|kosten|leistung|service|angebot)/.test(normalized)&&services)return `Informationen zu unseren Leistungen: ${{services}}`;if(/(notfall|dringend|bereit|panne)/.test(normalized)&&emergency)return emergency;if(/(^|\\s)(hallo|hi|hey|guten tag)(\\s|$|!)/.test(normalized))return "Hallo! Wie kann ich Ihnen helfen?";return contact?`Dazu liegen mir keine gesicherten Angaben vor. Sie erreichen uns: ${{contact}}`:"Dazu liegen mir keine gesicherten Angaben vor. Bitte nutzen Sie die Kontaktmöglichkeiten auf dieser Website.";}};
+form.onsubmit=async event=>{{event.preventDefault();const question=input.value.trim();if(!question)return;answer.textContent="Antwort wird erstellt ...";input.value="";send.disabled=true;const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),8000);try{{const result=await fetch("/api/chat",{{method:"POST",headers:{{"Content-Type":"application/json"}},body:JSON.stringify({{question}}),signal:controller.signal}});const data=await result.json().catch(()=>({{}}));answer.textContent=result.ok&&typeof data.answer==="string"&&data.answer.trim()?data.answer:localAnswer(question);}}catch(error){{answer.textContent=localAnswer(question);}}finally{{clearTimeout(timeout);send.disabled=false;}}}};
+}})();</script>'''
+
+
 def inject_configured_customer_chatbot(html: str) -> str:
     """Setzt genau einen zentral konfigurierten Chatbot in den Kundenentwurf ein."""
     existing_widget_pattern = (
         r'(?is)<aside\b[^>]*\bclass=["\'][^"\']*\bcustomer-chatbot\b'
         r'[^"\']*["\'][^>]*>.*?</aside>\s*<script>.*?</script>'
+        r'(?:\s*<script\s+data-customer-chatbot-resilience>.*?</script>)?'
     )
     html_without_existing_widget = re.sub(existing_widget_pattern, "", html)
     shape_to_radius = {
@@ -2110,6 +2128,9 @@ def inject_configured_customer_chatbot(html: str) -> str:
     ).replace('border-radius:50%;width:56px', (
         f'border-radius:{shape_to_radius.get(str(st.session_state.get("customer_chatbot_shape", "Rund (Kreis)")), "50%")};width:56px'
     ))
+    widget += build_customer_chatbot_resilience_script(
+        get_configured_chatbot_knowledge()
+    )
     return re.sub(
         r"(?i)</body\s*>",
         lambda _match: f"{widget}</body>",
