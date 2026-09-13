@@ -10,6 +10,7 @@ import re
 import secrets
 import sqlite3
 import time
+import uuid
 import zipfile
 from datetime import datetime, timedelta, timezone
 from html import escape
@@ -22,6 +23,7 @@ from fastmcp import Client
 from openai import OpenAI
 from pypdf import PdfReader
 
+from analytics_automation import SupabaseAnalyticsClient, summarize_analytics
 from domain_provisioning import (
     ProvisioningError,
     check_domain_with_registrar,
@@ -674,10 +676,18 @@ def initialize_database() -> None:
                 site_name TEXT NOT NULL,
                 html_content TEXT NOT NULL,
                 domain TEXT,
+                analytics_site_id TEXT,
                 FOREIGN KEY(user_id) REFERENCES users(id)
             )
             """
         )
+        website_columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(websites)")
+        }
+        if "analytics_site_id" not in website_columns:
+            connection.execute(
+                "ALTER TABLE websites ADD COLUMN analytics_site_id TEXT"
+            )
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS support_requests (
@@ -759,10 +769,17 @@ def save_website(user_id: int, site_name: str, html: str, domain: str) -> None:
     with sqlite3.connect(DATABASE_PATH) as connection:
         connection.execute(
             """
-            INSERT INTO websites (user_id, site_name, html_content, domain)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO websites (
+                user_id, site_name, html_content, domain, analytics_site_id
+            ) VALUES (?, ?, ?, ?, ?)
             """,
-            (user_id, site_name.strip() or "Meine Website", html, domain),
+            (
+                user_id,
+                site_name.strip() or "Meine Website",
+                html,
+                domain,
+                str(st.session_state.analytics_site_id),
+            ),
         )
 
 
@@ -780,12 +797,13 @@ def get_websites(user_id: int) -> list[tuple[int, str, str]]:
         ).fetchall()
 
 
-def load_website(user_id: int, website_id: int) -> tuple[str, str, str] | None:
+def load_website(user_id: int, website_id: int) -> tuple[str, str, str, str] | None:
     """Laedt eine Website nur, wenn sie dem angemeldeten Nutzer gehoert."""
     with sqlite3.connect(DATABASE_PATH) as connection:
         return connection.execute(
             """
-            SELECT site_name, html_content, COALESCE(domain, '')
+                 SELECT site_name, html_content, COALESCE(domain, ''),
+                     COALESCE(analytics_site_id, '')
             FROM websites
             WHERE id = ? AND user_id = ?
             """,
@@ -1078,6 +1096,10 @@ for environment_key, environment_value in {
     if environment_value:
         os.environ[environment_key] = environment_value
 HF_API_KEY = str(st.secrets.get("HF_API_KEY", "")).strip()
+SUPABASE_URL = str(st.secrets.get("supabase_url", "")).strip().rstrip("/")
+SUPABASE_SERVICE_ROLE_KEY = str(
+    st.secrets.get("supabase_service_role_key", "")
+).strip()
 HF_TEXT_MODEL_URL = (
     "https://router.huggingface.co/hf-inference/models/Qwen/Qwen2.5-7B-Instruct"
 )
@@ -1138,6 +1160,7 @@ for key, value in DEFAULT_STATE.items():
         st.session_state[key] = value
 
 st.session_state.setdefault("app_language", "de")
+st.session_state.setdefault("analytics_site_id", str(uuid.uuid4()))
 APP_LANGUAGE_NAMES_BY_CODE = {
     language_code: language_name
     for language_name, language_code in APP_LANGUAGES.items()
@@ -2091,6 +2114,103 @@ def queue_html_update(html: str, reset_site_pages: bool = False) -> None:
     st.session_state.html_editor = index_html
 
 
+def get_supabase_analytics_client() -> SupabaseAnalyticsClient:
+    """Liefert den serverseitigen Supabase-Client oder eine klare Konfigurationsmeldung."""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        raise ValueError(
+            "Hinterlegen Sie supabase_url und supabase_service_role_key in den Streamlit-Secrets."
+        )
+    return SupabaseAnalyticsClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+
+def create_analytics_optimized_version() -> tuple[object, dict[str, object]]:
+    """Erzeugt ab 500 Sitzungen einen datengestützten, noch nicht live geschalteten Entwurf."""
+    analytics_client = get_supabase_analytics_client()
+    site_id = str(st.session_state.analytics_site_id)
+    summary = summarize_analytics(analytics_client.analytics(site_id))
+    if summary.sessions < 500:
+        raise ValueError(
+            f"Für eine belastbare Optimierung werden 500 Sitzungen benötigt. Aktuell: {summary.sessions}."
+        )
+    current_html = require_complete_html(st.session_state.generated_html)
+    response = client.chat.completions.create(
+        model=OPENAI_MODEL,
+        temperature=0.2,
+        timeout=120,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "Du optimierst eine bestehende Kundenwebsite anhand aggregierter, anonymer "
+                    "Nutzungsdaten. Bewahre Fakten, Links, Formulare, Barrierefreiheit und den "
+                    "Kunden-Chatbot. Erfinde keine Inhalte. Gib ausschließlich das vollständige "
+                    "HTML-Dokument zurück."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    "ANALYTISCHE BEFUNDE:\n"
+                    f"{summary.as_prompt()}\n\n"
+                    "Optimiere insbesondere mobile Lesbarkeit, Textlänge und Platzierung klarer "
+                    "Handlungsaufrufe, wenn die Daten dies stützen.\n\n"
+                    f"AKTUELLES HTML:\n{current_html}"
+                ),
+            },
+        ],
+    )
+    optimized_html = require_complete_html(
+        clean_html(response.choices[0].message.content or "")
+    )
+    optimized_html = inject_configured_customer_chatbot(optimized_html)
+    version = analytics_client.create_version(
+        site_id,
+        optimized_html,
+        status="testing",
+        conversion_rate=summary.conversion_rate,
+    )
+    queue_html_update(optimized_html)
+    return summary, version
+
+
+def render_analytics_optimization_ui(user_email: str) -> None:
+    """Rendert den manuellen Startpunkt für den datengestützten Optimierungsjob."""
+    if not SUPPORT_ADMIN_EMAIL or user_email.strip().lower() != SUPPORT_ADMIN_EMAIL:
+        return
+    st.divider()
+    st.subheader("KI-Optimierung und A/B-Test", anchor=False)
+    st.caption(
+        "Analysiert ausschließlich aggregierte Sitzungsdaten. Ab 500 Sitzungen erstellt die KI "
+        "eine Testversion; die Live-Website wird dabei nicht automatisch überschrieben."
+    )
+    st.code(str(st.session_state.analytics_site_id), language=None)
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        st.warning(
+            "Supabase ist noch nicht konfiguriert. Führen Sie supabase_schema.sql aus und "
+            "hinterlegen Sie supabase_url sowie supabase_service_role_key in den Secrets."
+        )
+        return
+    if st.button(
+        "Analytics auswerten und Testversion erstellen",
+        icon=":material/auto_awesome:",
+        key="run_analytics_optimization",
+        disabled=not st.session_state.generated_html,
+        width="stretch",
+    ):
+        with st.status("Analytics werden ausgewertet ...", expanded=True) as status:
+            try:
+                summary, version = create_analytics_optimized_version()
+                status.update(label="Testversion wurde erstellt.", state="complete")
+                st.success(
+                    f"{summary.sessions} Sitzungen ausgewertet. Version "
+                    f"{version.get('version_id', '')} ist als testing gespeichert und in der Vorschau geladen."
+                )
+                st.rerun()
+            except Exception as error:
+                status.update(label="Optimierung konnte nicht ausgeführt werden.", state="error")
+                st.error(str(error))
+
+
 def build_chat_api_route(chatbot_knowledge: str) -> str:
         """Erstellt eine Vercel-Route, die den Hugging-Face-Schlüssel serverseitig hält."""
         language = str(st.session_state.app_language)
@@ -2202,13 +2322,135 @@ export default async function handler(request, response) {{
 '''
 
 
+def build_analytics_api_route() -> str:
+    """Erstellt die Vercel-Route für anonyme Analytics-Ereignisse."""
+    return '''const ALLOWED_DEVICES = new Set(["mobile", "tablet", "desktop"]);
+
+export default async function handler(request, response) {
+    response.setHeader("Access-Control-Allow-Origin", "*");
+    response.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    response.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    if (request.method === "OPTIONS") return response.status(204).end();
+    if (request.method !== "POST") return response.status(405).json({ error: "Method not allowed" });
+
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !serviceKey) return response.status(503).json({ error: "Analytics is not configured" });
+
+    const body = request.body || {};
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidPattern.test(body.site_id || "") || !uuidPattern.test(body.session_id || "")) {
+        return response.status(400).json({ error: "Invalid analytics identifiers" });
+    }
+    const deviceType = ALLOWED_DEVICES.has(body.device_type) ? body.device_type : "desktop";
+    const version = body.version === "B" ? "B" : "A";
+    const allowedEvents = new Set(["session", "page_view", "click", "conversion"]);
+    const eventType = allowedEvents.has(body.event_type) ? body.event_type : "session";
+    const clicked = typeof body.element_clicked === "string" ? body.element_clicked.slice(0, 120) : null;
+    const payload = {
+        site_id: body.site_id,
+        session_id: body.session_id,
+        version,
+        event_type: eventType,
+        device_type: deviceType,
+        element_clicked: clicked,
+        is_conversion: body.is_conversion === true,
+        duration_seconds: Math.max(0, Math.min(86400, Number.parseInt(body.duration_seconds || 0, 10) || 0)),
+        scroll_depth: Math.max(0, Math.min(100, Number.parseInt(body.scroll_depth || 0, 10) || 0)),
+    };
+    try {
+        const result = await fetch(`${supabaseUrl}/rest/v1/site_analytics`, {
+            method: "POST",
+            headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+            body: JSON.stringify(payload),
+        });
+        if (!result.ok) return response.status(502).json({ error: "Analytics storage failed" });
+        return response.status(204).end();
+    } catch (error) {
+        return response.status(502).json({ error: "Analytics storage unavailable" });
+    }
+}
+'''
+
+
+def build_testing_variant_api_route() -> str:
+    """Liefert die neueste Supabase-Testversion als HTML aus."""
+    return '''export default async function handler(request, response) {
+    if (request.method !== "GET") return response.status(405).send("Method not allowed");
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const siteId = typeof request.query?.site_id === "string" ? request.query.site_id : "";
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const useControlVersion = () => response.redirect(307, "/?ab=A&ab_unavailable=1");
+    if (!supabaseUrl || !serviceKey || !uuidPattern.test(siteId)) return useControlVersion();
+    const query = new URLSearchParams({ site_id: `eq.${siteId}`, status: "eq.testing", select: "html_code", order: "created_at.desc", limit: "1" });
+    try {
+        const result = await fetch(`${supabaseUrl}/rest/v1/site_versions?${query}`, {
+            headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
+        });
+        if (!result.ok) return useControlVersion();
+        const rows = await result.json();
+        if (!rows.length || typeof rows[0].html_code !== "string") return useControlVersion();
+        let html = rows[0].html_code;
+        if (!/<base\b/i.test(html)) html = html.replace(/<head([^>]*)>/i, '<head$1><base href="/">');
+        response.setHeader("Content-Type", "text/html; charset=utf-8");
+        response.setHeader("Cache-Control", "no-store");
+        return response.status(200).send(html);
+    } catch (error) {
+        return useControlVersion();
+    }
+}
+'''
+
+
+def build_analytics_widget(site_id: str) -> str:
+    """Erstellt ein minimales Consent- und Analytics-Skript ohne Cookies."""
+    safe_site_id = json.dumps(site_id)
+    return f'''<div id="analytics-consent" hidden style="position:fixed;left:16px;right:16px;bottom:16px;z-index:9999;max-width:680px;margin:auto;padding:14px 16px;background:#fff;color:#172033;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 12px 36px rgba(15,23,42,.22);font:14px/1.45 Arial,sans-serif"><strong>Anonyme Nutzungsanalyse</strong><p style="margin:6px 0 10px">Dürfen anonyme Klick-, Scroll- und Sitzungsdaten zur Verbesserung dieser Website verwendet werden?</p><button type="button" data-consent="granted" style="border:0;border-radius:5px;padding:8px 12px;background:#2563eb;color:#fff;cursor:pointer">Zustimmen</button> <button type="button" data-consent="denied" style="border:1px solid #94a3b8;border-radius:5px;padding:8px 12px;background:#fff;color:#172033;cursor:pointer">Ablehnen</button></div>
+<script data-site-analytics>(()=>{{
+const siteId={safe_site_id},consentKey=`site-analytics-consent:${{siteId}}`,banner=document.getElementById('analytics-consent');
+let consent=localStorage.getItem(consentKey),startedAt=Date.now(),maxScroll=0;
+const device=()=>innerWidth<768?'mobile':innerWidth<1024?'tablet':'desktop';
+const sessionKey=`site-analytics-session:${{siteId}}`;let sessionId=sessionStorage.getItem(sessionKey);if(!sessionId){{sessionId=crypto.randomUUID();sessionStorage.setItem(sessionKey,sessionId);}}
+const assignedVersion=Array.from(sessionId).reduce((hash,char)=>((hash*31)+char.charCodeAt(0))>>>0,0)%2===0?'A':'B';
+const currentVersion=new URLSearchParams(location.search).get('ab')==='B'?'B':'A';window.currentAssignedVersion=currentVersion;window.siteId=siteId;
+const send=(eventType='session',elementClicked=null,isConversion=false)=>{{if(consent!=='granted')return;const body=JSON.stringify({{site_id:siteId,session_id:sessionId,version:currentVersion,event_type:eventType,device_type:device(),element_clicked:elementClicked,is_conversion:isConversion,duration_seconds:Math.round((Date.now()-startedAt)/1000),scroll_depth:maxScroll}});if(navigator.sendBeacon)navigator.sendBeacon('/api/analytics',new Blob([body],{{type:'application/json'}}));else fetch('/api/analytics',{{method:'POST',headers:{{'Content-Type':'application/json'}},body,keepalive:true}}).catch(()=>{{}});}};
+const start=()=>{{const params=new URLSearchParams(location.search);if(assignedVersion==='B'&&currentVersion!=='B'&&!params.has('ab_unavailable')){{location.replace(`/api/variant?site_id=${{encodeURIComponent(siteId)}}&ab=B`);return;}}addEventListener('scroll',()=>{{const height=Math.max(1,document.documentElement.scrollHeight-innerHeight);maxScroll=Math.max(maxScroll,Math.min(100,Math.round(scrollY/height*100)));}},{{passive:true}});document.addEventListener('click',event=>{{const target=event.target.closest('a,button,input[type="submit"]');if(!target)return;const label=(target.getAttribute('aria-label')||target.textContent||target.id||target.tagName).trim().replace(/\\s+/g,' ').slice(0,120);const href=target.getAttribute('href')||'';const conversion=/^(mailto:|tel:)/.test(href)||target.matches('[data-conversion],input[type="submit"]');send(conversion?'conversion':'click',label,conversion);}});addEventListener('pagehide',()=>send('session'));setTimeout(()=>send('page_view','page-view'),3000);}};
+if(!consent)banner.hidden=false;else if(consent==='granted')start();banner.querySelectorAll('[data-consent]').forEach(button=>button.onclick=()=>{{consent=button.dataset.consent;localStorage.setItem(consentKey,consent);banner.hidden=true;if(consent==='granted')start();}});
+}})();</script>'''
+
+
+def inject_site_analytics(html: str, site_id: str) -> str:
+    """Fügt Analytics genau einmal vor dem schließenden Body ein."""
+    html = re.sub(
+        r'(?is)<div id="analytics-consent".*?<script data-site-analytics>.*?</script>',
+        "",
+        html,
+    )
+    return re.sub(
+        r"(?i)</body\s*>",
+        lambda _match: f"{build_analytics_widget(site_id)}</body>",
+        html,
+        count=1,
+    )
+
+
 def add_vercel_chat_api(site_pages: dict[str, str]) -> dict[str, str]:
-        """Fügt jeder Kundenwebsite die geschützte Chat-Route hinzu."""
-        site_pages["api/chat.js"] = build_chat_api_route(
-                get_configured_chatbot_knowledge()
-        )
-        site_pages["vercel.json"] = '{"cleanUrls": true}'
-        return site_pages
+    """Fügt Kundenwebsite, Chat-Route und anonyme Analytics hinzu."""
+    site_id = str(st.session_state.analytics_site_id)
+    site_pages = {
+        file_name: inject_site_analytics(page_content, site_id)
+        if file_name.endswith(".html")
+        else page_content
+        for file_name, page_content in site_pages.items()
+    }
+    site_pages["api/chat.js"] = build_chat_api_route(
+        get_configured_chatbot_knowledge()
+    )
+    site_pages["api/analytics.js"] = build_analytics_api_route()
+    site_pages["api/variant.js"] = build_testing_variant_api_route()
+    site_pages["vercel.json"] = '{"cleanUrls": true}'
+    return site_pages
 
 
 def build_website_zip() -> bytes:
@@ -4189,20 +4431,25 @@ def delete_previous_vercel_deployment(deployment_reference: str) -> None:
 
 
 def configure_vercel_chatbot_environment(project_id: str) -> str:
-    """Hinterlegt den serverseitigen Chatbot-Schlüssel im Kundenprojekt."""
-    if not HF_API_KEY:
-        return "HF_API_KEY ist nicht in den Streamlit-Secrets hinterlegt. Der Kundenchatbot verwendet Branchenwissen als Rückfallantwort."
-
+    """Hinterlegt Chat- und Analytics-Secrets im Kundenprojekt."""
     headers = {
         "Authorization": f"Bearer {VERCEL_TOKEN}",
         "Content-Type": "application/json",
     }
-    payload = {
-        "key": "HF_API_KEY",
-        "value": HF_API_KEY,
-        "type": "encrypted",
-        "target": ["production", "preview", "development"],
+    warnings = []
+    environment_values = {
+        "HF_API_KEY": HF_API_KEY,
+        "SUPABASE_URL": SUPABASE_URL,
+        "SUPABASE_SERVICE_ROLE_KEY": SUPABASE_SERVICE_ROLE_KEY,
     }
+    if not HF_API_KEY:
+        warnings.append(
+            "HF_API_KEY fehlt. Der Kundenchatbot verwendet lokale Rückfallantworten."
+        )
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        warnings.append(
+            "Supabase ist noch nicht vollständig konfiguriert; anonyme Analytics bleiben deaktiviert."
+        )
     try:
         environment_variables = requests.get(
             f"https://api.vercel.com/v9/projects/{project_id}/env",
@@ -4211,42 +4458,51 @@ def configure_vercel_chatbot_environment(project_id: str) -> str:
         )
         environment_variables.raise_for_status()
         existing_variables = environment_variables.json().get("envs", [])
-        existing_key = next(
-            (
-                str(item.get("id", ""))
-                for item in existing_variables
-                if item.get("key") == "HF_API_KEY"
-            ),
-            "",
-        )
-        if existing_key:
-            response = requests.patch(
-                f"https://api.vercel.com/v9/projects/{project_id}/env/{existing_key}",
-                headers=headers,
-                json=payload,
-                timeout=30,
-            )
-        else:
-            response = requests.post(
-                f"https://api.vercel.com/v10/projects/{project_id}/env",
-                headers=headers,
-                json=payload,
-                timeout=30,
-            )
     except requests.RequestException as error:
-        return f"Die automatische Chatbot-Konfiguration konnte Vercel nicht erreichen: {error}"
+        return f"Die Server-Konfiguration konnte Vercel nicht erreichen: {error}"
 
-    if response.status_code in (200, 201):
-        return ""
-    try:
-        details = response.json().get("error", {}).get("message", "")
-    except ValueError:
-        details = ""
-    detail_suffix = f" Vercel meldet: {details}" if details else ""
-    return (
-        f"Die automatische Chatbot-Konfiguration ist fehlgeschlagen (HTTP {response.status_code})."
-        f" Die Website wurde trotzdem veröffentlicht; der Chatbot verwendet Branchenwissen als Rückfallantwort.{detail_suffix}"
-    )
+    existing_by_name = {
+        str(item.get("key", "")): str(item.get("id", ""))
+        for item in existing_variables
+    }
+    for variable_name, variable_value in environment_values.items():
+        if not variable_value:
+            continue
+        payload = {
+            "key": variable_name,
+            "value": variable_value,
+            "type": "encrypted",
+            "target": ["production", "preview", "development"],
+        }
+        existing_key = existing_by_name.get(variable_name, "")
+        try:
+            if existing_key:
+                response = requests.patch(
+                    f"https://api.vercel.com/v9/projects/{project_id}/env/{existing_key}",
+                    headers=headers,
+                    json=payload,
+                    timeout=30,
+                )
+            else:
+                response = requests.post(
+                    f"https://api.vercel.com/v10/projects/{project_id}/env",
+                    headers=headers,
+                    json=payload,
+                    timeout=30,
+                )
+        except requests.RequestException as error:
+            warnings.append(f"{variable_name} konnte nicht an Vercel übertragen werden: {error}")
+            continue
+        if response.status_code not in (200, 201):
+            try:
+                details = response.json().get("error", {}).get("message", "")
+            except ValueError:
+                details = ""
+            warnings.append(
+                f"Vercel konnte {variable_name} nicht speichern (HTTP {response.status_code})"
+                + (f": {details}" if details else ".")
+            )
+    return "\n\n".join(warnings)
 
 
 def configure_public_vercel_project(project_id: str) -> str:
@@ -4469,6 +4725,29 @@ def publish_website() -> None:
     st.session_state.deployment_url = f"https://{deployment_url}"
     st.session_state.deployment_id = deployment_id
     st.session_state.published_html = html
+    if SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY:
+        try:
+            analytics_client = get_supabase_analytics_client()
+            analytics_client.archive_live_versions(
+                str(st.session_state.analytics_site_id)
+            )
+            analytics_client.create_version(
+                str(st.session_state.analytics_site_id),
+                html,
+                status="live",
+            )
+        except ValueError as error:
+            existing_warning = str(
+                st.session_state.get("chatbot_environment_warning", "")
+            ).strip()
+            st.session_state.chatbot_environment_warning = "\n\n".join(
+                warning
+                for warning in (
+                    existing_warning,
+                    f"Die Live-Version konnte nicht in Supabase protokolliert werden: {error}",
+                )
+                if warning
+            )
 
 
 def render_domain_and_deployment_ui() -> None:
@@ -5596,13 +5875,16 @@ with st.sidebar:
             ):
                 saved_website = load_website(st.session_state.user_id, website_id)
                 if saved_website is not None:
-                    loaded_name, loaded_html, loaded_domain = saved_website
+                    loaded_name, loaded_html, loaded_domain, analytics_site_id = saved_website
                     st.session_state.assets = {}
                     st.session_state.pending_html = loaded_html
                     st.session_state.live_url = loaded_domain
                     st.session_state.deployment_url = loaded_domain
                     st.session_state.deployment_id = ""
                     st.session_state.project_name = safe_project_name(loaded_name)
+                    st.session_state.analytics_site_id = (
+                        analytics_site_id or str(uuid.uuid4())
+                    )
                     st.rerun()
             if st.button(
                 t("delete"),
@@ -5911,6 +6193,7 @@ with manage_tab:
 
 with service_tab:
     render_mcp_content_tools_ui()
+    render_analytics_optimization_ui(st.session_state.user_email)
     st.divider()
     render_customer_service_ui(current_user_id, st.session_state.user_email)
     render_transformer_test_ui()
