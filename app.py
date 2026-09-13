@@ -3136,26 +3136,6 @@ DOKUMENTQUELLEN:
         st.session_state.site_pages.update(static_pages)
 
 
-def apply_premium_basics_to_client_state() -> None:
-    """Synchronisiert gueltige Freientwurf-Basisdaten vor dem Widget-Rendering."""
-    company_name = str(st.session_state.get("premium_company_name", "")).strip()
-    contact_email = str(st.session_state.get("premium_contact_email", "")).strip()
-    if not company_name or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", contact_email):
-        return
-
-    st.session_state.client_company_name = company_name
-    st.session_state.client_business_email = contact_email
-    st.session_state.client_company_slogan = str(
-        st.session_state.get("premium_company_slogan", "")
-    ).strip()
-    st.session_state.client_business_phone = str(
-        st.session_state.get("premium_contact_phone", "")
-    ).strip()
-    st.session_state.client_chatbot_knowledge = str(
-        st.session_state.get("premium_chatbot_knowledge", "")
-    ).strip()
-
-
 def render_client_contact_ui() -> None:
     """Erfasst die Kontaktdaten, die in jede neue Kundenwebsite einfliessen."""
     language = str(st.session_state.app_language)
@@ -6352,7 +6332,16 @@ if (
                         st.error(str(error))
 
     with design_tab:
-        st.subheader("Basisdaten und Markenauftritt")
+        st.subheader("Markenauftritt")
+        company_name = str(st.session_state.get("client_company_name", "")).strip()
+        company_slogan = str(st.session_state.get("client_company_slogan", "")).strip()
+        contact_email = str(st.session_state.get("client_business_email", "")).strip()
+        contact_phone = str(st.session_state.get("client_business_phone", "")).strip()
+        chatbot_knowledge = get_configured_chatbot_knowledge()
+        st.caption(
+            "Firmenname, Slogan, Kontaktdaten und Chatbot-Wissen bearbeiten Sie oben "
+            "im Bereich Kundendaten."
+        )
         brand_color = st.color_picker(
             "Markenfarbe",
             "#38BDF8",
@@ -6363,30 +6352,10 @@ if (
             "#14B8A6",
             key="premium_accent_color",
         )
-        company_name = st.text_input(
-            "Firmenname oder Logo-Text",
-            value=str(st.session_state.get("client_company_name", "")),
-            key="premium_company_name",
-        )
-        company_slogan = st.text_input(
-            "Slogan oder Hauptüberschrift",
-            value=str(st.session_state.get("client_company_slogan", "")),
-            key="premium_company_slogan",
-        )
         company_description = st.text_area(
             "Kurzbeschreibung für Über uns",
             key="premium_company_description",
             height=100,
-        )
-        contact_email = st.text_input(
-            "Kontakt-E-Mail-Adresse",
-            value=str(st.session_state.get("client_business_email", "")),
-            key="premium_contact_email",
-        )
-        contact_phone = st.text_input(
-            "Telefonnummer",
-            value=str(st.session_state.get("client_business_phone", "")),
-            key="premium_contact_phone",
         )
         social_columns = st.columns(2)
         with social_columns[0]:
@@ -6401,27 +6370,19 @@ if (
                 placeholder="https://linkedin.com/company/ihrunternehmen",
                 key="premium_linkedin_link",
             )
-        chatbot_knowledge = st.text_area(
-            "Chatbot-Wissen",
-            value=str(st.session_state.get("client_chatbot_knowledge", "")),
-            placeholder="Öffnungszeiten, Preise, Angebote, Terminvereinbarung oder häufige Fragen.",
-            key="premium_chatbot_knowledge",
-            height=120,
-        )
 
         if st.button(
-            "Basisdaten übernehmen",
+            "Markenauftritt übernehmen",
             icon=":material/save:",
             key="apply_premium_basics",
             width="stretch",
-            on_click=apply_premium_basics_to_client_state,
         ):
             if not company_name.strip() or not re.fullmatch(
                 r"[^@\s]+@[^@\s]+\.[^@\s]+", contact_email.strip()
             ):
                 st.warning("Geben Sie einen Firmennamen und eine gültige Kontakt-E-Mail-Adresse ein.")
             else:
-                with st.status("Basisdaten werden übernommen ...", expanded=True) as status:
+                with st.status("Markenauftritt wird aktualisiert ...", expanded=True) as status:
                     try:
                         modify_current_website(
                             f"""
@@ -6437,7 +6398,7 @@ keine gültige URL angegeben wurde. Aktualisiere den Website-Chatbot mit diesem 
 Angebote. Alle sonstigen Inhalte und Bilder bleiben erhalten.
 """
                         )
-                        status.update(label="Basisdaten wurden übernommen.", state="complete")
+                        status.update(label="Markenauftritt wurde übernommen.", state="complete")
                         st.rerun()
                     except Exception as error:
                         status.update(label="Aktualisierung fehlgeschlagen", state="error")
