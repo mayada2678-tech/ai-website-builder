@@ -2132,15 +2132,25 @@ form.onsubmit=async event=>{{event.preventDefault();const question=input.value.t
 }})();</script>'''
 
 
+def remove_customer_chatbot(html: str) -> str:
+    """Entfernt alle zuvor erzeugten Kundenchatbot-Artefakte aus einem HTML-Dokument."""
+    patterns = (
+        r'(?is)<style\b[^>]*\bdata-customer-chatbot-resilience-style\b[^>]*>.*?</style>',
+        r'(?is)<script\b[^>]*\bdata-customer-chatbot-resilience\b[^>]*>.*?</script>',
+        (
+            r'(?is)<aside\b(?=[^>]*(?:\bid=["\']customer-chatbot["\']|'
+            r'\bclass=["\'][^"\']*\bcustomer-chatbot\b[^"\']*["\']))[^>]*>'
+            r'.*?</aside>\s*<script(?:\s[^>]*)?>.*?</script>'
+        ),
+    )
+    for pattern in patterns:
+        html = re.sub(pattern, "", html)
+    return html
+
+
 def inject_configured_customer_chatbot(html: str) -> str:
     """Setzt genau einen zentral konfigurierten Chatbot in den Kundenentwurf ein."""
-    existing_widget_pattern = (
-        r'(?is)<aside\b[^>]*\bclass=["\'][^"\']*\bcustomer-chatbot\b'
-        r'[^"\']*["\'][^>]*>.*?</aside>\s*<script>.*?</script>'
-        r'(?:\s*<style\s+data-customer-chatbot-resilience-style>.*?</style>'
-        r'\s*<script\s+data-customer-chatbot-resilience>.*?</script>)?'
-    )
-    html_without_existing_widget = re.sub(existing_widget_pattern, "", html)
+    html_without_existing_widget = remove_customer_chatbot(html)
     shape_to_radius = {
         "Rund (Kreis)": "50%",
         "Eckig mit Rundung": "8px",
@@ -2717,14 +2727,7 @@ def create_preview_html(html: str, include_customer_chatbot: bool = False) -> st
     """Erstellt die Builder-Vorschau aus derselben Kunden-HTML wie der Export."""
     preview_html = html
     if not include_customer_chatbot:
-        preview_html = re.sub(
-            r'<aside class="customer-chatbot".*?</aside>\s*<script>.*?</script>'
-            r'(?:\s*<style\s+data-customer-chatbot-resilience-style>.*?</style>'
-            r'\s*<script\s+data-customer-chatbot-resilience>.*?</script>)?',
-            "",
-            preview_html,
-            flags=re.DOTALL,
-        )
+        preview_html = remove_customer_chatbot(preview_html)
 
     for file_name, asset in st.session_state.assets.items():
         data_url = f"data:{asset['mime_type']};base64,{asset['base64']}"
@@ -3052,7 +3055,7 @@ def build_customer_chatbot_widget(
     panel_side = "left:0;right:auto;" if is_left else "right:0;left:auto;"
     position = "fixed" if st.session_state.get("customer_chatbot_fixed", True) else "relative"
     copy_json = json.dumps(copy, ensure_ascii=False).replace("</", "<\\/")
-    return f'''<aside id="customer-chatbot" lang="{language}" dir="{direction}" data-knowledge="{safe_knowledge}" style="position:{position};{side}bottom:20px;z-index:10000;font-family:Arial,sans-serif">
+    return f'''<aside id="customer-chatbot" class="customer-chatbot" lang="{language}" dir="{direction}" data-knowledge="{safe_knowledge}" style="position:{position};{side}bottom:20px;z-index:10000;font-family:Arial,sans-serif">
 <button id="customer-chat-toggle" type="button" aria-expanded="false" aria-label="{escape(copy['open'])}" title="{escape(copy['open'])}" style="width:56px;height:56px;border:0;border-radius:50%;background:{safe_color};color:#fff;cursor:pointer;font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,.24)">Chat</button>
 <section id="customer-chat-panel" hidden style="position:absolute;{panel_side}bottom:68px;width:min(340px,calc(100vw - 40px));padding:18px;background:#fff;color:#111827;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.22);text-align:{'right' if direction == 'rtl' else 'left'}">
 <strong>{safe_name}</strong><p id="customer-chat-answer" aria-live="polite" style="margin:10px 0;color:#374151">{escape(copy['welcome'])}</p>
@@ -6266,7 +6269,7 @@ with new_tab:
         )
         if st.button(
             submit_label,
-            icon=(":material/edit_document:" if creation_mode == "Professionelle Vorlage" else ":material/rocket_launch:"),
+            icon=":material/edit_document:",
             type="primary",
             key="create_website",
             width="stretch",
@@ -6412,15 +6415,15 @@ if st.session_state.generated_html:
     st.divider()
     if st.session_state.get("creation_mode") != "Professionelle Vorlage":
         with st.container(border=True):
-            st.subheader("Professioneller Standard-Entwurf", anchor=False)
+            st.subheader("Optional: aktuellen Entwurf ersetzen", anchor=False)
             st.caption(
                 "Erstellt aus Ihren Unternehmensdaten eine vollständige, responsive Website mit "
                 "klarer Navigation, Leistungen, Vertrauenselementen, Kontaktführung und Chatbot."
             )
             if st.button(
-                "Standard-Entwurf erstellen",
+                "Aktuellen Entwurf durch Standard-Entwurf ersetzen",
                 icon=":material/auto_awesome:",
-                type="primary",
+                type="secondary",
                 key="create_professional_standard_draft",
                 width="stretch",
             ):
