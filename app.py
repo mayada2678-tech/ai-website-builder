@@ -2174,6 +2174,77 @@ def queue_html_update(html: str, reset_site_pages: bool = False) -> None:
     st.session_state.html_editor = index_html
 
 
+def create_professional_standard_draft() -> None:
+    """Erstellt aus den vorhandenen Kundendaten einen hochwertigen Standardentwurf."""
+    company_name = str(st.session_state.get("client_company_name", "")).strip()
+    business_email = str(st.session_state.get("client_business_email", "")).strip()
+    if not company_name or not EMAIL_PATTERN.fullmatch(business_email):
+        raise ValueError(
+            "Bitte geben Sie zuerst einen Firmennamen und eine gültige geschäftliche E-Mail-Adresse ein."
+        )
+
+    industry = str(st.session_state.get("industry_content_preset", ""))
+    template_name = str(
+        st.session_state.get("template_name")
+        or INDUSTRY_TEMPLATE_MAP.get(industry)
+        or "GmbH und Corporate Unternehmen"
+    )
+    background_name = str(
+        st.session_state.get("template_background_preset", "Weiß")
+    )
+    background_color = BACKGROUND_PRESET_COLORS.get(background_name, "#FFFFFF")
+    accent_color = str(st.session_state.get("template_accent_color", "#2563EB"))
+    if not re.fullmatch(r"#[0-9a-fA-F]{6}", accent_color):
+        accent_color = "#2563EB"
+    border_style = str(st.session_state.get("template_border_style", "rounded"))
+    description = (
+        str(st.session_state.get("template_custom_description", "")).strip()
+        or str(st.session_state.get("creation_description", "")).strip()
+        or str(st.session_state.get("section_about_text", "")).strip()
+    )
+    multi_page = st.session_state.get("page_structure") == "Mehrseitige Website"
+    chatbot_knowledge = get_configured_chatbot_knowledge()
+    html = build_customized_template_html(
+        template_name,
+        background_color,
+        accent_color,
+        border_style,
+        company_name,
+        business_email,
+        str(st.session_state.get("template_hero_heading", "")).strip()
+        or str(st.session_state.get("client_company_slogan", "")).strip(),
+        str(st.session_state.get("client_business_phone", "")).strip(),
+        description,
+        st.session_state.get("initial_image"),
+        str(st.session_state.get("template_button_text", "")).strip(),
+        str(st.session_state.get("template_footer_text", "")).strip(),
+        multi_page,
+        chatbot_knowledge,
+        str(st.session_state.get("customer_chatbot_name", "")),
+        str(st.session_state.get("customer_chatbot_color", "#2563EB")),
+        {"Rund (Kreis)": "50%", "Eckig mit Rundung": "8px", "Quadratisch": "0"}.get(
+            str(st.session_state.get("customer_chatbot_shape", "Rund (Kreis)")),
+            "50%",
+        ),
+        str(st.session_state.get("template_sections_text", "")),
+    )
+    queue_html_update(html, reset_site_pages=True)
+    st.session_state.site_pages["styles.css"] = build_customized_template_styles()
+    if multi_page:
+        st.session_state.site_pages.update(
+            build_customized_template_pages(
+                company_name,
+                business_email,
+                background_color,
+                accent_color,
+                description,
+                chatbot_knowledge,
+                str(st.session_state.get("customer_chatbot_name", "")),
+                str(st.session_state.get("customer_chatbot_color", "#2563EB")),
+            )
+        )
+
+
 def get_supabase_analytics_client() -> SupabaseAnalyticsClient:
     """Liefert den serverseitigen Supabase-Client oder eine klare Konfigurationsmeldung."""
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
@@ -6338,6 +6409,33 @@ if (
     st.session_state.generated_html
     and st.session_state.get("creation_mode") != "Professionelle Vorlage"
 ):
+    st.divider()
+    with st.container(border=True):
+        st.subheader("Professioneller Standard-Entwurf", anchor=False)
+        st.caption(
+            "Erstellt aus Ihren Unternehmensdaten eine vollständige, responsive Website mit "
+            "klarer Navigation, Leistungen, Vertrauenselementen, Kontaktführung und Chatbot."
+        )
+        if st.button(
+            "Standard-Entwurf erstellen",
+            icon=":material/auto_awesome:",
+            type="primary",
+            key="create_professional_standard_draft",
+            width="stretch",
+        ):
+            with st.status(
+                "Professioneller Standard-Entwurf wird erstellt ...", expanded=True
+            ) as status:
+                try:
+                    create_professional_standard_draft()
+                    status.update(
+                        label="Professioneller Standard-Entwurf wurde erstellt.",
+                        state="complete",
+                    )
+                    st.rerun()
+                except ValueError as error:
+                    status.update(label="Entwurf konnte nicht erstellt werden.", state="error")
+                    st.error(str(error))
     st.divider()
     render_saas_preview_and_testing_window()
     st.divider()
