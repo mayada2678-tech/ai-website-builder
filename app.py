@@ -4637,7 +4637,7 @@ def publish_website() -> None:
         require_complete_html(st.session_state.generated_html)
     )
     st.session_state.generated_html = html
-    st.session_state.html_editor = html
+    st.session_state.pending_html = html
     requested_project_name = str(st.session_state.project_name).strip()
     project_name = (
         safe_project_name(requested_project_name)
