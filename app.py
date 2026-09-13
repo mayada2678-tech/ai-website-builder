@@ -2411,9 +2411,13 @@ def build_testing_variant_api_route() -> str:
 def build_analytics_widget(site_id: str) -> str:
     """Erstellt ein minimales Consent- und Analytics-Skript ohne Cookies."""
     safe_site_id = json.dumps(site_id)
-    return f'''<div id="analytics-consent" hidden style="position:fixed;left:16px;right:16px;bottom:16px;z-index:9999;max-width:680px;margin:auto;padding:14px 16px;background:#fff;color:#172033;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 12px 36px rgba(15,23,42,.22);font:14px/1.45 Arial,sans-serif"><strong>Anonyme Nutzungsanalyse</strong><p style="margin:6px 0 10px">Dürfen anonyme Klick-, Scroll- und Sitzungsdaten zur Verbesserung dieser Website verwendet werden?</p><button type="button" data-consent="granted" style="border:0;border-radius:5px;padding:8px 12px;background:#2563eb;color:#fff;cursor:pointer">Zustimmen</button> <button type="button" data-consent="denied" style="border:1px solid #94a3b8;border-radius:5px;padding:8px 12px;background:#fff;color:#172033;cursor:pointer">Ablehnen</button></div>
+    return f'''<style data-site-analytics-style>
+#dsgvo-banner{{position:fixed;bottom:20px;left:20px;right:20px;max-width:500px;margin:auto;background:#fff;color:#333;box-shadow:0 10px 30px rgba(0,0,0,.15);border-radius:8px;padding:20px;z-index:99999;font-family:Arial,sans-serif;border:1px solid #e1e4e8}}
+#dsgvo-banner[hidden]{{display:none!important}}#dsgvo-banner p{{margin:0 0 15px;font-size:14px;line-height:1.5;color:#555}}.dsgvo-buttons{{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}}.dsgvo-btn{{padding:8px 16px;border-radius:6px;border:0;font-size:13px;font-weight:700;cursor:pointer;transition:background .2s ease}}.dsgvo-accept{{background:#4a154b;color:#fff}}.dsgvo-accept:hover{{background:#381039}}.dsgvo-decline{{background:#eef2f7;color:#555}}.dsgvo-decline:hover{{background:#e1e6eb}}.dsgvo-btn:focus-visible{{outline:3px solid #f59e0b;outline-offset:2px}}@media(max-width:540px){{#dsgvo-banner{{left:12px;right:12px;bottom:12px;padding:16px}}.dsgvo-buttons{{justify-content:stretch}}.dsgvo-btn{{flex:1}}}}
+</style>
+<div id="dsgvo-banner" hidden role="dialog" aria-label="Datenschutz-Hinweis" aria-live="polite"><p><strong>Datenschutz-Hinweis:</strong> Um diese Website kontinuierlich zu verbessern, analysieren wir nach Ihrer Zustimmung anonym das Nutzungsverhalten, zum Beispiel Klicks und Scrolltiefe. Es werden keine Namen, Kontaktdaten oder Formulareingaben gespeichert.</p><div class="dsgvo-buttons"><button type="button" class="dsgvo-btn dsgvo-decline" data-consent="denied">Ablehnen</button><button type="button" class="dsgvo-btn dsgvo-accept" data-consent="granted">Akzeptieren</button></div></div>
 <script data-site-analytics>(()=>{{
-const siteId={safe_site_id},consentKey=`site-analytics-consent:${{siteId}}`,banner=document.getElementById('analytics-consent');
+const siteId={safe_site_id},consentKey=`site-analytics-consent:${{siteId}}`,banner=document.getElementById('dsgvo-banner');
 let consent=localStorage.getItem(consentKey),startedAt=Date.now(),maxScroll=0;
 const device=()=>innerWidth<768?'mobile':innerWidth<1024?'tablet':'desktop';
 const sessionKey=`site-analytics-session:${{siteId}}`;let sessionId=sessionStorage.getItem(sessionKey);if(!sessionId){{sessionId=crypto.randomUUID();sessionStorage.setItem(sessionKey,sessionId);}}
@@ -2428,7 +2432,7 @@ if(!consent)banner.hidden=false;else if(consent==='granted')start();banner.query
 def inject_site_analytics(html: str, site_id: str) -> str:
     """Fügt Analytics genau einmal vor dem schließenden Body ein."""
     html = re.sub(
-        r'(?is)<div id="analytics-consent".*?<script data-site-analytics>.*?</script>',
+        r'(?is)<style data-site-analytics-style>.*?<script data-site-analytics>.*?</script>',
         "",
         html,
     )
