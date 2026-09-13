@@ -3136,6 +3136,26 @@ DOKUMENTQUELLEN:
         st.session_state.site_pages.update(static_pages)
 
 
+def apply_premium_basics_to_client_state() -> None:
+    """Synchronisiert gueltige Freientwurf-Basisdaten vor dem Widget-Rendering."""
+    company_name = str(st.session_state.get("premium_company_name", "")).strip()
+    contact_email = str(st.session_state.get("premium_contact_email", "")).strip()
+    if not company_name or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", contact_email):
+        return
+
+    st.session_state.client_company_name = company_name
+    st.session_state.client_business_email = contact_email
+    st.session_state.client_company_slogan = str(
+        st.session_state.get("premium_company_slogan", "")
+    ).strip()
+    st.session_state.client_business_phone = str(
+        st.session_state.get("premium_contact_phone", "")
+    ).strip()
+    st.session_state.client_chatbot_knowledge = str(
+        st.session_state.get("premium_chatbot_knowledge", "")
+    ).strip()
+
+
 def render_client_contact_ui() -> None:
     """Erfasst die Kontaktdaten, die in jede neue Kundenwebsite einfliessen."""
     language = str(st.session_state.app_language)
@@ -6394,17 +6414,13 @@ if (
             icon=":material/save:",
             key="apply_premium_basics",
             width="stretch",
+            on_click=apply_premium_basics_to_client_state,
         ):
             if not company_name.strip() or not re.fullmatch(
                 r"[^@\s]+@[^@\s]+\.[^@\s]+", contact_email.strip()
             ):
                 st.warning("Geben Sie einen Firmennamen und eine gültige Kontakt-E-Mail-Adresse ein.")
             else:
-                st.session_state.client_company_name = company_name.strip()
-                st.session_state.client_business_email = contact_email.strip()
-                st.session_state.client_company_slogan = company_slogan.strip()
-                st.session_state.client_business_phone = contact_phone.strip()
-                st.session_state.client_chatbot_knowledge = chatbot_knowledge.strip()
                 with st.status("Basisdaten werden übernommen ...", expanded=True) as status:
                     try:
                         modify_current_website(
