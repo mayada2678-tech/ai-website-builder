@@ -1116,6 +1116,15 @@ PRIVACY_CONTROLLER_NAME = str(
 PRIVACY_CONTROLLER_ADDRESS = str(
     st.secrets.get("privacy_controller_address", "")
 ).strip()
+PRIVACY_PROCESSOR_NAME = str(
+    st.secrets.get("privacy_processor_name", PRIVACY_CONTROLLER_NAME)
+).strip()
+try:
+    ANALYTICS_RETENTION_DAYS = max(
+        1, min(730, int(st.secrets.get("analytics_retention_days", 90)))
+    )
+except (TypeError, ValueError):
+    ANALYTICS_RETENTION_DAYS = 90
 
 DEFAULT_STATE = {
     "user_id": None,
@@ -1143,6 +1152,7 @@ DEFAULT_STATE = {
     "client_chatbot_contact": "",
     "client_chatbot_services": "",
     "client_chatbot_emergency": "",
+    "client_company_address": "",
     "customer_chatbot_color": "#2563EB",
     "customer_chatbot_shape": "Rund (Kreis)",
     "customer_chatbot_figure": "Freundlicher Roboter",
@@ -2329,7 +2339,8 @@ export default async function handler(request, response) {{
 
 def build_analytics_api_route() -> str:
     """Erstellt die Vercel-Route für anonyme Analytics-Ereignisse."""
-    return '''const ALLOWED_DEVICES = new Set(["mobile", "tablet", "desktop"]);
+    route = '''const ALLOWED_DEVICES = new Set(["mobile", "tablet", "desktop"]);
+const RETENTION_DAYS = __ANALYTICS_RETENTION_DAYS__;
 
 export default async function handler(request, response) {
     response.setHeader("Access-Control-Allow-Origin", "*");
@@ -2370,12 +2381,18 @@ export default async function handler(request, response) {
             body: JSON.stringify(payload),
         });
         if (!result.ok) return response.status(502).json({ error: "Analytics storage failed" });
+        const cutoff = new Date(Date.now() - RETENTION_DAYS * 86400000).toISOString();
+        await fetch(`${supabaseUrl}/rest/v1/site_analytics?created_at=lt.${encodeURIComponent(cutoff)}`, {
+            method: "DELETE",
+            headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
+        });
         return response.status(204).end();
     } catch (error) {
         return response.status(502).json({ error: "Analytics storage unavailable" });
     }
 }
 '''
+    return route.replace("__ANALYTICS_RETENTION_DAYS__", str(ANALYTICS_RETENTION_DAYS))
 
 
 def build_testing_variant_api_route() -> str:
@@ -2411,11 +2428,21 @@ def build_testing_variant_api_route() -> str:
 def build_analytics_widget(site_id: str) -> str:
     """Erstellt ein minimales Consent- und Analytics-Skript ohne Cookies."""
     safe_site_id = json.dumps(site_id)
+    company_name = escape(
+        str(st.session_state.get("client_company_name", "")).strip()
+        or "Betreiber dieser Website"
+    )
+    company_address = escape(
+        str(st.session_state.get("client_company_address", "")).strip()
+        or "Anschrift ist im Impressum angegeben"
+    )
+    processor_name = escape(PRIVACY_PROCESSOR_NAME or "Betreiber der Website-Plattform")
     return f'''<style data-site-analytics-style>
 #dsgvo-banner{{position:fixed;bottom:20px;left:20px;right:20px;max-width:500px;margin:auto;background:#fff;color:#333;box-shadow:0 10px 30px rgba(0,0,0,.15);border-radius:8px;padding:20px;z-index:99999;font-family:Arial,sans-serif;border:1px solid #e1e4e8}}
-#dsgvo-banner[hidden]{{display:none!important}}#dsgvo-banner p{{margin:0 0 15px;font-size:14px;line-height:1.5;color:#555}}.dsgvo-buttons{{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}}.dsgvo-btn{{padding:8px 16px;border-radius:6px;border:0;font-size:13px;font-weight:700;cursor:pointer;transition:background .2s ease}}.dsgvo-accept{{background:#4a154b;color:#fff}}.dsgvo-accept:hover{{background:#381039}}.dsgvo-decline{{background:#eef2f7;color:#555}}.dsgvo-decline:hover{{background:#e1e6eb}}.dsgvo-btn:focus-visible{{outline:3px solid #f59e0b;outline-offset:2px}}@media(max-width:540px){{#dsgvo-banner{{left:12px;right:12px;bottom:12px;padding:16px}}.dsgvo-buttons{{justify-content:stretch}}.dsgvo-btn{{flex:1}}}}
+#dsgvo-banner[hidden]{{display:none!important}}#dsgvo-banner p{{margin:0 0 15px;font-size:14px;line-height:1.5;color:#555}}.dsgvo-buttons{{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}}.dsgvo-btn{{padding:8px 16px;border-radius:6px;border:0;font-size:13px;font-weight:700;cursor:pointer;transition:background .2s ease}}.dsgvo-accept{{background:#4a154b;color:#fff}}.dsgvo-accept:hover{{background:#381039}}.dsgvo-decline{{background:#eef2f7;color:#555}}.dsgvo-decline:hover{{background:#e1e6eb}}.dsgvo-btn:focus-visible,#analytics-consent-reset:focus-visible{{outline:3px solid #f59e0b;outline-offset:2px}}#datenschutz{{max-width:1120px;margin:0 auto;padding:48px 24px;font:15px/1.65 Arial,sans-serif}}#datenschutz h2{{margin-top:0}}#datenschutz h3{{margin:24px 0 6px;font-size:17px}}#analytics-consent-reset{{margin-top:12px;padding:9px 14px;border:1px solid currentColor;border-radius:6px;background:transparent;color:inherit;cursor:pointer;font-weight:700}}@media(max-width:540px){{#dsgvo-banner{{left:12px;right:12px;bottom:12px;padding:16px}}.dsgvo-buttons{{justify-content:stretch}}.dsgvo-btn{{flex:1}}}}
 </style>
-<div id="dsgvo-banner" hidden role="dialog" aria-label="Datenschutz-Hinweis" aria-live="polite"><p><strong>Datenschutz-Hinweis:</strong> Um diese Website kontinuierlich zu verbessern, analysieren wir nach Ihrer Zustimmung anonym das Nutzungsverhalten, zum Beispiel Klicks und Scrolltiefe. Es werden keine Namen, Kontaktdaten oder Formulareingaben gespeichert.</p><div class="dsgvo-buttons"><button type="button" class="dsgvo-btn dsgvo-decline" data-consent="denied">Ablehnen</button><button type="button" class="dsgvo-btn dsgvo-accept" data-consent="granted">Akzeptieren</button></div></div>
+<section id="datenschutz" aria-labelledby="analytics-privacy-title"><h2 id="analytics-privacy-title">Datenschutz: Nutzungsanalyse und A/B-Testing</h2><h3>Verantwortlicher</h3><p>{company_name}<br>{company_address}</p><h3>Art und Zweck der Verarbeitung</h3><p>Nach Ihrer ausdrücklichen Einwilligung erfassen wir Interaktionen wie Klicks auf Links und Schaltflächen, das Erreichen von Kontaktmöglichkeiten, die Scrolltiefe, die Sitzungsdauer und die Geräteklasse. Die Angaben dienen ausschließlich dazu, Benutzerfreundlichkeit und Leistung dieser Website zu bewerten und zu verbessern. Zeitweise werden zwei Gestaltungsvarianten verglichen. Dafür wird einer Browsersitzung automatisiert Variante A oder B zugeordnet.</p><h3>Sitzungskennung und Speicherdauer</h3><p>Zur Zusammenfassung der Ereignisse innerhalb eines Besuchs wird eine zufällige Sitzungskennung vorübergehend im Session Storage des Browsers gespeichert. Wir übermitteln keine Namen, E-Mail-Adressen oder Inhalte aus Formularfeldern als Analysedaten. Ereignisdaten werden höchstens {ANALYTICS_RETENTION_DAYS} Tage gespeichert und danach automatisiert gelöscht.</p><h3>Auftragsverarbeitung und Drittlandübermittlung</h3><p>Die technische Verarbeitung erfolgt im Auftrag über {processor_name} sowie die Hosting- und Datenbankdienstleister Vercel und Supabase. Soweit personenbezogene Daten in die USA oder andere Drittländer übermittelt werden, stützt sich die Übermittlung je nach Anbieter und Verfügbarkeit auf einen Angemessenheitsbeschluss, insbesondere das EU-US Data Privacy Framework, und/oder die Standardvertragsklauseln der Europäischen Kommission. Angaben zum aktuellen Zertifizierungsstatus und zu den abgeschlossenen Auftragsverarbeitungsverträgen sind vom Verantwortlichen regelmäßig zu prüfen.</p><h3>Rechtsgrundlage und Widerruf</h3><p>Rechtsgrundlage ist Ihre Einwilligung gemäß Art. 6 Abs. 1 lit. a DSGVO. Sie können diese jederzeit mit Wirkung für die Zukunft widerrufen. Der Widerruf berührt nicht die Rechtmäßigkeit der Verarbeitung vor dem Widerruf.</p><button id="analytics-consent-reset" type="button">Einwilligung ändern oder widerrufen</button></section>
+<div id="dsgvo-banner" hidden role="dialog" aria-label="Datenschutz-Hinweis" aria-live="polite"><p><strong>Datenschutz-Hinweis:</strong> Um diese Website kontinuierlich zu verbessern, analysieren wir nach Ihrer Zustimmung das Nutzungsverhalten mit einer zufälligen Sitzungskennung, zum Beispiel Klicks und Scrolltiefe. Es werden keine Namen, Kontaktdaten oder Formulareingaben als Analysedaten gespeichert.</p><div class="dsgvo-buttons"><button type="button" class="dsgvo-btn dsgvo-decline" data-consent="denied">Ablehnen</button><button type="button" class="dsgvo-btn dsgvo-accept" data-consent="granted">Akzeptieren</button></div></div>
 <script data-site-analytics>(()=>{{
 const siteId={safe_site_id},consentKey=`site-analytics-consent:${{siteId}}`,banner=document.getElementById('dsgvo-banner');
 let consent=localStorage.getItem(consentKey),startedAt=Date.now(),maxScroll=0;
@@ -2426,6 +2453,7 @@ const currentVersion=new URLSearchParams(location.search).get('ab')==='B'?'B':'A
 const send=(eventType='session',elementClicked=null,isConversion=false)=>{{if(consent!=='granted')return;const body=JSON.stringify({{site_id:siteId,session_id:sessionId,version:currentVersion,event_type:eventType,device_type:device(),element_clicked:elementClicked,is_conversion:isConversion,duration_seconds:Math.round((Date.now()-startedAt)/1000),scroll_depth:maxScroll}});if(navigator.sendBeacon)navigator.sendBeacon('/api/analytics',new Blob([body],{{type:'application/json'}}));else fetch('/api/analytics',{{method:'POST',headers:{{'Content-Type':'application/json'}},body,keepalive:true}}).catch(()=>{{}});}};
 const start=()=>{{const params=new URLSearchParams(location.search);if(assignedVersion==='B'&&currentVersion!=='B'&&!params.has('ab_unavailable')){{location.replace(`/api/variant?site_id=${{encodeURIComponent(siteId)}}&ab=B`);return;}}addEventListener('scroll',()=>{{const height=Math.max(1,document.documentElement.scrollHeight-innerHeight);maxScroll=Math.max(maxScroll,Math.min(100,Math.round(scrollY/height*100)));}},{{passive:true}});document.addEventListener('click',event=>{{const target=event.target.closest('a,button,input[type="submit"]');if(!target)return;const label=(target.getAttribute('aria-label')||target.textContent||target.id||target.tagName).trim().replace(/\\s+/g,' ').slice(0,120);const href=target.getAttribute('href')||'';const conversion=/^(mailto:|tel:)/.test(href)||target.matches('[data-conversion],input[type="submit"]');send(conversion?'conversion':'click',label,conversion);}});addEventListener('pagehide',()=>send('session'));setTimeout(()=>send('page_view','page-view'),3000);}};
 if(!consent)banner.hidden=false;else if(consent==='granted')start();banner.querySelectorAll('[data-consent]').forEach(button=>button.onclick=()=>{{consent=button.dataset.consent;localStorage.setItem(consentKey,consent);banner.hidden=true;if(consent==='granted')start();}});
+document.getElementById('analytics-consent-reset').onclick=()=>{{localStorage.removeItem(consentKey);sessionStorage.removeItem(sessionKey);location.reload();}};
 }})();</script>'''
 
 
@@ -3136,6 +3164,17 @@ def render_client_contact_ui() -> None:
         labels[5],
         placeholder=labels[6],
         key="client_company_slogan",
+    )
+    address_labels = {
+        "de": ("Anschrift des Kunden-Unternehmens", "z. B. Musterstraße 1, 10115 Berlin"),
+        "en": ("Customer company address", "e.g. 1 Example Street, London"),
+        "ar": ("عنوان شركة العميل", "مثال: الشارع والرقم والمدينة"),
+        "ku": ("ناونیشانی کۆمپانیای کڕیار", "بۆ نموونە: شەقام، ژمارە و شار"),
+    }.get(language, ("Customer company address", "Street, number, postal code and city"))
+    st.text_input(
+        address_labels[0],
+        placeholder=address_labels[1],
+        key="client_company_address",
     )
     contact_details_column, form_column = st.columns(2)
     with contact_details_column:
