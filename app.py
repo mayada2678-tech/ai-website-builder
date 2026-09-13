@@ -1096,9 +1096,14 @@ for environment_key, environment_value in {
     if environment_value:
         os.environ[environment_key] = environment_value
 HF_API_KEY = str(st.secrets.get("HF_API_KEY", "")).strip()
-SUPABASE_URL = str(st.secrets.get("supabase_url", "")).strip().rstrip("/")
+SUPABASE_URL = str(
+    st.secrets.get("supabase_url", st.secrets.get("SUPABASE_URL", ""))
+).strip().rstrip("/")
 SUPABASE_SERVICE_ROLE_KEY = str(
-    st.secrets.get("supabase_service_role_key", "")
+    st.secrets.get(
+        "supabase_service_role_key",
+        st.secrets.get("SUPABASE_SERVICE_ROLE_KEY", ""),
+    )
 ).strip()
 HF_TEXT_MODEL_URL = (
     "https://router.huggingface.co/hf-inference/models/Qwen/Qwen2.5-7B-Instruct"
