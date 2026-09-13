@@ -2137,7 +2137,8 @@ def inject_configured_customer_chatbot(html: str) -> str:
     existing_widget_pattern = (
         r'(?is)<aside\b[^>]*\bclass=["\'][^"\']*\bcustomer-chatbot\b'
         r'[^"\']*["\'][^>]*>.*?</aside>\s*<script>.*?</script>'
-        r'(?:\s*<script\s+data-customer-chatbot-resilience>.*?</script>)?'
+        r'(?:\s*<style\s+data-customer-chatbot-resilience-style>.*?</style>'
+        r'\s*<script\s+data-customer-chatbot-resilience>.*?</script>)?'
     )
     html_without_existing_widget = re.sub(existing_widget_pattern, "", html)
     shape_to_radius = {
@@ -2717,7 +2718,9 @@ def create_preview_html(html: str, include_customer_chatbot: bool = False) -> st
     preview_html = html
     if not include_customer_chatbot:
         preview_html = re.sub(
-            r'<aside class="customer-chatbot".*?</aside>\s*<script>.*?</script>',
+            r'<aside class="customer-chatbot".*?</aside>\s*<script>.*?</script>'
+            r'(?:\s*<style\s+data-customer-chatbot-resilience-style>.*?</style>'
+            r'\s*<script\s+data-customer-chatbot-resilience>.*?</script>)?',
             "",
             preview_html,
             flags=re.DOTALL,
@@ -6405,38 +6408,36 @@ if st.session_state.live_url:
 
     st.caption(f"Live-Link: {st.session_state.live_url}")
 
-if (
-    st.session_state.generated_html
-    and st.session_state.get("creation_mode") != "Professionelle Vorlage"
-):
+if st.session_state.generated_html:
     st.divider()
-    with st.container(border=True):
-        st.subheader("Professioneller Standard-Entwurf", anchor=False)
-        st.caption(
-            "Erstellt aus Ihren Unternehmensdaten eine vollständige, responsive Website mit "
-            "klarer Navigation, Leistungen, Vertrauenselementen, Kontaktführung und Chatbot."
-        )
-        if st.button(
-            "Standard-Entwurf erstellen",
-            icon=":material/auto_awesome:",
-            type="primary",
-            key="create_professional_standard_draft",
-            width="stretch",
-        ):
-            with st.status(
-                "Professioneller Standard-Entwurf wird erstellt ...", expanded=True
-            ) as status:
-                try:
-                    create_professional_standard_draft()
-                    status.update(
-                        label="Professioneller Standard-Entwurf wurde erstellt.",
-                        state="complete",
-                    )
-                    st.rerun()
-                except ValueError as error:
-                    status.update(label="Entwurf konnte nicht erstellt werden.", state="error")
-                    st.error(str(error))
-    st.divider()
+    if st.session_state.get("creation_mode") != "Professionelle Vorlage":
+        with st.container(border=True):
+            st.subheader("Professioneller Standard-Entwurf", anchor=False)
+            st.caption(
+                "Erstellt aus Ihren Unternehmensdaten eine vollständige, responsive Website mit "
+                "klarer Navigation, Leistungen, Vertrauenselementen, Kontaktführung und Chatbot."
+            )
+            if st.button(
+                "Standard-Entwurf erstellen",
+                icon=":material/auto_awesome:",
+                type="primary",
+                key="create_professional_standard_draft",
+                width="stretch",
+            ):
+                with st.status(
+                    "Professioneller Standard-Entwurf wird erstellt ...", expanded=True
+                ) as status:
+                    try:
+                        create_professional_standard_draft()
+                        status.update(
+                            label="Professioneller Standard-Entwurf wurde erstellt.",
+                            state="complete",
+                        )
+                        st.rerun()
+                    except ValueError as error:
+                        status.update(label="Entwurf konnte nicht erstellt werden.", state="error")
+                        st.error(str(error))
+        st.divider()
     render_saas_preview_and_testing_window()
     st.divider()
     st.header(t("edit_website"))
@@ -6690,61 +6691,15 @@ Alle anderen Inhalte müssen unverändert bleiben.
             width="stretch",
         )
 
-    st.divider()
-    st.header(t("publish"))
-
-    st.session_state.setdefault(
-        "editor_project_name", str(st.session_state.project_name)
-    )
-    st.text_input(
-        "Vercel-Projektname",
-        key="editor_project_name",
-        help=(
-            "Muss exakt dem Namen des Projekts im Vercel-Dashboard entsprechen. "
-            "Dann wird dessen Production-Version aktualisiert."
-        ),
-    )
-
-    publish_column, delete_column = st.columns(2, gap="large")
-
-    with publish_column:
-        if st.button(
-            "🚀 Änderungen veröffentlichen",
-            type="primary",
-            key="publish_editor_changes",
-            width="stretch",
-        ):
-            with st.status(
-                "Website wird auf Vercel veröffentlicht ...",
-                expanded=True,
-            ) as status:
-                try:
-                    st.session_state.project_name = safe_project_name(
-                        str(st.session_state.editor_project_name)
-                    )
-                    publish_website()
-                    status.update(
-                        label="🎉 Änderungen wurden veröffentlicht.",
-                        state="complete",
-                    )
-                    st.rerun()
-                except Exception as error:
-                    status.update(
-                        label="❌ Veröffentlichung fehlgeschlagen",
-                        state="error",
-                    )
-                    st.error("Die Veröffentlichung bei Vercel ist fehlgeschlagen.")
-                    st.code(str(error), language="text")
-
-    with delete_column:
-        if st.session_state.deployment_id:
+    if st.session_state.deployment_id:
+        with st.expander("Letzte Veröffentlichung verwalten"):
             st.checkbox(
                 "Ich möchte das letzte Deployment löschen.",
                 key="delete_confirmation",
             )
-
             if st.button(
-                "🗑️ Letztes Deployment löschen",
+                "Letztes Deployment löschen",
+                icon=":material/delete:",
                 disabled=not st.session_state.delete_confirmation,
                 key="delete_latest_deployment",
                 width="stretch",
@@ -6755,10 +6710,6 @@ Alle anderen Inhalte müssen unverändert bleiben.
                     st.rerun()
                 except Exception as error:
                     st.error(f"Löschen fehlgeschlagen: {error}")
-        else:
-            st.info(
-                "Extern geladene Websites können über diese App nicht gelöscht werden."
-            )
 
 st.divider()
 render_domain_and_deployment_ui()
