@@ -12,6 +12,7 @@ import sqlite3
 import time
 import uuid
 import zipfile
+from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from html import escape
 from pathlib import Path
@@ -1172,7 +1173,7 @@ DEFAULT_STATE = {
 
 for key, value in DEFAULT_STATE.items():
     if key not in st.session_state:
-        st.session_state[key] = value
+        st.session_state[key] = deepcopy(value)
 
 st.session_state.setdefault("app_language", "de")
 st.session_state.setdefault("analytics_site_id", str(uuid.uuid4()))
@@ -1834,7 +1835,7 @@ def render_help_chatbot() -> None:
     actions = get_help_chat_actions()
 
     with st.popover(
-        "",
+        texts["title"],
         icon=":material/forum:",
         help=texts["title"],
         key="help_chat_launcher",
@@ -1847,7 +1848,7 @@ def render_help_chatbot() -> None:
             st.caption(get_customer_guidance())
         with clear_column:
             if st.button(
-                "",
+                actions["clear"],
                 icon=":material/delete_sweep:",
                 help=actions["clear"],
                 key="clear_help_chat",

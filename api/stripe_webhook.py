@@ -51,19 +51,19 @@ class handler(BaseHTTPRequestHandler):
             self._json_response(200, {"received": True, "waiting_for_payment": True})
             return
 
-        checkout_session = stripe.checkout.Session.retrieve(event_session["id"])
-        metadata = dict(checkout_session.get("metadata") or {})
-        if metadata.get("provisioning_status") in {"processing", "complete"}:
-            self._json_response(200, {"received": True, "duplicate": True})
-            return
-
-        domain = metadata.get("domain", "")
-        project_id = metadata.get("vercel_project_id", "")
-        if not domain or not project_id:
-            self._json_response(422, {"error": "Checkout is missing provisioning metadata."})
-            return
-
         try:
+            checkout_session = stripe.checkout.Session.retrieve(event_session["id"])
+            metadata = dict(checkout_session.get("metadata") or {})
+            if metadata.get("provisioning_status") in {"processing", "complete"}:
+                self._json_response(200, {"received": True, "duplicate": True})
+                return
+
+            domain = metadata.get("domain", "")
+            project_id = metadata.get("vercel_project_id", "")
+            if not domain or not project_id:
+                self._json_response(422, {"error": "Checkout is missing provisioning metadata."})
+                return
+
             stripe.checkout.Session.modify(
                 checkout_session["id"],
                 metadata={**metadata, "provisioning_status": "processing"},
@@ -79,14 +79,18 @@ class handler(BaseHTTPRequestHandler):
                 },
             )
         except (ProvisioningError, stripe.error.StripeError, OSError) as error:
-            stripe.checkout.Session.modify(
-                checkout_session["id"],
-                metadata={
-                    **metadata,
-                    "provisioning_status": "failed",
-                    "provisioning_error": str(error)[:450],
-                },
-            )
+            if "checkout_session" in locals() and "metadata" in locals():
+                try:
+                    stripe.checkout.Session.modify(
+                        checkout_session["id"],
+                        metadata={
+                            **metadata,
+                            "provisioning_status": "failed",
+                            "provisioning_error": str(error)[:450],
+                        },
+                    )
+                except stripe.error.StripeError:
+                    pass
             self._json_response(500, {"error": "Domain provisioning failed."})
             return
 

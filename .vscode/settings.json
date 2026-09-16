@@ -1,5 +1,8 @@
 {
     "files.exclude": {
-        "": true
+        "**/__pycache__": true,
+        "**/*.pyc": true,
+        ".venv": true,
+        "saas_platform.db": true
     }
 }
