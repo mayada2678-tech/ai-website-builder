@@ -3973,24 +3973,45 @@ GEWÜNSCHTE ÄNDERUNG:
 
 def render_editor() -> None:
     """Rendert den kombinierten Design- und Abschnittseditor."""
-    st.subheader("Live-Design und Abschnittseditor")
+    language = str(st.session_state.app_language)
+    copy_by_language = {
+        "de": ["Live-Design und Abschnittseditor", "Hintergrundfarbe", "Akzentfarbe für Buttons", "Bereich bearbeiten", "Änderungswunsch für '{section}'", "Zum Beispiel: Ändern Sie die Hintergrundfarbe dieses Bereichs oder fügen Sie ein Bild hinzu.", "Abschnitt aktualisieren", "Bitte beschreiben Sie die gewünschte Änderung.", "Abschnitt wird aktualisiert ...", "Abschnitt wurde aktualisiert.", "Aktualisierung fehlgeschlagen"],
+        "en": ["Live design and section editor", "Background color", "Button accent color", "Edit section", "Requested change for '{section}'", "For example: Change this section's background color or add an image.", "Update section", "Please describe the requested change.", "Updating section ...", "Section updated.", "Update failed"],
+        "ar": ["التصميم المباشر ومحرر الأقسام", "لون الخلفية", "لون تمييز الأزرار", "تعديل القسم", "التغيير المطلوب لقسم «{section}»", "مثال: غيّر لون خلفية هذا القسم أو أضف صورة.", "تحديث القسم", "يرجى وصف التغيير المطلوب.", "جارٍ تحديث القسم...", "تم تحديث القسم.", "فشل التحديث"],
+        "ku": ["دیزاینی ڕاستەوخۆ و دەستکاریکەری بەشەکان", "ڕەنگی پاشبنەما", "ڕەنگی دوگمەکان", "دەستکاریکردنی بەش", "گۆڕانکاریی داواکراو بۆ «{section}»", "بۆ نموونە: ڕەنگی پاشبنەمای ئەم بەشە بگۆڕە یان وێنەیەک زیاد بکە.", "نوێکردنەوەی بەش", "تکایە گۆڕانکاریی داواکراو ڕوون بکەرەوە.", "بەشەکە نوێ دەکرێتەوە...", "بەشەکە نوێ کرایەوە.", "نوێکردنەوە سەرکەوتوو نەبوو"],
+        "es": ["Diseño en vivo y editor de secciones", "Color de fondo", "Color de acento de los botones", "Editar sección", "Cambio solicitado para «{section}»", "Por ejemplo: Cambia el color de fondo de esta sección o añade una imagen.", "Actualizar sección", "Describe el cambio solicitado.", "Actualizando la sección...", "Sección actualizada.", "Error al actualizar"],
+        "it": ["Design dal vivo ed editor delle sezioni", "Colore di sfondo", "Colore principale dei pulsanti", "Modifica sezione", "Modifica richiesta per «{section}»", "Ad esempio: cambia il colore di sfondo di questa sezione o aggiungi un'immagine.", "Aggiorna sezione", "Descrivi la modifica richiesta.", "Aggiornamento della sezione...", "Sezione aggiornata.", "Aggiornamento non riuscito"],
+        "hi": ["लाइव डिज़ाइन और अनुभाग संपादक", "पृष्ठभूमि रंग", "बटन एक्सेंट रंग", "अनुभाग संपादित करें", "‘{section}’ के लिए अनुरोधित बदलाव", "उदाहरण: इस अनुभाग का पृष्ठभूमि रंग बदलें या चित्र जोड़ें।", "अनुभाग अपडेट करें", "कृपया अनुरोधित बदलाव का वर्णन करें।", "अनुभाग अपडेट हो रहा है...", "अनुभाग अपडेट हो गया।", "अपडेट विफल रहा"],
+    }
+    section_copy = {
+        "de": ["Hero", "Über mich", "Fähigkeiten und Services", "Projekte", "Kontakt und Footer"],
+        "en": ["Hero", "About", "Skills and services", "Projects", "Contact and footer"],
+        "ar": ["الواجهة الرئيسية", "من نحن", "المهارات والخدمات", "المشاريع", "الاتصال والتذييل"],
+        "ku": ["بەشی سەرەکی", "دەربارە", "توانا و خزمەتگوزارییەکان", "پڕۆژەکان", "پەیوەندی و پێپەڕە"],
+        "es": ["Portada", "Sobre nosotros", "Habilidades y servicios", "Proyectos", "Contacto y pie de página"],
+        "it": ["Sezione principale", "Chi siamo", "Competenze e servizi", "Progetti", "Contatti e piè di pagina"],
+        "hi": ["मुख्य अनुभाग", "हमारे बारे में", "कौशल और सेवाएं", "परियोजनाएं", "संपर्क और पादलेख"],
+    }
+    labels = copy_by_language.get(language, copy_by_language["en"])
+    section_labels = dict(zip(section_copy["de"], section_copy.get(language, section_copy["en"])))
+    st.subheader(labels[0])
 
     color_columns = st.columns(2)
     with color_columns[0]:
         background_color = st.color_picker(
-            "Hintergrundfarbe",
+            labels[1],
             "#111827",
             key="editor_background_color",
         )
     with color_columns[1]:
         accent_color = st.color_picker(
-            "Akzentfarbe fuer Buttons",
+            labels[2],
             "#38BDF8",
             key="editor_accent_color",
         )
 
     section = st.selectbox(
-        "Bereich bearbeiten",
+        labels[3],
         [
             "Hero",
             "Ueber mich",
@@ -3998,40 +4019,38 @@ def render_editor() -> None:
             "Projekte",
             "Kontakt und Footer",
         ],
+        format_func=lambda option: section_labels.get(option, option),
         key="editor_section",
     )
     instructions = st.text_area(
-        f"Aenderungswunsch fuer '{section}'",
-        placeholder=(
-            "Zum Beispiel: Aendere die Hintergrundfarbe dieses Bereichs "
-            "oder fuege ein Bild hinzu."
-        ),
+        labels[4].format(section=section_labels.get(section, section)),
+        placeholder=labels[5],
         key="editor_instructions",
         height=130,
     )
 
     if st.button(
-        "Abschnitt aktualisieren",
+        labels[6],
         icon=":material/refresh:",
         type="primary",
         key="update_live_editor_section",
         width="stretch",
     ):
         if not instructions or not instructions.strip():
-            st.warning("Bitte beschreibe die gewuenschte Aenderung.")
+            st.warning(labels[7])
             return
 
-        with st.status("Abschnitt wird aktualisiert ...", expanded=True) as status:
+        with st.status(labels[8], expanded=True) as status:
             try:
                 modify_current_website(
                     f"Aendere ausschliesslich den Bereich '{section}' basierend auf: "
                     f"{instructions.strip()}. Beachte das globale Farbschema: "
                     f"Hintergrund {background_color}, Akzent {accent_color}."
                 )
-                status.update(label="Abschnitt wurde aktualisiert.", state="complete")
+                status.update(label=labels[9], state="complete")
                 st.rerun()
             except Exception as error:
-                status.update(label="Aktualisierung fehlgeschlagen", state="error")
+                status.update(label=labels[10], state="error")
                 st.error(str(error))
 
 
@@ -6374,8 +6393,22 @@ if st.session_state.generated_html:
         st.divider()
     st.header(t("edit_website"))
 
+    editor_language = str(st.session_state.app_language)
+    editor_copy = {
+        "de": {"tabs": ["Live-Design", "Direkt bearbeiten", "Inhalte", "Design", "Bilder", "HTML-Code"], "select": "Bereich auswählen", "sections": ["Navigation", "Hero-Bereich", "Über mich", "Leistungen", "Projekte", "Kontakt", "Footer", "Neuen Bereich hinzufügen"], "change": "Gewünschte Änderung", "placeholder": "Beispiel: Ersetzen Sie das Kontaktformular und behalten Sie das aktuelle Design.", "update": "Bereich aktualisieren", "required": "Bitte beschreiben Sie die gewünschte Änderung.", "working": "Bereich wird bearbeitet ...", "done": "Vorschau wurde aktualisiert.", "failed": "Änderung fehlgeschlagen"},
+        "en": {"tabs": ["Live design", "Direct editing", "Content", "Design", "Images", "HTML code"], "select": "Select section", "sections": ["Navigation", "Hero section", "About", "Services", "Projects", "Contact", "Footer", "Add new section"], "change": "Requested change", "placeholder": "Example: Replace the contact form and preserve the current design.", "update": "Update section", "required": "Please describe the requested change.", "working": "Editing section ...", "done": "Preview updated.", "failed": "Change failed"},
+        "ar": {"tabs": ["التصميم المباشر", "التحرير المباشر", "المحتوى", "التصميم", "الصور", "كود HTML"], "select": "اختر القسم", "sections": ["التنقل", "الواجهة الرئيسية", "من نحن", "الخدمات", "المشاريع", "الاتصال", "التذييل", "إضافة قسم جديد"], "change": "التغيير المطلوب", "placeholder": "مثال: استبدل نموذج الاتصال مع الحفاظ على التصميم الحالي.", "update": "تحديث القسم", "required": "يرجى وصف التغيير المطلوب.", "working": "جارٍ تعديل القسم...", "done": "تم تحديث المعاينة.", "failed": "فشل التغيير"},
+        "ku": {"tabs": ["دیزاینی ڕاستەوخۆ", "دەستکاریی ڕاستەوخۆ", "ناوەڕۆک", "دیزاین", "وێنەکان", "کۆدی HTML"], "select": "بەش هەڵبژێرە", "sections": ["ڕێنیشاندەر", "بەشی سەرەکی", "دەربارە", "خزمەتگوزارییەکان", "پڕۆژەکان", "پەیوەندی", "پێپەڕە", "زیادکردنی بەشی نوێ"], "change": "گۆڕانکاریی داواکراو", "placeholder": "بۆ نموونە: فۆڕمی پەیوەندی بگۆڕە و دیزاینی ئێستا بهێڵەرەوە.", "update": "نوێکردنەوەی بەش", "required": "تکایە گۆڕانکاریی داواکراو ڕوون بکەرەوە.", "working": "بەشەکە دەستکاری دەکرێت...", "done": "پێشبینین نوێ کرایەوە.", "failed": "گۆڕانکاری سەرکەوتوو نەبوو"},
+        "es": {"tabs": ["Diseño en vivo", "Edición directa", "Contenido", "Diseño", "Imágenes", "Código HTML"], "select": "Seleccionar sección", "sections": ["Navegación", "Portada", "Sobre nosotros", "Servicios", "Proyectos", "Contacto", "Pie de página", "Añadir nueva sección"], "change": "Cambio solicitado", "placeholder": "Ejemplo: Sustituye el formulario de contacto y conserva el diseño actual.", "update": "Actualizar sección", "required": "Describe el cambio solicitado.", "working": "Editando la sección...", "done": "Vista previa actualizada.", "failed": "Error al aplicar el cambio"},
+        "it": {"tabs": ["Design dal vivo", "Modifica diretta", "Contenuti", "Design", "Immagini", "Codice HTML"], "select": "Seleziona sezione", "sections": ["Navigazione", "Sezione principale", "Chi siamo", "Servizi", "Progetti", "Contatti", "Piè di pagina", "Aggiungi nuova sezione"], "change": "Modifica richiesta", "placeholder": "Esempio: sostituisci il modulo di contatto e conserva il design attuale.", "update": "Aggiorna sezione", "required": "Descrivi la modifica richiesta.", "working": "Modifica della sezione...", "done": "Anteprima aggiornata.", "failed": "Modifica non riuscita"},
+        "hi": {"tabs": ["लाइव डिज़ाइन", "सीधा संपादन", "सामग्री", "डिज़ाइन", "चित्र", "HTML कोड"], "select": "अनुभाग चुनें", "sections": ["नेविगेशन", "मुख्य अनुभाग", "हमारे बारे में", "सेवाएं", "परियोजनाएं", "संपर्क", "पादलेख", "नया अनुभाग जोड़ें"], "change": "अनुरोधित बदलाव", "placeholder": "उदाहरण: संपर्क फ़ॉर्म बदलें और वर्तमान डिज़ाइन बनाए रखें।", "update": "अनुभाग अपडेट करें", "required": "कृपया अनुरोधित बदलाव का वर्णन करें।", "working": "अनुभाग संपादित हो रहा है...", "done": "पूर्वावलोकन अपडेट हो गया।", "failed": "बदलाव विफल रहा"},
+    }.get(editor_language)
+    if editor_copy is None:
+        editor_copy = {"tabs": ["Live design", "Direct editing", "Content", "Design", "Images", "HTML code"], "select": "Select section", "sections": ["Navigation", "Hero section", "About", "Services", "Projects", "Contact", "Footer", "Add new section"], "change": "Requested change", "placeholder": "Describe the requested change.", "update": "Update section", "required": "Please describe the requested change.", "working": "Editing section ...", "done": "Preview updated.", "failed": "Change failed"}
+    internal_sections = ["Navigation", "Hero-Bereich", "Über mich", "Leistungen", "Projekte", "Kontakt", "Footer", "Neuen Bereich hinzufügen"]
+    localized_sections = dict(zip(internal_sections, editor_copy["sections"]))
     live_editor_tab, direct_edit_tab, content_tab, design_tab, image_tab, html_tab = st.tabs(
-        ["Live-Design", "Direkt bearbeiten", "📝 Inhalte", "🎨 Design", "🖼️ Bilder", "💻 HTML-Code"]
+        editor_copy["tabs"]
     )
 
     with live_editor_tab:
@@ -6386,52 +6419,41 @@ if st.session_state.generated_html:
 
     with content_tab:
         section = st.selectbox(
-            "Bereich auswählen",
-            [
-                "Navigation",
-                "Hero-Bereich",
-                "Über mich",
-                "Leistungen",
-                "Projekte",
-                "Kontakt",
-                "Footer",
-                "Neuen Bereich hinzufügen",
-            ],
+            editor_copy["select"],
+            internal_sections,
+            format_func=lambda option: localized_sections.get(option, option),
             key="content_editor_section",
         )
 
         change_request = st.text_area(
-            "Gewünschte Änderung",
-            placeholder=(
-                "Beispiel: Ersetze das Kontaktformular durch das konfigurierte "
-                "Formspree-Formular und behalte das aktuelle Design."
-            ),
+            editor_copy["change"],
+            placeholder=editor_copy["placeholder"],
             key="content_editor_request",
             height=130,
         )
 
         if st.button(
-            "📝 Bereich aktualisieren",
+            editor_copy["update"],
             key="apply_content_editor_request",
             width="stretch",
         ):
             if not change_request.strip():
-                st.warning("Bitte beschreibe die gewünschte Änderung.")
+                st.warning(editor_copy["required"])
             else:
-                with st.status("Bereich wird bearbeitet ...", expanded=True) as status:
+                with st.status(editor_copy["working"], expanded=True) as status:
                     try:
                         modify_current_website(
                             f"Ändere ausschließlich den Bereich „{section}“: "
                             f"{change_request}"
                         )
                         status.update(
-                            label="✅ Vorschau wurde aktualisiert.",
+                            label=editor_copy["done"],
                             state="complete",
                         )
                         st.rerun()
                     except Exception as error:
                         status.update(
-                            label="❌ Änderung fehlgeschlagen",
+                            label=editor_copy["failed"],
                             state="error",
                         )
                         st.error(str(error))
