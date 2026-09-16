@@ -78,7 +78,7 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
         """,
         js="""
         export default function(component) {
-            const { data, parentElement, setTriggerValue } = component;
+            const { data, parentElement, setStateValue } = component;
             const root = parentElement.querySelector('#template-editor');
             if (!root || !data) return;
             const copy = data.copy;
@@ -107,7 +107,7 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
                 Object.entries(copy.nav).forEach(([page, label]) => {
                     const link = create('button', '', label);
                     link.type = 'button';
-                    link.onclick = () => setTriggerValue('navigated', page);
+                    link.onclick = () => setStateValue('navigated', page);
                     nav.append(link);
                 });
             }
@@ -160,7 +160,7 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
             fields.forEach(([key, tag, className]) => {
                 const field = create(tag, className, data[key]);
                 if (key === 'buttonText') field.type = 'button';
-                if (key === 'buttonText') field.onclick = () => setTriggerValue('navigated', 'angebote');
+                if (key === 'buttonText') field.onclick = () => setStateValue('navigated', 'angebote');
                 heroCopy.append(field);
             });
             const image = data.imageDataUrl ? create('img', 'template-image') : create('div', 'template-placeholder', copy.imagePlaceholder);
