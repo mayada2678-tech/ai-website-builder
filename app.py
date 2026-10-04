@@ -140,7 +140,7 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
                     chatbotForm.append(chatbotInput, chatbotSend);
                     chatbotForm.onsubmit = event => { event.preventDefault(); const question = chatbotInput.value.trim(); if (!question) return; chatbotAnswer.textContent = `${copy.thanks}: „${question}“. ${data.chatbotKnowledge || copy.reply}`; chatbotInput.value = ''; };
                     chatbotPanel.append(create('h2', '', data.chatbotName || `${data.companyName} ${copy.assistant}`), chatbotAnswer, chatbotForm);
-                    const chatbotToggle = create('button', 'template-chatbot-toggle', '🤖');
+                    const chatbotToggle = create('button', 'template-chatbot-toggle', data.chatbotFigure || '🤖');
                     chatbotToggle.type = 'button';
                     chatbotToggle.setAttribute('aria-label', copy.openChat);
                     chatbotToggle.title = copy.openChat;
@@ -196,7 +196,7 @@ CLICKABLE_TEMPLATE_EDITOR = st.components.v2.component(
                 chatbotForm.append(chatbotInput, chatbotSend);
                 chatbotForm.onsubmit = event => { event.preventDefault(); const question = chatbotInput.value.trim(); if (!question) return; chatbotAnswer.textContent = `${copy.thanks}: „${question}“. ${data.chatbotKnowledge || copy.reply}`; chatbotInput.value = ''; };
                 chatbotPanel.append(create('h2', '', data.chatbotName || `${data.companyName} ${copy.assistant}`), chatbotAnswer, chatbotForm);
-                const chatbotToggle = create('button', 'template-chatbot-toggle', '🤖');
+                const chatbotToggle = create('button', 'template-chatbot-toggle', data.chatbotFigure || '🤖');
                 chatbotToggle.type = 'button';
                 chatbotToggle.setAttribute('aria-label', copy.openChat);
                 chatbotToggle.title = copy.openChat;
@@ -2117,15 +2117,15 @@ def build_customer_chatbot_resilience_script(chatbot_knowledge: str) -> str:
         "</", "<\\/"
     )
     return rf'''<style data-customer-chatbot-resilience-style>
-#customer-chatbot{{font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important}}
-#customer-chat-panel{{display:flex;flex-direction:column;width:min(390px,calc(100vw - 32px))!important;max-height:min(620px,calc(100vh - 110px));padding:0!important;overflow:hidden;background:#fff!important;border:1px solid #dbe3ec!important;border-radius:8px!important;box-shadow:0 24px 64px rgba(15,23,42,.24)!important}}
+#customer-chatbot{{font-family:var(--cb-font,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif)!important}}
+#customer-chat-panel{{display:flex;flex-direction:column;width:min(390px,calc(100vw - 32px))!important;max-height:min(620px,calc(100vh - 110px));padding:0!important;overflow:hidden;background:var(--cb-panel,#fff)!important;border:1px solid var(--cb-border,#dbe3ec)!important;border-radius:var(--cb-radius,8px)!important;box-shadow:0 24px 64px rgba(15,23,42,.24)!important}}
 #customer-chat-panel[hidden]{{display:none!important}}
-.customer-chat-topbar{{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 18px;border-bottom:1px solid #e2e8f0;background:#fff}}
-.customer-chat-identity{{display:flex;align-items:center;gap:10px;min-width:0}}.customer-chat-avatar{{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#e8efff;color:#1d4ed8;font-weight:800}}.customer-chat-identity strong{{font-size:15px;color:#0f172a}}.customer-chat-status{{display:block;margin-top:2px;color:#64748b;font-size:12px}}
-.customer-chat-close{{display:grid;place-items:center;width:34px;height:34px;border:0;border-radius:50%;background:#f1f5f9;color:#334155;font-size:22px;line-height:1;cursor:pointer}}.customer-chat-close:hover{{background:#e2e8f0}}
-#customer-chat-answer{{display:flex;flex:1;flex-direction:column;gap:10px;min-height:180px;max-height:390px;margin:0!important;padding:18px!important;overflow-y:auto;background:#f8fafc!important;color:#172033!important}}
-.customer-chat-message{{max-width:86%;padding:10px 12px;border-radius:8px;font-size:14px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}}.customer-chat-message--assistant{{align-self:flex-start;background:#fff;border:1px solid #e2e8f0;color:#334155}}.customer-chat-message--user{{align-self:flex-end;background:#2563eb;color:#fff}}.customer-chat-message--pending{{color:#64748b}}
-#customer-chat-form{{display:grid!important;grid-template-columns:minmax(0,1fr) auto;gap:8px!important;padding:14px!important;border-top:1px solid #e2e8f0;background:#fff}}#customer-chat-input{{border:1px solid #cbd5e1;border-radius:6px;padding:11px 12px!important;font:inherit}}#customer-chat-send{{min-width:84px;border-radius:6px!important;font-weight:700}}#customer-chat-input:focus-visible,#customer-chat-send:focus-visible,.customer-chat-close:focus-visible{{outline:3px solid #93c5fd;outline-offset:2px}}
+.customer-chat-topbar{{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 18px;border-bottom:0;background:var(--cb-accent,#2563eb);color:var(--cb-on-accent,#fff)}}
+.customer-chat-identity{{display:flex;align-items:center;gap:10px;min-width:0}}.customer-chat-avatar{{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:var(--cb-panel,#fff);color:var(--cb-accent,#1d4ed8);font-size:20px;font-weight:800}}.customer-chat-identity strong{{font-size:15px;color:inherit}}.customer-chat-status{{display:block;margin-top:2px;color:inherit;opacity:.85;font-size:12px}}
+.customer-chat-close{{display:grid;place-items:center;width:34px;height:34px;border:0;border-radius:50%;background:rgba(255,255,255,.18);color:inherit;font-size:22px;line-height:1;cursor:pointer}}.customer-chat-close:hover{{background:rgba(255,255,255,.3)}}
+#customer-chat-answer{{display:flex;flex:1;flex-direction:column;gap:10px;min-height:180px;max-height:390px;margin:0!important;padding:18px!important;overflow-y:auto;background:var(--cb-surface,#f8fafc)!important;color:var(--cb-text,#172033)!important}}
+.customer-chat-message{{max-width:86%;padding:10px 12px;border-radius:var(--cb-radius,8px);font-size:14px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}}.customer-chat-message--assistant{{align-self:flex-start;background:var(--cb-panel,#fff);border:1px solid var(--cb-border,#e2e8f0);color:var(--cb-text,#334155)}}.customer-chat-message--user{{align-self:flex-end;background:var(--cb-accent,#2563eb);color:var(--cb-on-accent,#fff)}}.customer-chat-message--pending{{opacity:.7}}
+#customer-chat-form{{display:grid!important;grid-template-columns:minmax(0,1fr) auto;gap:8px!important;padding:14px!important;border-top:1px solid var(--cb-border,#e2e8f0);background:var(--cb-panel,#fff)}}#customer-chat-input{{border:1px solid var(--cb-border,#cbd5e1);border-radius:6px;background:#fff;color:#111827;padding:11px 12px!important;font:inherit}}#customer-chat-send{{min-width:84px;border-radius:6px!important;font-weight:700}}#customer-chat-input:focus-visible,#customer-chat-send:focus-visible,.customer-chat-close:focus-visible{{outline:3px solid var(--cb-accent,#93c5fd);outline-offset:2px}}.customer-chat-close:focus-visible{{outline-color:currentColor}}
 @media(max-width:480px){{#customer-chat-panel{{position:fixed!important;left:12px!important;right:12px!important;bottom:88px!important;width:auto!important;max-height:calc(100vh - 112px)}}#customer-chat-form{{grid-template-columns:1fr}}#customer-chat-send{{width:100%;min-height:42px}}}}
 </style><script data-customer-chatbot-resilience>(()=>{{
 const root=document.getElementById("customer-chatbot");
@@ -2136,7 +2136,7 @@ if(!toggle||!panel||!form||!input||!answer||!send)return;
 const originalHeading=panel.querySelector("strong");
 const topbar=document.createElement("div");topbar.className="customer-chat-topbar";
 const identity=document.createElement("div");identity.className="customer-chat-identity";
-const avatar=document.createElement("span");avatar.className="customer-chat-avatar";avatar.setAttribute("aria-hidden","true");avatar.textContent="AI";
+const avatar=document.createElement("span");avatar.className="customer-chat-avatar";avatar.setAttribute("aria-hidden","true");avatar.textContent=root.dataset.figure||"AI";
 const identityText=document.createElement("div");const heading=document.createElement("strong");heading.textContent=originalHeading?.textContent||copy.service;const status=document.createElement("span");status.className="customer-chat-status";status.textContent=copy.status;identityText.append(heading,status);identity.append(avatar,identityText);
 const close=document.createElement("button");close.type="button";close.className="customer-chat-close";close.setAttribute("aria-label",copy.close);close.textContent="×";topbar.append(identity,close);if(originalHeading)originalHeading.remove();panel.prepend(topbar);
 const welcome=answer.textContent.trim();answer.textContent="";answer.setAttribute("role","log");answer.setAttribute("aria-live","polite");answer.setAttribute("aria-relevant","additions text");
@@ -2172,18 +2172,11 @@ def remove_customer_chatbot(html: str) -> str:
 def inject_configured_customer_chatbot(html: str) -> str:
     """Setzt genau einen zentral konfigurierten Chatbot in den Kundenentwurf ein."""
     html_without_existing_widget = remove_customer_chatbot(html)
-    shape_to_radius = {
-        "Rund (Kreis)": "50%",
-        "Eckig mit Rundung": "8px",
-        "Quadratisch": "0",
-    }
     widget = build_customer_chatbot_widget(
         str(st.session_state.get("customer_chatbot_name", "")),
         str(st.session_state.get("customer_chatbot_color", "#2563EB")),
         get_configured_chatbot_knowledge(),
-    ).replace('border-radius:50%;width:56px', (
-        f'border-radius:{shape_to_radius.get(str(st.session_state.get("customer_chatbot_shape", "Rund (Kreis)")), "50%")};width:56px'
-    ))
+    )
     widget += build_customer_chatbot_resilience_script(
         get_configured_chatbot_knowledge()
     )
@@ -3062,16 +3055,30 @@ def build_customer_chatbot_widget(
     safe_name = escape(chatbot_name.strip() or copy["service"])
     safe_knowledge = escape(chatbot_knowledge.strip(), quote=True)
     safe_color = chatbot_color if re.fullmatch(r"#[0-9a-fA-F]{6}", chatbot_color) else "#2563EB"
+    on_color = contrast_text_color(safe_color)
+    theme = get_chatbot_design_theme()
+    figure = CHATBOT_FIGURE_ICONS.get(
+        str(st.session_state.get("customer_chatbot_figure", "")),
+        CHATBOT_FIGURE_ICONS[theme["figure"]],
+    )
+    toggle_radius = {"Rund (Kreis)": "50%", "Eckig mit Rundung": "14px", "Quadratisch": "0"}.get(
+        str(st.session_state.get("customer_chatbot_shape", theme["shape"])), "50%"
+    )
+    theme_vars = (
+        f"--cb-accent:{safe_color};--cb-on-accent:{on_color};--cb-font:{theme['font']};"
+        f"--cb-radius:{theme['radius']};--cb-panel:{theme['panel']};--cb-surface:{theme['surface']};"
+        f"--cb-text:{theme['text']};--cb-border:{theme['border']};"
+    )
     is_left = st.session_state.get("customer_chatbot_position") == "Unten links"
     side = "left:20px;right:auto;" if is_left else "right:20px;left:auto;"
     panel_side = "left:0;right:auto;" if is_left else "right:0;left:auto;"
     position = "fixed" if st.session_state.get("customer_chatbot_fixed", True) else "relative"
     copy_json = json.dumps(copy, ensure_ascii=False).replace("</", "<\\/")
-    return f'''<aside id="customer-chatbot" class="customer-chatbot" lang="{language}" dir="{direction}" data-knowledge="{safe_knowledge}" style="position:{position};{side}bottom:20px;z-index:10000;font-family:Arial,sans-serif">
-<button id="customer-chat-toggle" type="button" aria-expanded="false" aria-label="{escape(copy['open'])}" title="{escape(copy['open'])}" style="width:56px;height:56px;border:0;border-radius:50%;background:{safe_color};color:#fff;cursor:pointer;font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,.24)">Chat</button>
-<section id="customer-chat-panel" hidden style="position:absolute;{panel_side}bottom:68px;width:min(340px,calc(100vw - 40px));padding:18px;background:#fff;color:#111827;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.22);text-align:{'right' if direction == 'rtl' else 'left'}">
-<strong>{safe_name}</strong><p id="customer-chat-answer" aria-live="polite" style="margin:10px 0;color:#374151">{escape(copy['welcome'])}</p>
-<form id="customer-chat-form" style="display:flex;gap:6px"><input id="customer-chat-input" aria-label="{escape(copy['question'])}" placeholder="{escape(copy['question'])}" required style="min-width:0;flex:1;padding:8px;text-align:inherit"><button id="customer-chat-send" type="submit" style="border:0;background:{safe_color};color:#fff;padding:8px 12px;cursor:pointer">{escape(copy['send'])}</button></form></section></aside>
+    return f'''<aside id="customer-chatbot" class="customer-chatbot" lang="{language}" dir="{direction}" data-knowledge="{safe_knowledge}" data-figure="{escape(figure)}" style="{escape(theme_vars)}position:{position};{side}bottom:20px;z-index:10000;font-family:var(--cb-font)">
+<button id="customer-chat-toggle" type="button" aria-expanded="false" aria-label="{escape(copy['open'])}" title="{escape(copy['open'])}" style="display:grid;place-items:center;width:60px;height:60px;border:0;border-radius:{toggle_radius};background:var(--cb-accent);color:var(--cb-on-accent);cursor:pointer;font-size:28px;line-height:1;box-shadow:0 6px 18px rgba(0,0,0,.24)"><span aria-hidden="true">{escape(figure)}</span></button>
+<section id="customer-chat-panel" hidden style="position:absolute;{panel_side}bottom:72px;width:min(340px,calc(100vw - 40px));padding:18px;background:var(--cb-panel);color:var(--cb-text);border:1px solid var(--cb-border);border-radius:var(--cb-radius);box-shadow:0 10px 28px rgba(0,0,0,.22);text-align:{'right' if direction == 'rtl' else 'left'}">
+<strong>{safe_name}</strong><p id="customer-chat-answer" aria-live="polite" style="margin:10px 0;color:var(--cb-text)">{escape(copy['welcome'])}</p>
+<form id="customer-chat-form" style="display:flex;gap:6px"><input id="customer-chat-input" aria-label="{escape(copy['question'])}" placeholder="{escape(copy['question'])}" required style="min-width:0;flex:1;padding:8px;text-align:inherit"><button id="customer-chat-send" type="submit" style="border:0;background:var(--cb-accent);color:var(--cb-on-accent);padding:8px 12px;cursor:pointer">{escape(copy['send'])}</button></form></section></aside>
 <script>(()=>{{const copy={copy_json};const root=document.getElementById('customer-chatbot');const toggle=document.getElementById('customer-chat-toggle');const panel=document.getElementById('customer-chat-panel');const form=document.getElementById('customer-chat-form');const input=document.getElementById('customer-chat-input');const answer=document.getElementById('customer-chat-answer');const send=document.getElementById('customer-chat-send');const offlineAnswer=question=>{{const normalized=question.toLocaleLowerCase();if(/(^|\\s)(hallo|hi|hey|hello|hola|ciao|مرحبا|أهلا|سڵاو|नमस्ते)(\\s|$|!)/u.test(normalized))return copy.welcome;if(/(danke|thank|gracias|grazie|شكرا|سوپاس|धन्यवाद)/u.test(normalized))return copy.thanks;if(/(tschüss|auf wiedersehen|goodbye|bye|adiós|arrivederci|مع السلامة|خواحافیز|अलविदा)/u.test(normalized))return copy.bye;return copy.fallback;}};toggle.onclick=()=>{{panel.hidden=!panel.hidden;toggle.setAttribute('aria-expanded',String(!panel.hidden));if(!panel.hidden)input.focus();}};form.onsubmit=async event=>{{event.preventDefault();const question=input.value.trim();if(!question)return;answer.textContent=copy.loading;input.value='';send.disabled=true;try{{const result=await fetch('/api/chat',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{question,language:'{language}'}})}});const data=await result.json().catch(()=>({{}}));answer.textContent=result.ok&&data.answer?data.answer:offlineAnswer(question);}}catch(error){{answer.textContent=offlineAnswer(question);}}finally{{send.disabled=false;}}}};}})();</script>'''
 
 
@@ -3385,8 +3392,8 @@ def render_client_contact_ui() -> None:
             key="client_chatbot_emergency",
         )
     option_copy = {
-        "ar": {"Rund (Kreis)": "دائري", "Eckig mit Rundung": "بحواف مستديرة", "Quadratisch": "مربع", "Freundlicher Roboter": "روبوت ودود", "Salon-Stylistin": "خبيرة تصفيف", "Werkstatt-Profi": "خبير ورشة", "Praxis-Begleitung": "مساعد العيادة", "Gastronomie-Service": "مساعد المطعم", "Shop-Beratung": "مساعد المتجر", "Unten rechts": "أسفل اليمين", "Unten links": "أسفل اليسار"},
-        "ku": {"Rund (Kreis)": "بازنەیی", "Eckig mit Rundung": "گۆشەی خڕ", "Quadratisch": "چوارگۆشە", "Freundlicher Roboter": "ڕۆبۆتی دۆستانە", "Salon-Stylistin": "پسپۆڕی جوانکاری", "Werkstatt-Profi": "پسپۆڕی وەرشە", "Praxis-Begleitung": "یاریدەدەری کلینیک", "Gastronomie-Service": "یاریدەدەری چێشتخانە", "Shop-Beratung": "ڕاوێژکاری فرۆشگا", "Unten rechts": "خوارەوە لای ڕاست", "Unten links": "خوارەوە لای چەپ"},
+        "ar": {"Rund (Kreis)": "دائري", "Eckig mit Rundung": "بحواف مستديرة", "Quadratisch": "مربع", "Freundlicher Roboter": "روبوت ودود", "Salon-Stylistin": "خبيرة تصفيف", "Werkstatt-Profi": "خبير ورشة", "Praxis-Begleitung": "مساعد العيادة", "Gastronomie-Service": "مساعد المطعم", "Shop-Beratung": "مساعد المتجر", "Haus und Dach": "خبير الأسقف", "Restaurant-Service": "خدمة المطعم", "Kanzlei-Beratung": "مستشار قانوني", "Kreativ-Studio": "استوديو إبداعي", "Reinigungs-Service": "خدمة التنظيف", "Unten rechts": "أسفل اليمين", "Unten links": "أسفل اليسار"},
+        "ku": {"Rund (Kreis)": "بازنەیی", "Eckig mit Rundung": "گۆشەی خڕ", "Quadratisch": "چوارگۆشە", "Freundlicher Roboter": "ڕۆبۆتی دۆستانە", "Salon-Stylistin": "پسپۆڕی جوانکاری", "Werkstatt-Profi": "پسپۆڕی وەرشە", "Praxis-Begleitung": "یاریدەدەری کلینیک", "Gastronomie-Service": "یاریدەدەری چێشتخانە", "Shop-Beratung": "ڕاوێژکاری فرۆشگا", "Haus und Dach": "پسپۆڕی سەربان", "Restaurant-Service": "خزمەتگوزاری چێشتخانە", "Kanzlei-Beratung": "ڕاوێژکاری یاسایی", "Kreativ-Studio": "ستۆدیۆی داهێنەرانە", "Reinigungs-Service": "خزمەتگوزاری پاککردنەوە", "Unten rechts": "خوارەوە لای ڕاست", "Unten links": "خوارەوە لای چەپ"},
     }.get(language, {})
     display_option = lambda option: option_copy.get(option, option)
     color_column, shape_column, figure_column, name_column = st.columns(4)
@@ -3406,7 +3413,7 @@ def render_client_contact_ui() -> None:
     with figure_column:
         st.selectbox(
             labels[25],
-            ["Freundlicher Roboter", "Salon-Stylistin", "Werkstatt-Profi", "Praxis-Begleitung", "Gastronomie-Service", "Shop-Beratung"],
+            list(CHATBOT_FIGURE_ICONS),
             format_func=display_option,
             key="customer_chatbot_figure",
         )
@@ -3590,6 +3597,7 @@ def render_template_preview(
             "chatbotKnowledge": get_configured_chatbot_knowledge(),
             "chatbotName": str(st.session_state.get("customer_chatbot_name", "")).strip(),
             "chatbotColor": str(st.session_state.get("customer_chatbot_color", "#2563EB")),
+            "chatbotFigure": CHATBOT_FIGURE_ICONS.get(str(st.session_state.get("customer_chatbot_figure", "")), CHATBOT_FIGURE_ICONS[get_chatbot_design_theme()["figure"]]),
             "chatbotRadius": {"Rund (Kreis)": "50%", "Eckig mit Rundung": "8px", "Quadratisch": "0"}.get(str(st.session_state.get("customer_chatbot_shape", "Rund (Kreis)")), "50%"),
             "showCustomerChatbot": component_key == "full_draft_template_preview",
             "multiPage": st.session_state.get("page_structure") == "Mehrseitige Website",
@@ -5644,6 +5652,81 @@ INDUSTRY_TEMPLATE_MAP = {
     "Onlineshop": "Supermarkt und Einzelhandel",
 }
 
+CHATBOT_FIGURE_ICONS = {
+    "Freundlicher Roboter": "🤖",
+    "Salon-Stylistin": "✂",
+    "Werkstatt-Profi": "🔧",
+    "Haus und Dach": "🏠",
+    "Praxis-Begleitung": "✚",
+    "Restaurant-Service": "🍽",
+    "Gastronomie-Service": "☕",
+    "Shop-Beratung": "🛍",
+    "Kanzlei-Beratung": "⚖",
+    "Kreativ-Studio": "📷",
+    "Reinigungs-Service": "✨",
+}
+
+# Design des Kunden-Chatbots je Geschäftsart: Akzentfarbe, Button-Form, Figur,
+# Schrift, Eckenradius des Fensters sowie Hintergrund- und Textfarben.
+CHATBOT_DESIGN_THEMES = {
+    "werkstatt": {"color": "#C2410C", "shape": "Eckig mit Rundung", "figure": "Werkstatt-Profi", "font": 'Arial,"Helvetica Neue",sans-serif', "radius": "6px", "panel": "#FFFFFF", "surface": "#F5F5F4", "text": "#1C1917", "border": "#D6D3D1"},
+    "dach": {"color": "#991B1B", "shape": "Eckig mit Rundung", "figure": "Haus und Dach", "font": 'Arial,"Helvetica Neue",sans-serif', "radius": "4px", "panel": "#FFFFFF", "surface": "#F7F3F0", "text": "#292524", "border": "#E7DED8"},
+    "salon": {"color": "#9D174D", "shape": "Rund (Kreis)", "figure": "Salon-Stylistin", "font": 'Georgia,"Times New Roman",serif', "radius": "18px", "panel": "#FFFBFD", "surface": "#FDF2F8", "text": "#3B0A24", "border": "#F5D0E3"},
+    "praxis": {"color": "#0F766E", "shape": "Rund (Kreis)", "figure": "Praxis-Begleitung", "font": 'ui-sans-serif,-apple-system,"Segoe UI",sans-serif', "radius": "14px", "panel": "#FFFFFF", "surface": "#F0FDFA", "text": "#134E4A", "border": "#CCEDE8"},
+    "restaurant": {"color": "#881337", "shape": "Eckig mit Rundung", "figure": "Restaurant-Service", "font": 'Georgia,"Times New Roman",serif', "radius": "10px", "panel": "#FFFDF8", "surface": "#FBF3EA", "text": "#3F1D0B", "border": "#EBDCCB"},
+    "cafe": {"color": "#78350F", "shape": "Rund (Kreis)", "figure": "Gastronomie-Service", "font": 'Georgia,"Times New Roman",serif', "radius": "16px", "panel": "#FFFDF9", "surface": "#FBF5EC", "text": "#3B2412", "border": "#EADBC8"},
+    "shop": {"color": "#4338CA", "shape": "Eckig mit Rundung", "figure": "Shop-Beratung", "font": 'ui-sans-serif,-apple-system,"Segoe UI",sans-serif', "radius": "12px", "panel": "#FFFFFF", "surface": "#F5F3FF", "text": "#1E1B4B", "border": "#DDD6FE"},
+    "kanzlei": {"color": "#1E3A5F", "shape": "Quadratisch", "figure": "Kanzlei-Beratung", "font": 'Georgia,"Times New Roman",serif', "radius": "2px", "panel": "#FFFFFF", "surface": "#F1F5F9", "text": "#0F172A", "border": "#CBD5E1"},
+    "kreativ": {"color": "#6D28D9", "shape": "Rund (Kreis)", "figure": "Kreativ-Studio", "font": 'ui-sans-serif,-apple-system,"Segoe UI",sans-serif', "radius": "20px", "panel": "#FFFFFF", "surface": "#FAF5FF", "text": "#2E1065", "border": "#E9D5FF"},
+    "reinigung": {"color": "#0369A1", "shape": "Rund (Kreis)", "figure": "Reinigungs-Service", "font": 'ui-sans-serif,-apple-system,"Segoe UI",sans-serif', "radius": "14px", "panel": "#FFFFFF", "surface": "#F0F9FF", "text": "#0C4A6E", "border": "#CDE7F6"},
+    "standard": {"color": "#2563EB", "shape": "Rund (Kreis)", "figure": "Freundlicher Roboter", "font": 'ui-sans-serif,-apple-system,"Segoe UI",sans-serif', "radius": "8px", "panel": "#FFFFFF", "surface": "#F8FAFC", "text": "#0F172A", "border": "#DBE3EC"},
+}
+
+INDUSTRY_CHATBOT_THEME_MAP = {
+    "Kfz-Meisterwerkstatt": "werkstatt",
+    "Friseursalon": "salon",
+    "Dachdeckerfachbetrieb": "dach",
+    "Physiotherapie-Praxis": "praxis",
+    "Restaurant": "restaurant",
+    "Café und Bäckerei": "cafe",
+    "Onlineshop": "shop",
+}
+
+# Stichwörter für frei eingegebene Branchen; die Reihenfolge entscheidet bei
+# mehreren Treffern (z. B. „Barbershop“ ist ein Salon, kein Shop).
+CHATBOT_THEME_KEYWORDS = (
+    ("salon", ("friseur", "frisör", "barber", "kosmetik", "beauty", "nagel", "nail", "wellness", "massage", "make-up", "makeup", "tattoo", "hair", "spa ")),
+    ("praxis", ("arzt", "ärzt", "zahn", "praxis", "therap", "physio", "pflege", "klinik", "heilprakt", "apothe", "hebamme", "doctor", "dental", "clinic", "tierarzt")),
+    ("reinigung", ("reinigung", "putz", "clean", "hausmeister", "gebäudeservice", "umzug", "wäsche")),
+    ("kanzlei", ("anwalt", "kanzlei", "steuer", "notar", "versicherung", "finanz", "berater", "beratung", "immobil", "makler", "lawyer", "accountant")),
+    ("kreativ", ("foto", "photo", "design", "agentur", "musik", "kunst", "atelier", "video", "event", "hochzeit", "studio")),
+    ("werkstatt", ("kfz", "auto", "werkstatt", "reifen", "motorrad", "elektri", "sanitär", "heizung", "installat", "schlosser", "tischler", "schreiner", "mechani", "garage")),
+    ("dach", ("dach", "bau", "maler", "fliesen", "garten", "landschaft", "zimmer", "maurer", "handwerk", "roof")),
+    ("cafe", ("café", "cafe", "kaffee", "coffee", "bäcker", "baecker", "bakery", "konditor", "eiscafé", "eisdiele")),
+    ("restaurant", ("restaurant", "imbiss", "pizz", "trattoria", "gastro", "bistro", "catering", "grill", "kneipe", "döner", "sushi", "food")),
+    ("shop", ("shop", "laden", "boutique", "handel", "store", "mode", "kiosk", "verkauf")),
+)
+
+
+def get_chatbot_design_theme(industry: str | None = None) -> dict[str, str]:
+    """Ermittelt das passende Chatbot-Design für die Branche des Kunden."""
+    if industry is None:
+        industry = str(st.session_state.get("industry_content_preset", ""))
+        if industry == OTHER_INDUSTRY_OPTION:
+            industry = str(st.session_state.get("custom_industry_name", ""))
+    theme_key = INDUSTRY_CHATBOT_THEME_MAP.get(industry)
+    if not theme_key:
+        normalized = f" {industry.strip().casefold()} "
+        theme_key = next(
+            (
+                key
+                for key, keywords in CHATBOT_THEME_KEYWORDS
+                if any(keyword in normalized for keyword in keywords)
+            ),
+            "standard",
+        )
+    return CHATBOT_DESIGN_THEMES[theme_key]
+
 
 def build_generic_industry_preset(industry: str) -> dict[str, str]:
     """Erstellt einen sofort nutzbaren Entwurf für nicht vorgegebene Branchen."""
@@ -5779,17 +5862,12 @@ def apply_industry_content_preset() -> None:
         st.session_state.client_chatbot_emergency = (
             mcp_chatbot_profile.get("emergency") or chatbot_emergency
         )
-        st.session_state.customer_chatbot_color = "#2563EB"
-        st.session_state.customer_chatbot_shape = "Rund (Kreis)"
-        st.session_state.customer_chatbot_figure = {
-            "Friseursalon": "Salon-Stylistin",
-            "Kfz-Meisterwerkstatt": "Werkstatt-Profi",
-            "Dachdeckerfachbetrieb": "Werkstatt-Profi",
-            "Physiotherapie-Praxis": "Praxis-Begleitung",
-            "Restaurant": "Gastronomie-Service",
-            "Café und Bäckerei": "Gastronomie-Service",
-            "Onlineshop": "Shop-Beratung",
-        }.get(industry, "Freundlicher Roboter")
+        chatbot_theme = get_chatbot_design_theme(
+            custom_industry if industry == OTHER_INDUSTRY_OPTION else industry
+        )
+        st.session_state.customer_chatbot_color = chatbot_theme["color"]
+        st.session_state.customer_chatbot_shape = chatbot_theme["shape"]
+        st.session_state.customer_chatbot_figure = chatbot_theme["figure"]
         st.session_state.customer_chatbot_position = "Unten rechts"
         st.session_state.customer_chatbot_fixed = True
         template_name = INDUSTRY_TEMPLATE_MAP.get(industry)
