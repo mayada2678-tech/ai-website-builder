@@ -48,13 +48,21 @@ class SupabaseAnalyticsClient:
             **self.headers,
             **dict(kwargs.pop("headers", {})),
         }
-        response = requests.request(
-            method,
-            f"{self.base_url}/{path}",
-            headers=request_headers,
-            timeout=30,
-            **kwargs,
-        )
+        try:
+            response = requests.request(
+                method,
+                f"{self.base_url}/{path}",
+                headers=request_headers,
+                timeout=30,
+                **kwargs,
+            )
+        except requests.RequestException as error:
+            # Netzwerkfehler wie Supabase-Fehler behandeln, damit Aufrufer
+            # einheitlich ValueError abfangen und die App nicht abstürzt.
+            raise ValueError(
+                "Supabase ist nicht erreichbar. Bitte prüfen Sie supabase_url "
+                f"in den Secrets und ob das Projekt aktiv ist ({type(error).__name__})."
+            ) from error
         if response.status_code >= 400:
             raise ValueError(
                 f"Supabase HTTP {response.status_code}: {response.text[:500]}"
