@@ -1,0 +1,2985 @@
+"""Streamlit-Oberfläche: Seitenstil, Anmeldung, Formulare, Editoren,
+Vorschau, Kundenservice, Datenschutz und Veröffentlichung.
+"""
+
+import base64
+import re
+import uuid
+from functools import partial
+from html import escape
+
+import streamlit as st
+from domain_provisioning import (
+    ProvisioningError,
+    check_domain_with_registrar,
+    normalize_domain,
+)
+
+from logic import (
+    APP_LANGUAGE_LABELS,
+    APP_LANGUAGES,
+    apply_app_language,
+    apply_background_preset,
+    apply_industry_content_preset,
+    authenticate_user,
+    AUTHENTICATION_COPY,
+    BACKGROUND_PRESET_COLORS,
+    build_customized_template_html,
+    build_customized_template_pages,
+    build_customized_template_styles,
+    build_offer_page_section,
+    build_website_zip,
+    confirm_stripe_checkout,
+    contrast_text_color,
+    create_analytics_optimized_version,
+    create_deployment_project_name,
+    create_empty_vercel_project,
+    create_preview_html,
+    create_professional_standard_draft,
+    create_stripe_checkout_session,
+    delete_previous_vercel_deployment,
+    delete_published_website,
+    delete_saved_website,
+    EMAIL_PATTERN,
+    generate_website,
+    generate_website_recommendation,
+    get_creation_form_copy,
+    get_project_name_from_url,
+    get_support_requests,
+    get_template_preview_copy,
+    get_user_status,
+    get_websites,
+    INDUSTRY_CONTENT_PRESETS,
+    INWX_PASSWORD,
+    INWX_USERNAME,
+    is_light_color,
+    load_published_website,
+    load_uploaded_html_template,
+    load_website,
+    modify_current_website,
+    optimize_editor_text,
+    optimize_text_with_transformer,
+    OTHER_INDUSTRY_OPTION,
+    PRIVACY_CONTACT_EMAIL,
+    PRIVACY_CONTROLLER_ADDRESS,
+    PRIVACY_CONTROLLER_NAME,
+    publish_copy,
+    publish_website,
+    queue_html_update,
+    register_user,
+    replace_first_image_source,
+    replace_visible_text,
+    require_complete_html,
+    safe_project_name,
+    save_support_request,
+    save_uploaded_image,
+    save_website,
+    STRIPE_PRICE_ID,
+    STRIPE_SECRET_KEY,
+    STRIPE_SUCCESS_URL,
+    SUPABASE_SERVICE_ROLE_KEY,
+    SUPABASE_URL,
+    SUPPORT_ADMIN_EMAIL,
+    SUPPORTED_LANGUAGES,
+    t,
+    TARGET_LANGUAGE_BY_APP_CODE,
+    TEMPLATES,
+    update_draft_with_mcp_tool,
+    wait_for_domain_provisioning,
+    workspace_copy,
+)
+
+from chat import (
+    CHATBOT_FIGURE_ICONS,
+    get_chatbot_design_theme,
+    get_configured_chatbot_knowledge,
+)
+
+
+# Streamlit verlangt die Registrierung in jedem Skriptlauf. Die Definition wird
+# daher hier nur vorbereitet und erst beim Rendern registriert.
+CLICKABLE_TEMPLATE_EDITOR = partial(
+    st.components.v2.component,
+        "clickable_template_editor",
+        html='<section id="template-editor"></section>',
+        css="""
+        #template-editor { font-family: Georgia, serif; }
+        .template-shell { position: relative; overflow: visible; border: 1px solid var(--border); border-radius: var(--radius); background: var(--background); color: var(--text); }
+        .template-header { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 18px 28px; border-bottom: 1px solid var(--border); font-family: ui-sans-serif, sans-serif; }
+        .template-nav { display: flex; justify-content: flex-end; gap: 16px; flex-wrap: wrap; font-size: 12px; }
+        .template-nav button { border: 0; padding: 0; background: transparent; color: inherit; cursor: pointer; font: inherit; }
+        .template-nav button:hover, .template-nav button:focus-visible { color: var(--accent); }
+        .template-hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(220px, .9fr); gap: 34px; padding: 48px 28px 42px; align-items: center; }
+        .template-eyebrow { color: var(--accent); font: 700 11px ui-sans-serif, sans-serif; text-transform: uppercase; }
+        .template-heading { margin: 12px 0 0; font-size: 34px; line-height: 1.1; }
+        .template-description { max-width: 500px; margin: 18px 0 24px; color: var(--muted); font: 15px/1.65 ui-sans-serif, sans-serif; }
+        .template-button { border: 0; display: inline-block; background: var(--accent); color: var(--accent-text); padding: 11px 16px; border-radius: var(--radius); cursor: pointer; font: 700 13px ui-sans-serif, sans-serif; }
+        .template-image { width: 100%; min-height: 220px; max-height: 320px; object-fit: cover; border-radius: var(--radius); }
+        .template-placeholder { min-height: 220px; border: 1px dashed var(--accent); border-radius: var(--radius); display: grid; place-items: center; padding: 18px; color: var(--accent); text-align: center; font: 700 12px ui-sans-serif, sans-serif; }
+        .template-hint { margin: 0; padding: 12px 28px; background: var(--surface); color: var(--muted); font: 12px ui-sans-serif, sans-serif; }
+        .template-page { padding: 58px 28px; }
+        .template-page h1 { margin: 12px 0; font-size: 38px; line-height: 1.1; }
+        .template-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 34px; }
+        .template-card { min-height: 210px; padding: 22px; border-top: 3px solid var(--accent); background: var(--surface); font-family: ui-sans-serif, sans-serif; }
+        .template-card p { color: var(--muted); }
+        .template-footer { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 28px; padding: 34px 28px 20px; border-top: 1px solid var(--border); font-family: ui-sans-serif, sans-serif; }
+        .template-footer h2 { margin: 0; font-size: 15px; } .template-footer p, .template-footer a { color: var(--muted); font-size: 13px; line-height: 1.6; text-decoration: none; }
+        .template-footer a:hover { color: var(--accent); } .template-footer-legal { grid-column: 1 / -1; margin: 0; padding-top: 16px; border-top: 1px solid var(--border); }
+        .template-chatbot { position: fixed; right: 18px; bottom: 18px; z-index: 2147483647; font-family: ui-sans-serif, sans-serif; }
+        .template-chatbot-toggle { width: 56px; height: 56px; border: 0; border-radius: 50%; background: var(--accent); color: var(--accent-text); cursor: pointer; font: 700 13px ui-sans-serif, sans-serif; box-shadow: 0 10px 28px rgba(15, 23, 42, .24); }
+        .template-chatbot-panel { display: none; width: min(300px, calc(100vw - 44px)); margin: 0 0 10px auto; padding: 18px; background: var(--background); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 16px 38px rgba(15, 23, 42, .22); }
+        .template-chatbot-panel.is-open { display: block; }
+        .template-chatbot-panel h2 { margin: 0; font-size: 16px; }
+        .template-chatbot-panel p { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+        .template-chatbot-form { display: flex; gap: 6px; margin-top: 14px; }
+        .template-chatbot-form input { min-width: 0; flex: 1; padding: 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--background); color: var(--text); }
+        .template-chatbot-form button { border: 0; padding: 8px 10px; border-radius: 4px; background: var(--accent); color: var(--accent-text); cursor: pointer; }
+        @media (max-width: 700px) { .template-header { align-items: flex-start; flex-direction: column; } .template-nav { justify-content: flex-start; } .template-hero, .template-cards, .template-footer { grid-template-columns: 1fr; } }
+        """,
+        js="""
+        export default function(component) {
+            const { data, parentElement, setStateValue } = component;
+            const root = parentElement.querySelector('#template-editor');
+            if (!root || !data) return;
+            const copy = data.copy;
+            root.lang = data.language;
+            root.dir = data.direction;
+            root.replaceChildren();
+            const create = (tag, className, text) => {
+                const element = document.createElement(tag);
+                element.className = className;
+                if (text !== undefined) element.textContent = text;
+                return element;
+            };
+            const shell = create('section', 'template-shell');
+            shell.style.setProperty('--background', data.backgroundColor);
+            shell.style.setProperty('--accent', data.accentColor);
+            shell.style.setProperty('--text', data.textColor);
+            shell.style.setProperty('--muted', data.mutedTextColor);
+            shell.style.setProperty('--border', data.borderColor);
+            shell.style.setProperty('--surface', data.surfaceColor);
+            shell.style.setProperty('--accent-text', data.accentTextColor);
+            shell.style.setProperty('--radius', data.radius);
+            const header = create('header', 'template-header');
+            const company = create('strong', '', data.companyName);
+            const nav = create('nav', 'template-nav');
+            if (data.multiPage) {
+                Object.entries(copy.nav).forEach(([page, label]) => {
+                    const link = create('button', '', label);
+                    link.type = 'button';
+                    link.onclick = () => setStateValue('navigated', page);
+                    nav.append(link);
+                });
+            }
+            header.append(company, nav);
+            if (data.page !== 'start') {
+                const page = create('main', 'template-page');
+                const pageContent = copy.pages[data.page];
+                page.append(create('p', 'template-eyebrow', pageContent[0]));
+                page.append(create('h1', '', pageContent[1]));
+                page.append(create('p', 'template-description', data.description));
+                const cards = create('section', 'template-cards');
+                pageContent[2].forEach(([title, text], index) => {
+                    const card = create('article', 'template-card');
+                    const fallback = data.page === 'kontakt' && index === 0 ? data.businessEmail : data.description;
+                    card.append(create('p', 'template-eyebrow', String(index + 1).padStart(2, '0')), create('h2', '', title), create('p', '', text || fallback));
+                    cards.append(card);
+                });
+                page.append(cards);
+                shell.append(header, page, create('p', 'template-hint', copy.pageHint));
+                if (data.showCustomerChatbot) {
+                    const chatbot = create('aside', 'template-chatbot');
+                    const chatbotPanel = create('section', 'template-chatbot-panel');
+                    const chatbotAnswer = create('p', '', data.chatbotKnowledge || copy.welcome);
+                    const chatbotForm = create('form', 'template-chatbot-form');
+                    const chatbotInput = create('input', '');
+                    chatbotInput.placeholder = copy.question;
+                    chatbotInput.setAttribute('aria-label', copy.question);
+                    const chatbotSend = create('button', '', copy.send);
+                    chatbotSend.type = 'submit';
+                    chatbotForm.append(chatbotInput, chatbotSend);
+                    chatbotForm.onsubmit = event => { event.preventDefault(); const question = chatbotInput.value.trim(); if (!question) return; chatbotAnswer.textContent = `${copy.thanks}: „${question}“. ${data.chatbotKnowledge || copy.reply}`; chatbotInput.value = ''; };
+                    chatbotPanel.append(create('h2', '', data.chatbotName || `${data.companyName} ${copy.assistant}`), chatbotAnswer, chatbotForm);
+                    const chatbotToggle = create('button', 'template-chatbot-toggle', data.chatbotFigure || '🤖');
+                    chatbotToggle.type = 'button';
+                    chatbotToggle.setAttribute('aria-label', copy.openChat);
+                    chatbotToggle.title = copy.openChat;
+                    chatbotToggle.style.fontSize = '28px';
+                    chatbotToggle.style.background = data.chatbotColor || data.accentColor;
+                    chatbotToggle.style.borderRadius = data.chatbotRadius || '50%';
+                    chatbotToggle.onclick = () => chatbotPanel.classList.toggle('is-open');
+                    chatbot.append(chatbotPanel, chatbotToggle);
+                    shell.append(chatbot);
+                }
+                root.append(shell);
+                return;
+            }
+            const hero = create('div', 'template-hero');
+            const heroCopy = create('div', '');
+            const fields = [['heading', 'h3', 'template-heading'], ['description', 'p', 'template-description'], ['buttonText', 'button', 'template-button']];
+            fields.forEach(([key, tag, className]) => {
+                const field = create(tag, className, data[key]);
+                if (key === 'buttonText') field.type = 'button';
+                if (key === 'buttonText') field.onclick = () => setStateValue('navigated', 'angebote');
+                heroCopy.append(field);
+            });
+            const image = data.imageDataUrl ? create('img', 'template-image') : create('div', 'template-placeholder', copy.imagePlaceholder);
+            if (data.imageDataUrl) { image.src = data.imageDataUrl; image.alt = data.companyName; }
+            hero.append(heroCopy, image);
+            const templateSections = create('section', 'template-cards');
+            data.templateSections.forEach((section, index) => {
+                const card = create('article', 'template-card');
+                card.append(create('p', 'template-eyebrow', String(index + 1).padStart(2, '0')), create('h2', '', section.title), create('p', '', section.text));
+                templateSections.append(card);
+            });
+            const footer = create('footer', 'template-footer');
+            const brand = create('section', '');
+            brand.append(create('h2', '', data.companyName), create('p', '', data.footerText));
+            const contact = create('section', '');
+            contact.append(create('h2', '', copy.contact), create('a', '', data.businessEmail));
+            contact.lastChild.href = `mailto:${data.businessEmail}`;
+            const legal = create('section', '');
+            legal.append(create('h2', '', copy.legal), create('a', '', copy.imprint), create('p', '', copy.privacy));
+            const legalNote = create('p', 'template-footer-legal', `© ${new Date().getFullYear()} ${data.companyName}. ${copy.rights}`);
+            footer.append(brand, contact, legal, legalNote);
+            shell.append(header, hero, templateSections, footer, create('p', 'template-hint', copy.designHint));
+            if (data.showCustomerChatbot) {
+                const chatbot = create('aside', 'template-chatbot');
+                const chatbotPanel = create('section', 'template-chatbot-panel');
+                const chatbotAnswer = create('p', '', data.chatbotKnowledge || copy.welcome);
+                const chatbotForm = create('form', 'template-chatbot-form');
+                const chatbotInput = create('input', '');
+                chatbotInput.placeholder = copy.question;
+                chatbotInput.setAttribute('aria-label', copy.question);
+                const chatbotSend = create('button', '', copy.send);
+                chatbotSend.type = 'submit';
+                chatbotForm.append(chatbotInput, chatbotSend);
+                chatbotForm.onsubmit = event => { event.preventDefault(); const question = chatbotInput.value.trim(); if (!question) return; chatbotAnswer.textContent = `${copy.thanks}: „${question}“. ${data.chatbotKnowledge || copy.reply}`; chatbotInput.value = ''; };
+                chatbotPanel.append(create('h2', '', data.chatbotName || `${data.companyName} ${copy.assistant}`), chatbotAnswer, chatbotForm);
+                const chatbotToggle = create('button', 'template-chatbot-toggle', data.chatbotFigure || '🤖');
+                chatbotToggle.type = 'button';
+                chatbotToggle.setAttribute('aria-label', copy.openChat);
+                chatbotToggle.title = copy.openChat;
+                chatbotToggle.style.fontSize = '28px';
+                chatbotToggle.style.background = data.chatbotColor || data.accentColor;
+                chatbotToggle.style.borderRadius = data.chatbotRadius || '50%';
+                chatbotToggle.onclick = () => chatbotPanel.classList.toggle('is-open');
+                chatbot.append(chatbotPanel, chatbotToggle);
+                shell.append(chatbot);
+            }
+            root.append(shell);
+        }
+        """,
+)
+
+
+def apply_global_styles() -> None:
+    """Setzt das globale Erscheinungsbild der Builder-Oberfläche."""
+    st.markdown(
+        """
+    <style>
+    .stApp {
+        background: radial-gradient(circle at 88% 4%, rgba(34, 211, 238, 0.12), transparent 23%), #111827;
+    }
+    [data-testid="stHeader"] {
+        background: transparent;
+    }
+    [data-testid="stSidebar"] {
+        border-right: 1px solid rgba(103, 232, 249, 0.16);
+    }
+    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+        gap: 0.7rem;
+    }
+    .stButton > button {
+        min-height: 2.65rem;
+        font-weight: 600;
+        border-radius: 0.4rem;
+        transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
+    }
+    .stButton > button:not(:disabled):hover {
+        border-color: #67e8f9;
+        transform: translateY(-1px);
+    }
+    .stButton > button:focus-visible,
+    [data-testid="stTextInput"] input:focus-visible,
+    [data-testid="stTextArea"] textarea:focus-visible {
+        outline: 2px solid #22d3ee;
+        outline-offset: 2px;
+    }
+    .st-key-delete_published_site_from_domain_center > button:not(:disabled) {
+        background: #facc15;
+        border-color: #facc15;
+        color: #1f2937;
+    }
+    .st-key-delete_published_site_from_domain_center > button:not(:disabled):hover {
+        background: #eab308;
+        border-color: #eab308;
+        color: #111827;
+    }
+    [data-testid="stTextInput"] input,
+    [data-testid="stSelectbox"] [data-baseweb="select"] > div {
+        min-height: 2.65rem;
+    }
+    [data-testid="stTextArea"] textarea {
+        line-height: 1.5;
+    }
+    [data-testid="stTabs"] [role="tab"] {
+        font-weight: 600;
+        min-height: 2.65rem;
+        padding-inline: 1rem;
+    }
+    [data-testid="stTabs"] [role="tablist"] {
+        gap: 0.3rem;
+        border-bottom-color: rgba(103, 232, 249, 0.16);
+    }
+    [data-testid="stHorizontalBlock"] {
+        gap: 1rem;
+    }
+    [data-testid="stExpander"] {
+        border-color: rgba(103, 232, 249, 0.18);
+    }
+    .st-key-authentication_shell {
+        width: min(68rem, calc(100vw - 2rem));
+        min-height: 35rem;
+        margin: 3rem auto 2rem;
+        padding: 1.25rem;
+        border: 1px solid rgba(103, 232, 249, 0.22);
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(17, 34, 52, 0.92));
+        box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.22);
+    }
+    .st-key-authentication_shell [data-testid="stHorizontalBlock"] {
+        min-height: 31rem;
+        align-items: stretch;
+    }
+    .st-key-authentication_shell [data-testid="stColumn"]:first-child {
+        padding: 1.35rem 2rem 1.35rem 0.75rem;
+        border-right: 1px solid rgba(103, 232, 249, 0.16);
+    }
+    .st-key-authentication_shell [data-testid="stColumn"]:last-child {
+        padding: 1.35rem 0.75rem 1.35rem 2rem;
+    }
+    .st-key-authentication_shell [data-testid="stTextInput"] input {
+        min-height: 2.85rem;
+    }
+    .st-key-authentication_shell [data-testid="InputInstructions"] {
+        display: none;
+    }
+    .st-key-authentication_shell [data-testid="stFormSubmitButton"] button {
+        min-height: 3rem;
+    }
+    .st-key-authentication_shell [data-testid="stTabs"] {
+        margin-top: 0.4rem;
+    }
+    .st-key-authentication_shell [data-testid="stForm"] {
+        padding-top: 0.55rem;
+    }
+    @media (max-width: 640px) {
+        .st-key-authentication_shell {
+            width: calc(100vw - 1rem);
+            min-height: auto;
+            margin-top: 1.25rem;
+            padding: 0.5rem;
+        }
+        .st-key-authentication_shell [data-testid="stHorizontalBlock"] {
+            min-height: auto;
+        }
+        .st-key-authentication_shell [data-testid="stColumn"]:first-child,
+        .st-key-authentication_shell [data-testid="stColumn"]:last-child {
+            padding: 1rem 0.5rem;
+            border-right: 0;
+        }
+    }
+    .st-key-help_chat_launcher {
+        position: fixed;
+        right: 1.5rem;
+        bottom: 1.5rem;
+        z-index: 1000000;
+    }
+    .st-key-help_chat_launcher > button {
+        min-width: 3.2rem;
+        min-height: 3.2rem;
+        border-radius: 50%;
+        border-color: #22d3ee;
+        box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.55);
+        animation: chatbot-pulse 2.2s ease-out infinite;
+    }
+    [data-testid="stPopoverBody"] {
+        width: min(22rem, calc(100vw - 2rem)) !important;
+        max-width: calc(100vw - 2rem) !important;
+        max-height: min(22rem, calc(100vh - 6rem)) !important;
+    }
+    @keyframes chatbot-pulse {
+        0% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.5); }
+        70% { box-shadow: 0 0 0 10px rgba(34, 211, 238, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .st-key-help_chat_launcher > button {
+            animation: none;
+        }
+    }
+    </style>
+    """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_payment_ui(user_id: int, user_email: str) -> None:
+    """Zeigt die verfügbaren Stripe-Zahlungswege für das Premium-Abonnement."""
+    st.subheader("Premium-Abonnement")
+    st.caption(
+        "Mit Premium veröffentlichen Sie Websites mit Wunsch-URL und eigener Domain. "
+        f"Das Abonnement wird für {user_email} abgeschlossen."
+    )
+    if STRIPE_SECRET_KEY and STRIPE_PRICE_ID and STRIPE_SUCCESS_URL:
+        if st.button(
+            "Stripe Checkout öffnen",
+            icon=":material/open_in_new:",
+            key="open_stripe_checkout",
+            width="stretch",
+        ):
+            try:
+                st.session_state.stripe_checkout_url = create_stripe_checkout_session(
+                    user_id, user_email
+                )
+            except ValueError as error:
+                st.error(str(error))
+        checkout_url = str(st.session_state.get("stripe_checkout_url", ""))
+        if checkout_url:
+            st.link_button(
+                "Sicheren Checkout fortsetzen",
+                checkout_url,
+                icon=":material/lock:",
+                width="stretch",
+            )
+    else:
+        st.error(
+            "Der kontogebundene Stripe Checkout ist noch nicht eingerichtet. "
+            "Hinterlegen Sie stripe_secret_key, stripe_price_id und stripe_success_url."
+        )
+
+
+def render_language_switcher() -> None:
+    """Rendert die App-Sprachauswahl und die Rechts-nach-links-Darstellung."""
+    with st.container(horizontal=True, horizontal_alignment="right"):
+        st.selectbox(
+            t("app_language"),
+            list(APP_LANGUAGES),
+            format_func=lambda name: APP_LANGUAGE_LABELS[name],
+            key="app_language_name",
+            on_change=apply_app_language,
+            width=230,
+        )
+
+    if st.session_state.app_language in {"ar", "ku"}:
+        st.markdown(
+            """
+        <style>
+        [data-testid="stAppViewContainer"],
+        [data-testid="stSidebar"],
+        [data-testid="stTextArea"],
+        [data-testid="stMarkdownContainer"] {
+            direction: rtl;
+            text-align: right;
+        }
+        [data-testid="stTextInput"] input,
+        [data-testid="stTextArea"] textarea {
+            direction: rtl;
+            text-align: right;
+        }
+        </style>
+        """,
+            unsafe_allow_html=True,
+        )
+
+
+def show_authentication() -> None:
+    """Rendert Anmeldung und Registrierung, bevor der Builder erreichbar ist."""
+    authentication_copy = AUTHENTICATION_COPY.get(
+        str(st.session_state.app_language), AUTHENTICATION_COPY["en"]
+    )
+    with st.container(border=True, key="authentication_shell"):
+        intro_column, form_column = st.columns((1.05, 0.95), gap="large")
+
+        with intro_column:
+            st.badge(
+                authentication_copy["workflow"],
+                icon=":material/auto_awesome:",
+                color="blue",
+            )
+            st.title(t("auth_title"), anchor=False)
+            st.write(t("auth_subtitle"))
+            st.space("small")
+            st.markdown(f":material/check_circle: {authentication_copy['plan']}")
+            st.markdown(f":material/visibility: {authentication_copy['review']}")
+            st.markdown(f":material/rocket_launch: {authentication_copy['publish']}")
+            st.space("small")
+            st.caption(authentication_copy["privacy"])
+
+        with form_column:
+            st.subheader(authentication_copy["workspace"], anchor=False)
+            st.caption(authentication_copy["workspace_hint"])
+            login_tab, register_tab = st.tabs([t("login"), t("register")])
+
+            with login_tab:
+                with st.form("login_form"):
+                    email = st.text_input(t("email"), key="login_email")
+                    password = st.text_input(
+                        t("password"),
+                        type="password",
+                        key="login_password",
+                    )
+                    submitted = st.form_submit_button(
+                        t("login"),
+                        type="primary",
+                        width="stretch",
+                    )
+
+                if submitted:
+                    user = authenticate_user(email, password)
+                    if user is None:
+                        st.error(t("invalid_login"))
+                    else:
+                        st.session_state.user_id, st.session_state.user_email = user
+                        st.rerun()
+
+            with register_tab:
+                with st.form("registration_form"):
+                    email = st.text_input(t("email"), key="registration_email")
+                    password = st.text_input(
+                        t("password"),
+                        type="password",
+                        key="registration_password",
+                    )
+                    password_confirmation = st.text_input(
+                        t("confirm_password"),
+                        type="password",
+                        key="registration_password_confirmation",
+                    )
+                    submitted = st.form_submit_button(
+                        t("register"),
+                        type="primary",
+                        width="stretch",
+                    )
+
+                if submitted:
+                    if password != password_confirmation:
+                        st.error(t("password_mismatch"))
+                    else:
+                        try:
+                            register_user(email, password)
+                            st.success(t("account_created"))
+                        except ValueError as error:
+                            st.error(str(error))
+
+
+def render_authentication_gate() -> dict:
+    """Erzwingt die Anmeldung und zeigt Test- bzw. Premiumstatus an."""
+    if st.session_state.user_id is None:
+        show_authentication()
+        st.stop()
+
+    current_user_id = int(st.session_state.user_id)
+
+    user_info = get_user_status(current_user_id)
+
+    return_to_publish = st.query_params.get("publish") == "1"
+
+    if not user_info["subscribed"] and confirm_stripe_checkout(current_user_id):
+        st.session_state.publish_after_checkout = return_to_publish
+        st.success("Zahlung bestätigt. Die Veröffentlichung ist jetzt freigeschaltet.")
+        st.rerun()
+
+    if not user_info["subscribed"] and not user_info["trial_active"]:
+        st.warning(
+            "Ihre kostenlose 24-Stunden-Testphase ist abgelaufen. Mit Premium können Sie "
+        "weiter Websites erstellen und veröffentlichen."
+        )
+        render_payment_ui(current_user_id, st.session_state.user_email)
+    elif not user_info["subscribed"]:
+        st.info(
+            workspace_copy()["trial_active"].format(
+                hours=user_info["trial_remaining_hours"]
+            )
+        )
+    return user_info
+
+
+def render_analytics_optimization_ui(user_email: str) -> None:
+    """Rendert den manuellen Startpunkt für den datengestützten Optimierungsjob."""
+    if not SUPPORT_ADMIN_EMAIL or user_email.strip().lower() != SUPPORT_ADMIN_EMAIL:
+        return
+    st.divider()
+    st.subheader("KI-Optimierung und A/B-Test", anchor=False)
+    st.caption(
+        "Analysiert ausschließlich aggregierte Sitzungsdaten. Ab 500 Sitzungen erstellt die KI "
+        "eine Testversion; die Live-Website wird dabei nicht automatisch überschrieben."
+    )
+    st.code(str(st.session_state.analytics_site_id), language=None)
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        st.warning(
+            "Supabase ist noch nicht konfiguriert. Führen Sie supabase_schema.sql aus und "
+            "hinterlegen Sie supabase_url sowie supabase_service_role_key in den Secrets."
+        )
+        return
+    if st.button(
+        "Analytics auswerten und Testversion erstellen",
+        icon=":material/auto_awesome:",
+        key="run_analytics_optimization",
+        disabled=not st.session_state.generated_html,
+        width="stretch",
+    ):
+        with st.status("Analytics werden ausgewertet ...", expanded=True) as status:
+            try:
+                summary, version = create_analytics_optimized_version()
+                status.update(label="Testversion wurde erstellt.", state="complete")
+                st.success(
+                    f"{summary.sessions} Sitzungen ausgewertet. Version "
+                    f"{version.get('version_id', '')} ist als testing gespeichert und in der Vorschau geladen."
+                )
+                st.rerun()
+            except Exception as error:
+                status.update(label="Optimierung konnte nicht ausgeführt werden.", state="error")
+                st.error(str(error))
+
+
+def render_client_contact_ui() -> None:
+    """Erfasst die Kontaktdaten, die in jede neue Kundenwebsite einfliessen."""
+    language = str(st.session_state.app_language)
+    copy_by_language = {
+        "de": ["Geschäfts- und Kontaktdaten des Kunden", "E-Mail-Adresse für Kundenanfragen", "z. B. info@unternehmen.de", "Offizieller Unternehmensname", "z. B. Autohaus Müller GmbH", "Slogan oder Hauptüberschrift (optional)", "z. B. Ihr Partner für Qualität und Vertrauen", "Telefonnummer (optional)", "z. B. +49 30 123456", "Web3Forms Access Key (optional)", "Mit diesem Schlüssel erhält die generierte Website ein Web3Forms-Kontaktformular.", "Kunden-Chatbot konfigurieren", "Allgemeiner Kundenservice", "Der Chatbot erhält automatisch Basiswissen über die Branche: {industry}. Er wird beim Erstellen in die Kundenwebsite eingefügt. Für KI-Antworten nach der Veröffentlichung muss im Vercel-Projekt einmalig HF_API_KEY gesetzt sein.", "Hinterlegen Sie die Firmendaten, die der Chatbot Ihren Website-Besuchern nennen darf.", "Öffnungszeiten", "z. B. Mo-Fr: 08:00-17:00 Uhr", "Telefon und weitere Kontaktwege", "z. B. +49 30 123456 oder info@unternehmen.de", "Preise und wichtige Leistungen", "z. B. Erstberatung kostenlos, Wartung ab 89 Euro", "Notfall und Bereitschaft", "z. B. Notdienst unter +49 171 123456", "Chat-Designfarbe", "Form des Chat-Icons", "Chatbot-Figur", "Name des Chatbots", "Position des Chatbots", "Beim Scrollen sichtbar halten", "Aktiv: Der Chatbot bleibt am Bildschirmrand. Deaktiviert: Er steht am Ende der Seite.", "Chatbot bereit: Die Firmendaten werden automatisch in Vorschau, ZIP und veröffentlichte Website übernommen.", "Empfehlung: Ergänzen Sie Öffnungszeiten, Leistungen, Preise oder den Notdienst. Ohne eigene Angaben verwendet der Chatbot das Branchenwissen und eine sichere Kontaktantwort."],
+        "en": ["Customer business and contact details", "Email address for customer enquiries", "e.g. info@company.com", "Official company name", "e.g. Example Company Ltd", "Slogan or main heading (optional)", "e.g. Your partner for quality and trust", "Phone number (optional)", "e.g. +44 20 1234 5678", "Web3Forms access key (optional)", "This key enables a Web3Forms contact form on the generated website.", "Configure customer chatbot", "General customer service", "The chatbot automatically receives basic knowledge about the industry: {industry}. It is added to the customer website during creation. Set HF_API_KEY once in the Vercel project for AI answers after publishing.", "Enter the company details the chatbot may share with website visitors.", "Opening hours", "e.g. Mon-Fri: 8:00-17:00", "Phone and other contact methods", "e.g. +44 20 1234 5678 or info@company.com", "Prices and key services", "e.g. Free initial consultation, maintenance from EUR 89", "Emergency and on-call service", "e.g. Emergency number +44 7000 123456", "Chat design color", "Chat icon shape", "Chatbot character", "Chatbot name", "Chatbot position", "Keep visible while scrolling", "On: the chatbot remains at the screen edge. Off: it appears at the end of the page.", "Chatbot ready: Company details are automatically included in the preview, ZIP, and published website.", "Recommendation: Add opening hours, services, prices, or emergency information. Without your own details, the chatbot uses industry knowledge and a safe contact response."],
+        "ar": ["بيانات الشركة والاتصال الخاصة بالعميل", "البريد الإلكتروني لاستفسارات العملاء", "مثال: info@company.com", "الاسم الرسمي للشركة", "مثال: شركة النور", "الشعار أو العنوان الرئيسي (اختياري)", "مثال: شريكك للجودة والثقة", "رقم الهاتف (اختياري)", "مثال: +49 30 123456", "مفتاح Web3Forms (اختياري)", "يتيح هذا المفتاح إضافة نموذج اتصال Web3Forms إلى الموقع الناتج.", "إعداد روبوت محادثة العملاء", "خدمة عملاء عامة", "يحصل روبوت المحادثة تلقائياً على معلومات أساسية عن المجال: {industry}. ويُضاف إلى موقع العميل عند إنشائه. للحصول على إجابات الذكاء الاصطناعي بعد النشر، يجب ضبط HF_API_KEY مرة واحدة في مشروع Vercel.", "أدخل بيانات الشركة التي يُسمح لروبوت المحادثة بعرضها لزوار الموقع.", "ساعات العمل", "مثال: الاثنين-الجمعة: 08:00-17:00", "الهاتف ووسائل الاتصال الأخرى", "مثال: +49 30 123456 أو info@company.com", "الأسعار والخدمات المهمة", "مثال: الاستشارة الأولى مجانية، الصيانة من 89 يورو", "الطوارئ وخدمة الاستعداد", "مثال: رقم الطوارئ +49 171 123456", "لون تصميم المحادثة", "شكل أيقونة المحادثة", "شخصية روبوت المحادثة", "اسم روبوت المحادثة", "موضع روبوت المحادثة", "إبقاؤه ظاهراً أثناء التمرير", "عند التفعيل يبقى روبوت المحادثة عند حافة الشاشة، وعند التعطيل يظهر في نهاية الصفحة.", "روبوت المحادثة جاهز: ستُضاف بيانات الشركة تلقائياً إلى المعاينة وملف ZIP والموقع المنشور.", "نصيحة: أضف ساعات العمل والخدمات والأسعار أو معلومات الطوارئ. من دون بياناتك يستخدم الروبوت معلومات المجال وإجابة اتصال آمنة."],
+        "ku": ["زانیاری بازرگانی و پەیوەندیی کڕیار", "ئیمەیڵ بۆ پرسیارەکانی کڕیار", "بۆ نموونە: info@company.com", "ناوی فەرمی کۆمپانیا", "بۆ نموونە: کۆمپانیای ڕووناکی", "دروشـم یان سەردێڕی سەرەکی (ئارەزوومەندانە)", "بۆ نموونە: هاوبەشی تۆ بۆ کوالێتی و متمانە", "ژمارەی تەلەفۆن (ئارەزوومەندانە)", "بۆ نموونە: +49 30 123456", "کلیلی Web3Forms (ئارەزوومەندانە)", "ئەم کلیلە فۆڕمی پەیوەندی Web3Forms بۆ وێبگەی دروستکراو چالاک دەکات.", "ڕێکخستنی چاتبۆتی کڕیار", "خزمەتگوزاری گشتی کڕیار", "چاتبۆتەکە خۆکارانە زانیاری بنەڕەتی دەربارەی بوارەکە وەردەگرێت: {industry}. لە کاتی دروستکردندا زیاد دەکرێت. بۆ وەڵامی زیرەکی دەستکرد دوای بڵاوکردنەوە، HF_API_KEY جارێک لە پڕۆژەی Vercel دابنێ.", "ئەو زانیارییەی کۆمپانیا بنووسە کە چاتبۆت دەتوانێت بە سەردانکەرانی وێبگە بڵێت.", "کاتەکانی کردنەوە", "بۆ نموونە: دووشەممە-هەینی: 08:00-17:00", "تەلەفۆن و ڕێگاکانی تری پەیوەندی", "بۆ نموونە: +49 30 123456 یان info@company.com", "نرخ و خزمەتگوزارییە گرنگەکان", "بۆ نموونە: ڕاوێژکاری یەکەم بەخۆڕاییە", "فریاکەوتن و ئامادەباشی", "بۆ نموونە: ژمارەی فریاکەوتن +49 171 123456", "ڕەنگی دیزاینی چات", "شێوەی ئایکۆنی چات", "کەسایەتی چاتبۆت", "ناوی چاتبۆت", "شوێنی چاتبۆت", "لە کاتی سکرۆڵکردن دیار بێت", "کاتێک چالاکە چاتبۆت لە کەناری شاشە دەمێنێتەوە؛ کاتێک ناچالاکە لە کۆتایی پەڕە دەردەکەوێت.", "چاتبۆت ئامادەیە: زانیاری کۆمپانیا خۆکارانە دەخرێتە پێشبینین و ZIP و وێبگەی بڵاوکراوە.", "پێشنیار: کاتەکانی کردنەوە، خزمەتگوزاری، نرخ یان زانیاری فریاکەوتن زیاد بکە."],
+    }
+    labels = copy_by_language.get(language, copy_by_language["en"])
+    st.subheader(labels[0])
+    contact_column, company_column = st.columns(2)
+    with contact_column:
+        st.text_input(
+            labels[1],
+            placeholder=labels[2],
+            key="client_business_email",
+        )
+    with company_column:
+        st.text_input(
+            labels[3],
+            placeholder=labels[4],
+            key="client_company_name",
+        )
+    st.text_input(
+        labels[5],
+        placeholder=labels[6],
+        key="client_company_slogan",
+    )
+    address_labels = {
+        "de": ("Anschrift des Kunden-Unternehmens", "z. B. Musterstraße 1, 10115 Berlin"),
+        "en": ("Customer company address", "e.g. 1 Example Street, London"),
+        "ar": ("عنوان شركة العميل", "مثال: الشارع والرقم والمدينة"),
+        "ku": ("ناونیشانی کۆمپانیای کڕیار", "بۆ نموونە: شەقام، ژمارە و شار"),
+    }.get(language, ("Customer company address", "Street, number, postal code and city"))
+    st.text_input(
+        address_labels[0],
+        placeholder=address_labels[1],
+        key="client_company_address",
+    )
+    contact_details_column, form_column = st.columns(2)
+    with contact_details_column:
+        st.text_input(
+            labels[7],
+            placeholder=labels[8],
+            key="client_business_phone",
+        )
+    with form_column:
+        st.text_input(
+            labels[9],
+            type="password",
+            help=labels[10],
+            key="client_web3forms_access_key",
+        )
+    industry = str(st.session_state.get("industry_content_preset", ""))
+    industry_knowledge = industry if industry in INDUSTRY_CONTENT_PRESETS else labels[12]
+    st.subheader(labels[11], anchor=False)
+    st.info(
+        labels[13].format(industry=industry_knowledge)
+    )
+    st.write(labels[14])
+    hours_column, contact_column = st.columns(2)
+    with hours_column:
+        st.text_input(
+            labels[15],
+            placeholder=labels[16],
+            key="client_chatbot_hours",
+        )
+        st.text_input(
+            labels[17],
+            placeholder=labels[18],
+            key="client_chatbot_contact",
+        )
+    with contact_column:
+        st.text_area(
+            labels[19],
+            placeholder=labels[20],
+            key="client_chatbot_services",
+            height=100,
+        )
+        st.text_input(
+            labels[21],
+            placeholder=labels[22],
+            key="client_chatbot_emergency",
+        )
+    option_copy = {
+        "ar": {"Rund (Kreis)": "دائري", "Eckig mit Rundung": "بحواف مستديرة", "Quadratisch": "مربع", "Freundlicher Roboter": "روبوت ودود", "Salon-Stylistin": "خبيرة تصفيف", "Werkstatt-Profi": "خبير ورشة", "Praxis-Begleitung": "مساعد العيادة", "Gastronomie-Service": "مساعد المطعم", "Shop-Beratung": "مساعد المتجر", "Haus und Dach": "خبير الأسقف", "Restaurant-Service": "خدمة المطعم", "Kanzlei-Beratung": "مستشار قانوني", "Kreativ-Studio": "استوديو إبداعي", "Reinigungs-Service": "خدمة التنظيف", "Unten rechts": "أسفل اليمين", "Unten links": "أسفل اليسار"},
+        "ku": {"Rund (Kreis)": "بازنەیی", "Eckig mit Rundung": "گۆشەی خڕ", "Quadratisch": "چوارگۆشە", "Freundlicher Roboter": "ڕۆبۆتی دۆستانە", "Salon-Stylistin": "پسپۆڕی جوانکاری", "Werkstatt-Profi": "پسپۆڕی وەرشە", "Praxis-Begleitung": "یاریدەدەری کلینیک", "Gastronomie-Service": "یاریدەدەری چێشتخانە", "Shop-Beratung": "ڕاوێژکاری فرۆشگا", "Haus und Dach": "پسپۆڕی سەربان", "Restaurant-Service": "خزمەتگوزاری چێشتخانە", "Kanzlei-Beratung": "ڕاوێژکاری یاسایی", "Kreativ-Studio": "ستۆدیۆی داهێنەرانە", "Reinigungs-Service": "خزمەتگوزاری پاککردنەوە", "Unten rechts": "خوارەوە لای ڕاست", "Unten links": "خوارەوە لای چەپ"},
+    }.get(language, {})
+    display_option = lambda option: option_copy.get(option, option)
+    color_column, shape_column, figure_column, name_column = st.columns(4)
+    with color_column:
+        st.color_picker(
+            labels[23],
+            "#2563EB",
+            key="customer_chatbot_color",
+        )
+    with shape_column:
+        st.selectbox(
+            labels[24],
+            ["Rund (Kreis)", "Eckig mit Rundung", "Quadratisch"],
+            format_func=display_option,
+            key="customer_chatbot_shape",
+        )
+    with figure_column:
+        st.selectbox(
+            labels[25],
+            list(CHATBOT_FIGURE_ICONS),
+            format_func=display_option,
+            key="customer_chatbot_figure",
+        )
+    with name_column:
+        st.text_input(
+            labels[26],
+            key="customer_chatbot_name",
+        )
+    position_column, behavior_column = st.columns(2)
+    with position_column:
+        st.segmented_control(
+            labels[27],
+            ["Unten rechts", "Unten links"],
+            default="Unten rechts",
+            format_func=display_option,
+            key="customer_chatbot_position",
+        )
+    with behavior_column:
+        st.checkbox(
+            labels[28],
+            value=True,
+            key="customer_chatbot_fixed",
+            help=labels[29],
+        )
+    chatbot_knowledge = get_configured_chatbot_knowledge()
+    has_business_knowledge = any(
+        str(st.session_state.get(key, "")).strip()
+        for key in (
+            "client_chatbot_hours",
+            "client_chatbot_contact",
+            "client_chatbot_services",
+            "client_chatbot_emergency",
+        )
+    )
+    if has_business_knowledge:
+        st.success(labels[30])
+    else:
+        st.caption(labels[31])
+
+
+def render_language_selector() -> tuple[dict[str, str], str]:
+    """Leitet Website-Sprache und Leserichtung aus der globalen Sprachwahl ab."""
+    language = str(st.session_state.app_language)
+    if (
+        st.session_state.get("industry_preset_applied")
+        and st.session_state.get("industry_preset_language") != language
+    ):
+        apply_app_language()
+    target_language = TARGET_LANGUAGE_BY_APP_CODE[st.session_state.app_language]
+    st.session_state.target_language = target_language
+    translation_error = str(
+        st.session_state.get("language_translation_error", "")
+    ).strip()
+    if translation_error:
+        st.error(translation_error)
+    return SUPPORTED_LANGUAGES[target_language], target_language
+
+
+def render_template_preview(
+        template_name: str,
+    sections: str,
+        background_color: str,
+        accent_color: str,
+        border_style: str,
+    component_key: str = "clickable_template_editor",
+) -> None:
+    """Zeigt die Vorlage mit allen aktuell eingegebenen Kundendaten."""
+    language = str(st.session_state.app_language)
+    preview_copy = get_template_preview_copy(language)
+    defaults = preview_copy["defaults"]
+    radius = "0px" if border_style == "sharp" else "14px"
+    light_background = is_light_color(background_color)
+    text_color = "#111827" if light_background else "#f8fafc"
+    muted_text_color = "#374151" if light_background else "#cbd5e1"
+    surface_color = "rgba(17,24,39,.06)" if light_background else "rgba(255,255,255,.05)"
+    border_color = "rgba(17,24,39,.18)" if light_background else "rgba(255,255,255,.16)"
+    accent_text_color = contrast_text_color(accent_color)
+    company_name = escape(str(st.session_state.get("client_company_name", "")).strip() or template_name)
+    slogan = escape(
+        str(st.session_state.get("template_hero_heading", "")).strip()
+        or str(st.session_state.get("client_company_slogan", "")).strip()
+        or "Eine Vorlage mit klarer Struktur und Raum für Ihre Inhalte."
+    )
+    description = escape(str(st.session_state.get("template_custom_description", "")).strip() or "Sie ersetzen Unternehmensdaten, Texte und Bilder direkt in dieser Vorlage. Die Gestaltung, Abstände und Inhaltsbereiche bleiben professionell geordnet.")
+    business_email = escape(str(st.session_state.get("client_business_email", "")).strip() or "Ihre Kontakt-E-Mail")
+    phone = escape(str(st.session_state.get("client_business_phone", "")).strip() or "Telefonnummer ergänzen")
+    button_text = escape(
+        str(st.session_state.get("template_button_text", "")).strip()
+        or str(get_template_preview_copy(language)["defaults"][2])
+    )
+    image_file = st.session_state.get("initial_image")
+    image_data_url = ""
+    if image_file is not None:
+        image_type = image_file.type or "image/png"
+        image_data_url = (
+            f"data:{image_type};base64,"
+            f"{base64.b64encode(image_file.getvalue()).decode('ascii')}"
+        )
+
+    def save_clickable_template_changes() -> None:
+        """Übernimmt eine im Klickeditor abgeschlossene Textänderung."""
+        component_state = st.session_state.get(component_key)
+        changes = getattr(component_state, "saved", None)
+        if not isinstance(changes, dict):
+            return
+        fields = {
+            "heading": "template_hero_heading",
+            "description": "template_custom_description",
+            "buttonText": "template_button_text",
+        }
+        for source, target in fields.items():
+            if source in changes:
+                st.session_state[target] = str(changes[source]).strip()
+
+    def show_template_page() -> None:
+        """Übernimmt den Navigationsklick aus der interaktiven Vorlagenvorschau."""
+        component_state = st.session_state.get(component_key)
+        page = getattr(component_state, "navigated", None)
+        if page in {"start", "leistungen", "angebote", "projekte", "ueber_uns", "kontakt"}:
+            st.session_state.template_preview_page = page
+
+    CLICKABLE_TEMPLATE_EDITOR()(
+        key=component_key,
+        data={
+            "language": language,
+            "direction": "rtl" if language in {"ar", "ku"} else "ltr",
+            "copy": preview_copy,
+            "companyName": str(st.session_state.get("client_company_name", "")).strip() or template_name,
+            "heading": str(st.session_state.get("template_hero_heading", "")).strip()
+            or str(st.session_state.get("client_company_slogan", "")).strip()
+            or defaults[0],
+            "description": str(st.session_state.get("template_custom_description", "")).strip()
+            or defaults[1],
+            "buttonText": str(st.session_state.get("template_button_text", "")).strip()
+            or defaults[2],
+            "templateSections": [
+                {
+                    "title": item.partition("|")[0].strip(),
+                    "text": item.partition("|")[2].strip()
+                    or str(st.session_state.get("template_custom_description", "")).strip()
+                    or defaults[4],
+                }
+                for item in str(st.session_state.get("template_sections_text", sections)).replace(",", "\n").splitlines()
+                if item.strip()
+            ],
+            "footerText": str(st.session_state.get("template_footer_text", "")).strip()
+            or f"{company_name} | {business_email} | Impressum | Datenschutz",
+            "chatbotKnowledge": get_configured_chatbot_knowledge(),
+            "chatbotName": str(st.session_state.get("customer_chatbot_name", "")).strip(),
+            "chatbotColor": str(st.session_state.get("customer_chatbot_color", "#2563EB")),
+            "chatbotFigure": CHATBOT_FIGURE_ICONS.get(str(st.session_state.get("customer_chatbot_figure", "")), CHATBOT_FIGURE_ICONS[get_chatbot_design_theme()["figure"]]),
+            "chatbotRadius": {"Rund (Kreis)": "50%", "Eckig mit Rundung": "8px", "Quadratisch": "0"}.get(str(st.session_state.get("customer_chatbot_shape", "Rund (Kreis)")), "50%"),
+            "showCustomerChatbot": component_key == "full_draft_template_preview",
+            "multiPage": st.session_state.get("page_structure") == "Mehrseitige Website",
+            "businessEmail": str(st.session_state.get("client_business_email", "")).strip()
+            or defaults[3],
+            "page": str(st.session_state.get("template_preview_page", "start")),
+            "imageDataUrl": image_data_url,
+            "backgroundColor": background_color,
+            "accentColor": accent_color,
+            "textColor": text_color,
+            "mutedTextColor": muted_text_color,
+            "surfaceColor": surface_color,
+            "borderColor": border_color,
+            "accentTextColor": accent_text_color,
+            "radius": radius,
+        },
+        on_saved_change=save_clickable_template_changes,
+        on_navigated_change=show_template_page,
+    )
+
+
+@st.dialog("Live-Vorschau des Entwurfs", width="large")
+def show_full_draft_preview() -> None:
+    """Öffnet die vollständige, testbare Kundenvorschau vor der Veröffentlichung."""
+    template_name = str(st.session_state.get("template_name", "Professionelle Vorlage"))
+    template = TEMPLATES.get(template_name, {})
+    background_name = str(st.session_state.get("template_background_preset", "Weiß"))
+    render_template_preview(
+        template_name,
+        str(st.session_state.get("template_sections_text", template.get("sections", ""))),
+        BACKGROUND_PRESET_COLORS.get(background_name, "#FFFFFF"),
+        str(st.session_state.get("template_accent_color", "#38BDF8")),
+        str(st.session_state.get("template_border_style", "rounded")),
+        component_key="full_draft_template_preview",
+    )
+    st.caption("Prüfen Sie Inhalte, Navigation, Kontaktangaben und Chatbot. Änderungen werden als Entwurf übernommen.")
+
+
+def render_template_and_design_ui() -> str:
+    """Rendert die Branchenvorlagen fuer einen gefuehrten Website-Entwurf."""
+    language = str(st.session_state.app_language)
+    template_ui_labels = {
+        "de": ["Button-Text in der Vorlage", "z. B. Termin vereinbaren", "Überschrift der Vorlage", "z. B. Ihr Partner für Qualität und Vertrauen", "Beschreibung in der Vorlage", "Beschreiben Sie Angebot, Zielgruppe und Ihre besonderen Stärken.", "Vorlagenabschnitte", "Ein Abschnitt pro Zeile. Optional: Überschrift | Beschreibung.", "Footer-Text", "z. B. Muster GmbH | Impressum | Datenschutz", "Hintergrund-Vorlage"],
+        "en": ["Template button text", "e.g. Book an appointment", "Template heading", "e.g. Your partner for quality and trust", "Template description", "Describe your offer, audience, and key strengths.", "Template sections", "One section per line. Optional: Heading | Description.", "Footer text", "e.g. Example Ltd | Imprint | Privacy", "Background preset"],
+        "ar": ["نص زر القالب", "مثال: احجز موعداً", "عنوان القالب", "مثال: شريكك للجودة والثقة", "وصف القالب", "صف عرضك وجمهورك المستهدف ونقاط قوتك.", "أقسام القالب", "قسم واحد في كل سطر. اختياري: العنوان | الوصف.", "نص التذييل", "مثال: الشركة | بيانات الموقع | الخصوصية", "نمط الخلفية"],
+        "ku": ["دەقی دوگمەی قاڵب", "بۆ نموونە: کاتێک دیاری بکە", "سەردێڕی قاڵب", "بۆ نموونە: هاوبەشی تۆ بۆ کوالێتی و متمانە", "وەسفی قاڵب", "پێشنیار، ئامانج و خاڵە بەهێزەکانت باس بکە.", "بەشەکانی قاڵب", "لە هەر دێڕێکدا بەشێک. ئارەزوومەندانە: سەردێڕ | وەسف.", "دەقی پێپەڕە", "بۆ نموونە: کۆمپانیا | زانیاری یاسایی | نهێنی", "قاڵبی پاشبنەما"],
+    }
+    labels = template_ui_labels.get(language, template_ui_labels["en"])
+    localized_templates = {
+        "en": {
+            "Automobil und KFZ-Gewerbe": ("Automotive and vehicle services", "Dynamic design for dealerships, workshops, and suppliers."),
+            "GmbH und Corporate Unternehmen": ("Corporate business", "Professional and trustworthy B2B design for companies."),
+            "Cafe und Baeckerei": ("Cafe and bakery", "Warm, handcrafted design for cafes and bakeries."),
+            "Restaurant und Gastronomie": ("Restaurant and hospitality", "Elegant, image-led design focused on reservations."),
+            "Formale Agentur oder Kanzlei": ("Agency or professional office", "Refined design for agencies, consultancies, and professional offices."),
+            "Schule und Bildung": ("School and education", "Clear and welcoming design for educational organizations."),
+            "Bibliothek": ("Library", "Organized information design for media, events, and opening hours."),
+            "Supermarkt und Einzelhandel": ("Retail and supermarket", "Practical sales-focused design for products and local services."),
+        },
+        "ar": {
+            "Automobil und KFZ-Gewerbe": ("السيارات وخدمات المركبات", "تصميم ديناميكي لمعارض السيارات والورش والموردين."),
+            "GmbH und Corporate Unternehmen": ("الشركات والمؤسسات", "تصميم مهني موثوق للشركات وخدمات الأعمال."),
+            "Cafe und Baeckerei": ("مقهى ومخبز", "تصميم دافئ وحرفي للمقاهي والمخابز."),
+            "Restaurant und Gastronomie": ("المطاعم والضيافة", "تصميم أنيق يركز على الصور والحجوزات."),
+            "Formale Agentur oder Kanzlei": ("وكالة أو مكتب مهني", "تصميم راقٍ للوكالات والاستشارات والمكاتب المهنية."),
+            "Schule und Bildung": ("المدارس والتعليم", "تصميم واضح ومرحب للمؤسسات التعليمية."),
+            "Bibliothek": ("مكتبة", "تصميم منظم للكتب والفعاليات وساعات العمل."),
+            "Supermarkt und Einzelhandel": ("التجزئة والسوبرماركت", "تصميم عملي يركز على المنتجات والخدمات المحلية."),
+        },
+        "ku": {
+            "Automobil und KFZ-Gewerbe": ("ئۆتۆمبێل و خزمەتگوزاری ئۆتۆمبێل", "دیزاینێکی جووڵاو بۆ پێشانگا و وەرشە و دابینکەرانی ئۆتۆمبێل."),
+            "GmbH und Corporate Unternehmen": ("کۆمپانیا و دامەزراوە", "دیزاینێکی پیشەیی و متمانەپێکراو بۆ کۆمپانیاکان."),
+            "Cafe und Baeckerei": ("کافێ و نانەواخانە", "دیزاینێکی گەرم و دەستکرد بۆ کافێ و نانەواخانە."),
+            "Restaurant und Gastronomie": ("چێشتخانە و میوانداری", "دیزاینێکی جوان بە گرنگیدان بە وێنە و حجزکردن."),
+            "Formale Agentur oder Kanzlei": ("ئاژانس یان نووسینگەی پیشەیی", "دیزاینێکی ڕێک بۆ ئاژانس و ڕاوێژکاری و نووسینگە پیشەییەکان."),
+            "Schule und Bildung": ("قوتابخانە و پەروەردە", "دیزاینێکی ڕوون و بەخێرهێنەر بۆ دامەزراوە پەروەردەییەکان."),
+            "Bibliothek": ("کتێبخانە", "دیزاینێکی ڕێکخراو بۆ کتێب و چالاکی و کاتەکانی کردنەوە."),
+            "Supermarkt und Einzelhandel": ("فرۆشتنی تاک و سوپەرمارکێت", "دیزاینێکی کرداری بۆ بەرهەم و خزمەتگوزاری ناوخۆییەکان."),
+        },
+    }.get(language, {})
+    section_defaults = {
+        "de": "Unsere Leistungen | Passende Lösungen für Ihr Anliegen.\nPersönliche Beratung | Wir nehmen uns Zeit für Ihre Fragen.\nKontakt | Sprechen Sie direkt mit unserem Team.",
+        "en": "Our services | Solutions tailored to your needs.\nPersonal consultation | We take time to answer your questions.\nContact | Speak directly with our team.",
+        "ar": "خدماتنا | حلول مناسبة لاحتياجاتك.\nاستشارة شخصية | نخصص الوقت للإجابة عن أسئلتك.\nاتصل بنا | تحدث مباشرة مع فريقنا.",
+        "ku": "خزمەتگوزارییەکانمان | چارەسەری گونجاو بۆ پێداویستییەکانت.\nڕاوێژکاری تایبەت | کات بۆ پرسیارەکانت تەرخان دەکەین.\nپەیوەندی | ڕاستەوخۆ لەگەڵ تیمەکەمان قسە بکە.",
+    }
+    background_labels = {
+        "en": {"Weiß": "White", "Schwarz": "Black", "Dunkel": "Dark", "Hellgrau": "Light gray"},
+        "ar": {"Weiß": "أبيض", "Schwarz": "أسود", "Dunkel": "داكن", "Hellgrau": "رمادي فاتح"},
+        "ku": {"Weiß": "سپی", "Schwarz": "ڕەش", "Dunkel": "تاریک", "Hellgrau": "خۆڵەمێشی کاڵ"},
+    }.get(language, {})
+    st.subheader(f"3. {t('template')}")
+    selected_language, language_name = render_language_selector()
+    st.caption(f"{t('target_language')}: {language_name}")
+
+    template_column, design_column = st.columns(2)
+    with template_column:
+        display_template = lambda name: localized_templates.get(name, (name, ""))[0]
+        selected_template_name = st.selectbox(
+            t("choose_industry"),
+            list(TEMPLATES),
+            format_func=lambda name: f"{TEMPLATES[name]['icon']} {display_template(name)}",
+            key="template_name",
+        )
+        current_template = TEMPLATES[selected_template_name]
+        template_display_name, template_description = localized_templates.get(
+            selected_template_name,
+            (selected_template_name, current_template["description"]),
+        )
+        st.info(template_description)
+
+    if st.session_state.get("template_preview_template") != selected_template_name:
+        st.session_state.template_preview_template = selected_template_name
+        st.session_state.template_preview_page = "start"
+
+    with design_column:
+        background_presets = st.segmented_control(
+            labels[10],
+            list(BACKGROUND_PRESET_COLORS),
+            default="Weiß",
+            format_func=lambda option: background_labels.get(option, option),
+            key="template_background_preset",
+            on_change=apply_background_preset,
+        )
+        preset_background_color = BACKGROUND_PRESET_COLORS[background_presets]
+        st.color_picker(
+            f"{t('background_color')} ({background_labels.get(background_presets, background_presets)})",
+            preset_background_color,
+            key=f"template_preset_background_{background_presets}",
+            disabled=True,
+            help=t("background_color"),
+        )
+        background_color = preset_background_color
+        accent_color = st.color_picker(
+            t("accent_color"),
+            "#38BDF8",
+            key="template_accent_color",
+        )
+        border_style = st.segmented_control(
+            t("corner_style"),
+            ["rounded", "sharp"],
+            default="rounded",
+            format_func=lambda option: t(option),
+            key="template_border_style",
+        )
+
+    st.text_input(
+        labels[0],
+        placeholder=labels[1],
+        key="template_button_text",
+        help=t("live_preview"),
+    )
+    content_columns = st.columns(2)
+    with content_columns[0]:
+        st.text_input(
+            labels[2],
+            placeholder=labels[3],
+            key="template_hero_heading",
+        )
+    with content_columns[1]:
+        st.text_area(
+            labels[4],
+            placeholder=labels[5],
+            key="template_custom_description",
+            height=100,
+        )
+
+    st.text_area(
+        labels[6],
+        value=str(st.session_state.get("template_sections_text", section_defaults.get(language, current_template["sections"]))),
+        help=labels[7],
+        key="template_sections_text",
+        height=150,
+    )
+    st.text_input(
+        labels[8],
+        value=str(st.session_state.get("template_footer_text", "")),
+        placeholder=labels[9],
+        key="template_footer_text",
+    )
+
+    render_template_preview(
+        template_display_name,
+        section_defaults.get(language, current_template["sections"]),
+        background_color,
+        accent_color,
+        border_style,
+    )
+
+    radius_class = "rounded-none" if border_style == "sharp" else "rounded-2xl"
+    description = str(st.session_state.get("template_custom_description", "")).strip()
+    dir_attribute = (
+        f'dir="{selected_language["dir"]}" '
+        f'lang="{selected_language["code"]}"'
+    )
+    return f"""
+Erstelle eine professionelle Website fuer die Branche: {selected_template_name}.
+Kundenbeschreibung: {description or 'Ein professioneller Auftritt fuer diese Branche.'}
+
+DESIGN-VORGABEN:
+- Generiere die gesamte Website vollstaendig in der Sprache: {language_name}.
+- Das Haupt-HTML-Tag MUSS exakt so strukturiert sein: <html {dir_attribute}>.
+- Richte bei dir="rtl" Navigation, Texte, Formulare und Flex-Layouts gespiegelt aus.
+- Verwende bei dir="rtl" fuer Text die Tailwind-Klasse text-right.
+- Hintergrundfarbe: {background_color}
+- Akzentfarbe fuer Buttons und Highlights: {accent_color}
+- Stil-Richtung: {current_template['style_hint']}
+- EMPFOHLENE BRANCHENABSCHNITTE: {current_template['sections']}.
+- Die vom Kunden ausgewählten Abschnitte im Nutzerauftrag sind verbindlich. Entwickle
+    sie als vollständig ausgearbeitete Bereiche mit passenden Überschriften, konkreten
+    Inhalten und sichtbaren Handlungsaufrufen.
+- Verwende fuer Boxen, Bilder und Buttons die Tailwind-Klasse {radius_class}.
+- Erstelle eine hochwertige, eigenstaendige Markenwebsite. Vermeide Standard-Layouts,
+    Lorem Ipsum, erfundene Bewertungen, Stockbild-Links, Platzhalter und sichtbare
+    technische Hinweise.
+- Beginne mit einer klaren, responsiven Kopfzeile mit Logo-Text, Navigation und einem
+    primären Handlungsaufruf. Ergänze einen aussagekräftigen Hero-Bereich mit konkreter
+    Nutzenbotschaft, zwei Handlungsaufrufen und einer passenden visuellen Komposition.
+- Baue danach mindestens drei klar unterscheidbare Inhaltsbereiche aus: Kernleistungen,
+    einen vertrauensbildenden Bereich mit Arbeitsweise oder Kennzahlen sowie einen
+    branchenspezifischen Bereich mit konkretem Nutzen für Besucher.
+- Nutze eine eindeutige visuelle Hierarchie mit großzügigen Abständen, kontrastreicher
+    Typografie, zugänglichen Fokuszuständen und gut lesbaren Textgrößen. Die Website muss
+    auf Mobilgeräten, Tablets und großen Bildschirmen ohne Überlappungen funktionieren.
+- Verwende nur hochwertige CSS-Details: dezente Übergänge, konsistente Schatten und
+    gezielte Akzentflächen. Verzichte auf überladene Animationen, Farbverläufe als Ersatz
+    für Inhalte und unruhige Dekoration.
+- Ergänze eine finale Kontaktsektion mit der Kunden-E-Mail-Adresse, Öffnungszeiten oder
+    sinnvoller Erreichbarkeit sowie einen vollständigen Footer mit Impressum und Datenschutz.
+- Erzeuge vollständiges, semantisches und valides HTML. Alle Navigationseinträge und
+    Handlungsaufrufe müssen auf vorhandene Seitenbereiche oder sinnvolle Ziel-Links zeigen.
+- ABNAHMEKRITERIEN: Liefere mindestens diese Abschnitte mit passenden IDs: `#hero`,
+    `#services`, `#about`, `#highlights`, `#contact` und `#footer`. Erstelle mindestens
+    drei konkrete Leistungen und drei branchenspezifische Vorteile. Jeder Abschnitt braucht
+    eine eigene Überschrift, aussagekräftige Texte und eine professionelle Gestaltung.
+- Prüfe vor der Antwort, dass die Kunden-E-Mail-Adresse im Kontaktbereich und Footer als
+    sichtbarer `mailto:`-Link vorkommt. Antworte erst danach mit dem vollständigen
+    HTML-Dokument.
+"""
+
+
+def render_section_configuration() -> str:
+    """Erfasst den gewünschten Umfang und die Kerninhalte eines Entwurfs."""
+    form_copy = get_creation_form_copy()
+    labels = form_copy["labels"]
+    section_labels = form_copy["sections"]
+    st.subheader(labels[0])
+    selected_sections = st.multiselect(
+        labels[1],
+        [
+            "Hero und Willkommensbereich",
+            "Über uns",
+            "Leistungen oder Produkte",
+            "Galerie oder Projekte",
+            "Kundenstimmen oder Referenzen",
+            "Kontakt und Erreichbarkeit",
+        ],
+        default=[
+            "Hero und Willkommensbereich",
+            "Über uns",
+            "Leistungen oder Produkte",
+            "Kontakt und Erreichbarkeit",
+        ],
+        key="selected_website_sections",
+        format_func=lambda section: section_labels.get(section, section),
+    )
+    if not selected_sections:
+        st.warning(labels[2])
+
+    details: list[str] = []
+    if "Hero und Willkommensbereich" in selected_sections:
+        with st.expander(section_labels["Hero und Willkommensbereich"], expanded=True):
+            title = st.text_input(labels[3], key="section_hero_title")
+            subtitle = st.text_area(labels[4], key="section_hero_subtitle")
+            details.append(f"Hero: Titel '{title}', Untertitel '{subtitle}'.")
+    if "Über uns" in selected_sections:
+        with st.expander(section_labels["Über uns"]):
+            about = st.text_area(labels[5], key="section_about_text")
+            details.append(f"Über uns: {about}")
+    if "Leistungen oder Produkte" in selected_sections:
+        with st.expander(section_labels["Leistungen oder Produkte"]):
+            services = st.text_area(
+                labels[6],
+                key="section_services",
+            )
+            details.append(f"Leistungen oder Produkte: {services}")
+    if "Galerie oder Projekte" in selected_sections:
+        with st.expander(section_labels["Galerie oder Projekte"]):
+            projects = st.text_area(labels[7], key="section_projects")
+            details.append(f"Galerie oder Projekte: {projects}")
+    if "Kundenstimmen oder Referenzen" in selected_sections:
+        with st.expander(section_labels["Kundenstimmen oder Referenzen"]):
+            references = st.text_area(labels[8], key="section_references")
+            details.append(f"Kundenstimmen oder Referenzen: {references}")
+
+    return (
+        "AUSGEWÄHLTE PFLICHTABSCHNITTE:\n- "
+        + "\n- ".join(selected_sections)
+        + "\n\nKUNDENINHALTE FÜR DIE ABSCHNITTE:\n"
+        + "\n".join(details)
+    )
+
+
+def render_editor() -> None:
+    """Rendert den kombinierten Design- und Abschnittseditor."""
+    language = str(st.session_state.app_language)
+    copy_by_language = {
+        "de": ["Live-Design und Abschnittseditor", "Hintergrundfarbe", "Akzentfarbe für Buttons", "Bereich bearbeiten", "Änderungswunsch für '{section}'", "Zum Beispiel: Ändern Sie die Hintergrundfarbe dieses Bereichs oder fügen Sie ein Bild hinzu.", "Abschnitt aktualisieren", "Bitte beschreiben Sie die gewünschte Änderung.", "Abschnitt wird aktualisiert ...", "Abschnitt wurde aktualisiert.", "Aktualisierung fehlgeschlagen"],
+        "en": ["Live design and section editor", "Background color", "Button accent color", "Edit section", "Requested change for '{section}'", "For example: Change this section's background color or add an image.", "Update section", "Please describe the requested change.", "Updating section ...", "Section updated.", "Update failed"],
+        "ar": ["التصميم المباشر ومحرر الأقسام", "لون الخلفية", "لون تمييز الأزرار", "تعديل القسم", "التغيير المطلوب لقسم «{section}»", "مثال: غيّر لون خلفية هذا القسم أو أضف صورة.", "تحديث القسم", "يرجى وصف التغيير المطلوب.", "جارٍ تحديث القسم...", "تم تحديث القسم.", "فشل التحديث"],
+        "ku": ["دیزاینی ڕاستەوخۆ و دەستکاریکەری بەشەکان", "ڕەنگی پاشبنەما", "ڕەنگی دوگمەکان", "دەستکاریکردنی بەش", "گۆڕانکاریی داواکراو بۆ «{section}»", "بۆ نموونە: ڕەنگی پاشبنەمای ئەم بەشە بگۆڕە یان وێنەیەک زیاد بکە.", "نوێکردنەوەی بەش", "تکایە گۆڕانکاریی داواکراو ڕوون بکەرەوە.", "بەشەکە نوێ دەکرێتەوە...", "بەشەکە نوێ کرایەوە.", "نوێکردنەوە سەرکەوتوو نەبوو"],
+        "es": ["Diseño en vivo y editor de secciones", "Color de fondo", "Color de acento de los botones", "Editar sección", "Cambio solicitado para «{section}»", "Por ejemplo: Cambia el color de fondo de esta sección o añade una imagen.", "Actualizar sección", "Describe el cambio solicitado.", "Actualizando la sección...", "Sección actualizada.", "Error al actualizar"],
+        "it": ["Design dal vivo ed editor delle sezioni", "Colore di sfondo", "Colore principale dei pulsanti", "Modifica sezione", "Modifica richiesta per «{section}»", "Ad esempio: cambia il colore di sfondo di questa sezione o aggiungi un'immagine.", "Aggiorna sezione", "Descrivi la modifica richiesta.", "Aggiornamento della sezione...", "Sezione aggiornata.", "Aggiornamento non riuscito"],
+        "hi": ["लाइव डिज़ाइन और अनुभाग संपादक", "पृष्ठभूमि रंग", "बटन एक्सेंट रंग", "अनुभाग संपादित करें", "‘{section}’ के लिए अनुरोधित बदलाव", "उदाहरण: इस अनुभाग का पृष्ठभूमि रंग बदलें या चित्र जोड़ें।", "अनुभाग अपडेट करें", "कृपया अनुरोधित बदलाव का वर्णन करें।", "अनुभाग अपडेट हो रहा है...", "अनुभाग अपडेट हो गया।", "अपडेट विफल रहा"],
+    }
+    section_copy = {
+        "de": ["Hero", "Über mich", "Fähigkeiten und Services", "Projekte", "Kontakt und Footer"],
+        "en": ["Hero", "About", "Skills and services", "Projects", "Contact and footer"],
+        "ar": ["الواجهة الرئيسية", "من نحن", "المهارات والخدمات", "المشاريع", "الاتصال والتذييل"],
+        "ku": ["بەشی سەرەکی", "دەربارە", "توانا و خزمەتگوزارییەکان", "پڕۆژەکان", "پەیوەندی و پێپەڕە"],
+        "es": ["Portada", "Sobre nosotros", "Habilidades y servicios", "Proyectos", "Contacto y pie de página"],
+        "it": ["Sezione principale", "Chi siamo", "Competenze e servizi", "Progetti", "Contatti e piè di pagina"],
+        "hi": ["मुख्य अनुभाग", "हमारे बारे में", "कौशल और सेवाएं", "परियोजनाएं", "संपर्क और पादलेख"],
+    }
+    labels = copy_by_language.get(language, copy_by_language["en"])
+    section_labels = dict(zip(section_copy["de"], section_copy.get(language, section_copy["en"])))
+    st.subheader(labels[0])
+
+    color_columns = st.columns(2)
+    with color_columns[0]:
+        background_color = st.color_picker(
+            labels[1],
+            "#111827",
+            key="editor_background_color",
+        )
+    with color_columns[1]:
+        accent_color = st.color_picker(
+            labels[2],
+            "#38BDF8",
+            key="editor_accent_color",
+        )
+
+    section = st.selectbox(
+        labels[3],
+        [
+            "Hero",
+            "Ueber mich",
+            "Faehigkeiten und Services",
+            "Projekte",
+            "Kontakt und Footer",
+        ],
+        format_func=lambda option: section_labels.get(option, option),
+        key="editor_section",
+    )
+    instructions = st.text_area(
+        labels[4].format(section=section_labels.get(section, section)),
+        placeholder=labels[5],
+        key="editor_instructions",
+        height=130,
+    )
+
+    if st.button(
+        labels[6],
+        icon=":material/refresh:",
+        type="primary",
+        key="update_live_editor_section",
+        width="stretch",
+    ):
+        if not instructions or not instructions.strip():
+            st.warning(labels[7])
+            return
+
+        with st.status(labels[8], expanded=True) as status:
+            try:
+                modify_current_website(
+                    f"Aendere ausschliesslich den Bereich '{section}' basierend auf: "
+                    f"{instructions.strip()}. Beachte das globale Farbschema: "
+                    f"Hintergrund {background_color}, Akzent {accent_color}."
+                )
+                status.update(label=labels[9], state="complete")
+                st.rerun()
+            except Exception as error:
+                status.update(label=labels[10], state="error")
+                st.error(str(error))
+
+
+def render_direct_content_editor() -> None:
+    """Rendert direkte, kontrollierte Bearbeitungen für typische Website-Bausteine."""
+    st.subheader("Direkt bearbeiten")
+    st.caption(
+        "Laden Sie ein Bild per Klick oder Drag-and-drop hoch, bearbeiten Sie Texte und "
+        "konfigurieren Sie den primären Button. Änderungen werden sofort in die Vorschau übernommen."
+    )
+
+    with st.expander("Visueller Editor: Header, Inhalte und Bild", expanded=False):
+        header_column, footer_column = st.columns(2)
+        with header_column:
+            visual_company_name = st.text_input(
+                "Firmenname im Header",
+                value=str(st.session_state.get("client_company_name", "")),
+                key="visual_editor_company_name",
+            )
+        with footer_column:
+            visual_footer_text = st.text_input(
+                "Footer-Text",
+                value=str(st.session_state.get("template_footer_text", "")),
+                key="visual_editor_footer_text",
+            )
+        visual_heading = st.text_input(
+            "Hauptüberschrift",
+            value=str(st.session_state.get("template_hero_heading", "")),
+            key="visual_editor_heading",
+        )
+        visual_description = st.text_area(
+            "Hauptinhalt",
+            value=str(st.session_state.get("template_custom_description", "")),
+            key="visual_editor_description",
+            height=120,
+        )
+        visual_image = st.file_uploader(
+            "Hauptbild ersetzen",
+            type=["png", "jpg", "jpeg", "webp"],
+            key="visual_editor_image",
+        )
+        if st.button(
+            "Änderungen in Vorschau übernehmen",
+            icon=":material/save:",
+            type="primary",
+            key="apply_visual_editor_changes",
+            width="stretch",
+        ):
+            change_request = (
+                "Aktualisiere ausschließlich diese sichtbaren Website-Inhalte. "
+                f"Firmenname im Header und Footer: {visual_company_name.strip()}. "
+                f"Hauptüberschrift: {visual_heading.strip()}. "
+                f"Hauptinhalt: {visual_description.strip()}. "
+                f"Footer-Text: {visual_footer_text.strip()}."
+            )
+            if visual_image is not None:
+                image_name = save_uploaded_image(visual_image, "visueller-editor")
+                change_request += f' Verwende als Hauptbild: <img src="{image_name}" alt="Hauptbild">.'
+            with st.status("Änderungen werden übernommen ...", expanded=True) as status:
+                try:
+                    modify_current_website(change_request)
+                    status.update(label="Vorschau wurde aktualisiert.", state="complete")
+                    st.rerun()
+                except Exception as error:
+                    status.update(label="Aktualisierung fehlgeschlagen", state="error")
+                    st.error(str(error))
+
+    layout_side = st.radio(
+        "Bild und Text anordnen",
+        ["Bild links, Text rechts", "Text links, Bild rechts"],
+        horizontal=True,
+        key="direct_editor_layout_side",
+    )
+    first_column, second_column = st.columns(2)
+    image_column, text_column = (
+        (first_column, second_column)
+        if layout_side.startswith("Bild")
+        else (second_column, first_column)
+    )
+
+    with image_column:
+        st.markdown("**Bildplatzhalter ersetzen**")
+        replacement_image = st.file_uploader(
+            "Bild klicken oder hier ablegen",
+            type=["png", "jpg", "jpeg", "webp"],
+            key="direct_placeholder_image",
+            help="Das hochgeladene Bild ersetzt sofort das erste Bild im aktuellen Entwurf.",
+        )
+        if st.button(
+            "Bild live ersetzen",
+            icon=":material/image:",
+            disabled=replacement_image is None,
+            key="replace_direct_placeholder_image",
+            width="stretch",
+        ):
+            image_name = save_uploaded_image(replacement_image, "direkter-bildplatzhalter")
+            st.session_state.generated_html = replace_first_image_source(
+                st.session_state.generated_html, image_name, "Website-Bild"
+            )
+            st.session_state.html_editor = st.session_state.generated_html
+            st.success("Das Bild wurde in der Vorschau ersetzt.")
+            st.rerun()
+
+    with text_column:
+        st.markdown("**Textstelle bearbeiten**")
+        previous_text = st.text_input(
+            "Bisheriger Text in der Website",
+            placeholder="z. B. Ihr Angebot entdecken",
+            key="direct_previous_text",
+        )
+        edited_text = st.text_area(
+            "Neuer Text (leer lassen zum Löschen)",
+            placeholder="Schreiben Sie hier den neuen Text oder lassen Sie das Feld leer.",
+            key="direct_edited_text",
+            height=100,
+        )
+        optimize_column, apply_column = st.columns(2)
+        with optimize_column:
+            if st.button(
+                "Text durch KI optimieren",
+                icon=":material/auto_awesome:",
+                disabled=not edited_text.strip(),
+                key="optimize_direct_text",
+                width="stretch",
+            ):
+                with st.status("Text wird professionell optimiert ...", expanded=True) as status:
+                    try:
+                        st.session_state.direct_optimized_text = optimize_editor_text(edited_text)
+                        status.update(label="Optimierter Text ist bereit.", state="complete")
+                    except ValueError as error:
+                        status.update(label="Optimierung fehlgeschlagen", state="error")
+                        st.error(str(error))
+        with apply_column:
+            if st.button(
+                "Text übernehmen",
+                icon=":material/save:",
+                disabled=not previous_text.strip(),
+                key="apply_direct_text",
+                width="stretch",
+            ):
+                try:
+                    st.session_state.generated_html = replace_visible_text(
+                        st.session_state.generated_html, previous_text, edited_text
+                    )
+                    st.session_state.html_editor = st.session_state.generated_html
+                    st.success("Die Textstelle wurde aktualisiert.")
+                    st.rerun()
+                except ValueError as error:
+                    st.error(str(error))
+
+        optimized_text = str(st.session_state.get("direct_optimized_text", "")).strip()
+        if optimized_text:
+            st.code(optimized_text, language=None)
+
+    st.divider()
+    with st.popover("Button konfigurieren", icon=":material/smart_button:", width="stretch"):
+        button_target = st.radio(
+            "Beim Klick auf den primären Button",
+            ["Externe Website öffnen", "Angebots-Unterseite öffnen"],
+            key="direct_button_target_type",
+        )
+        external_url = ""
+        if button_target == "Externe Website öffnen":
+            external_url = st.text_input(
+                "Externer Link", placeholder="https://www.beispiel.de", key="direct_button_url"
+            )
+        if st.button("Button-Ziel übernehmen", type="primary", key="apply_direct_button_target", width="stretch"):
+            target_url = external_url.strip() if external_url.strip() else "#angebote"
+            if button_target == "Externe Website öffnen" and not re.fullmatch(r"https?://[^\s]+", target_url):
+                st.error("Bitte geben Sie eine gültige externe Adresse mit https:// ein.")
+            else:
+                updated_html, replacements = re.subn(
+                    r"(?i)(<a\b[^>]*href=[\"'])#[^\"']*([\"'][^>]*>)",
+                    rf"\1{target_url}\2",
+                    st.session_state.generated_html,
+                    count=1,
+                )
+                if not replacements:
+                    st.error("Im Entwurf wurde kein konfigurierbarer Button-Link gefunden.")
+                else:
+                    st.session_state.generated_html = updated_html
+                    st.session_state.html_editor = updated_html
+                    st.success("Das Button-Ziel wurde aktualisiert.")
+                    st.rerun()
+
+    st.subheader("Angebots-Unterseite", anchor=False)
+    st.caption("Ergänzt eine professionelle Angebotssektion mit Karten, Preis und Anfrage-Button.")
+    offer_columns = st.columns(3)
+    with offer_columns[0]:
+        offer_name = st.text_input("Angebot oder Service", key="offer_page_name", placeholder="Inspektion und Service")
+    with offer_columns[1]:
+        offer_price = st.text_input("Preis oder Hinweis", key="offer_page_price", placeholder="ab 99 EUR")
+    with offer_columns[2]:
+        offer_details = st.text_input("Kurzer Nutzen", key="offer_page_details", placeholder="Transparent, schnell und zuverlässig")
+    if st.button(
+        "Angebots-Unterseite erstellen",
+        icon=":material/add_circle:",
+        key="create_offer_page",
+        width="stretch",
+    ):
+        if 'id="angebote"' in st.session_state.generated_html:
+            st.warning("Eine Angebots-Unterseite ist bereits vorhanden.")
+        else:
+            offer_section = build_offer_page_section(offer_name, offer_price, offer_details)
+            st.session_state.generated_html = re.sub(
+                r"(?i)</body\s*>", f"{offer_section}</body>", st.session_state.generated_html, count=1
+            )
+            st.session_state.html_editor = st.session_state.generated_html
+            st.success("Die Angebots-Unterseite wurde zur Website ergänzt.")
+            st.rerun()
+
+
+def render_mcp_content_tools_ui() -> None:
+    """Rendert MCP-Aktionen für die Struktur und SEO des aktuellen Entwurfs."""
+    language = str(st.session_state.app_language)
+    copy = {
+        "de": ["MCP-Inhaltswerkzeuge", "Erweitern oder optimieren Sie den aktuellen Entwurf. Die Änderung wird erst mit Veröffentlichung live.", "Erstellen oder laden Sie zuerst einen Website-Entwurf.", "Bereich ergänzen", "Kundenbewertungen", "Häufige Fragen", "Kontaktaufruf", "Bereich per MCP einfügen", "{section} wurde in den Entwurf eingefügt.", "SEO für Google optimieren", "SEO-Daten wurden im Entwurf aktualisiert."],
+        "en": ["MCP content tools", "Extend or optimize the current draft. Changes only go live when published.", "Create or load a website draft first.", "Add section", "Customer reviews", "Frequently asked questions", "Contact call to action", "Insert section with MCP", "{section} was added to the draft.", "Optimize SEO for Google", "SEO data was updated in the draft."],
+        "ar": ["أدوات محتوى MCP", "وسّع المسودة الحالية أو حسّنها. لا تظهر التغييرات للعامة إلا بعد النشر.", "أنشئ مسودة موقع أو حمّلها أولاً.", "إضافة قسم", "آراء العملاء", "الأسئلة الشائعة", "دعوة للتواصل", "إضافة القسم باستخدام MCP", "تمت إضافة قسم «{section}» إلى المسودة.", "تحسين SEO لمحرك Google", "تم تحديث بيانات SEO في المسودة."],
+        "ku": ["ئامرازەکانی ناوەڕۆکی MCP", "ڕەشنووسەکە فراوان یان باشتر بکە. گۆڕانکارییەکان تەنها دوای بڵاوکردنەوە دەردەکەون.", "سەرەتا ڕەشنووسی وێبگەیەک دروست بکە یان باری بکە.", "زیادکردنی بەش", "هەڵسەنگاندنی کڕیاران", "پرسیارە باوەکان", "بانگهێشتی پەیوەندی", "زیادکردنی بەش بە MCP", "بەشی «{section}» زیاد کرا بۆ ڕەشنووسەکە.", "باشترکردنی SEO بۆ Google", "زانیاری SEO لە ڕەشنووسەکە نوێ کرایەوە."],
+    }.get(language)
+    if copy is None:
+        copy = ["MCP content tools", "Extend or optimize the current draft. Changes only go live when published.", "Create or load a website draft first.", "Add section", "Customer reviews", "Frequently asked questions", "Contact call to action", "Insert section with MCP", "{section} was added to the draft.", "Optimize SEO for Google", "SEO data was updated in the draft."]
+    st.subheader(copy[0], anchor=False)
+    st.caption(copy[1])
+    if not st.session_state.generated_html:
+        st.info(copy[2])
+        return
+
+    section_column, seo_column = st.columns(2)
+    with section_column:
+        section_options = {
+            copy[4]: "testimonials",
+            copy[5]: "faq",
+            copy[6]: "call_to_action",
+        }
+        selected_section_label = st.selectbox(
+            copy[3],
+            list(section_options),
+            key="mcp_section_type",
+        )
+        if st.button(
+            copy[7],
+            icon=":material/add_circle:",
+            key="mcp_insert_section",
+            width="stretch",
+        ):
+            try:
+                updated_html = update_draft_with_mcp_tool(
+                    "inject_section_into_html",
+                    {
+                        "html": st.session_state.generated_html,
+                        "section_type": section_options[selected_section_label],
+                        "language": language,
+                    },
+                )
+                queue_html_update(updated_html)
+                st.success(copy[8].format(section=selected_section_label))
+                st.rerun()
+            except ValueError as error:
+                st.error(str(error))
+    with seo_column:
+        if st.button(
+            copy[9],
+            icon=":material/travel_explore:",
+            key="mcp_optimize_seo",
+            width="stretch",
+        ):
+            try:
+                updated_html = update_draft_with_mcp_tool(
+                    "optimize_seo_and_content",
+                    {
+                        "html": st.session_state.generated_html,
+                        "industry": str(st.session_state.get("industry_content_preset", "")),
+                        "company_name": str(st.session_state.get("client_company_name", "")),
+                        "language": language,
+                    },
+                )
+                queue_html_update(updated_html)
+                st.success(copy[10])
+                st.rerun()
+            except ValueError as error:
+                st.error(str(error))
+
+
+def render_domain_and_deployment_ui() -> None:
+    """Rendert die Premium-geschuetzte Konfiguration fuer die Vercel-Veröffentlichung."""
+    labels = publish_copy()
+    language = str(st.session_state.app_language)
+    domain_copy_by_language = {
+        "de": ["Live-Vorschau des Entwurfs öffnen", "Wunschadresse festlegen", "Wählen Sie die Adresse für Ihre Website, bevor Sie das Abonnement abschließen.", "Adresse wählen", "Vercel-Projektadresse", "Eigene Domain verbinden", "Name für die Vercel-Projektadresse", "z. B. autohaus-mueller", "Vercel vergibt die endgültige .vercel.app-Adresse beim Deployment.", "Geplante Adresse: {address}", "Sie können Ihre Website jetzt live schalten."],
+        "en": ["Open live draft preview", "Choose your preferred address", "Choose the address for your website before completing the subscription.", "Choose address", "Vercel project address", "Connect your own domain", "Name for the Vercel project address", "e.g. example-company", "Vercel assigns the final .vercel.app address during deployment.", "Planned address: {address}", "You can publish your website now."],
+        "ar": ["فتح المعاينة المباشرة للمسودة", "تحديد العنوان المطلوب", "اختر عنوان موقعك قبل إكمال الاشتراك.", "اختيار العنوان", "عنوان مشروع Vercel", "ربط نطاقك الخاص", "اسم عنوان مشروع Vercel", "مثال: example-company", "يحدد Vercel عنوان .vercel.app النهائي عند النشر.", "العنوان المخطط: {address}", "يمكنك نشر موقعك الآن."],
+        "ku": ["کردنەوەی پێشبینینی ڕاستەوخۆی ڕەشنووس", "دیاریکردنی ناونیشانی دڵخواز", "پێش تەواوکردنی بەشداریکردن ناونیشانی وێبگەکەت هەڵبژێرە.", "هەڵبژاردنی ناونیشان", "ناونیشانی پڕۆژەی Vercel", "بەستنەوەی دۆمەینی خۆت", "ناوی ناونیشانی پڕۆژەی Vercel", "بۆ نموونە: example-company", "Vercel لە کاتی بڵاوکردنەوە ناونیشانی کۆتایی .vercel.app دیاری دەکات.", "ناونیشانی پلانکراو: {address}", "ئێستا دەتوانیت وێبگەکەت بڵاوبکەیتەوە."],
+        "es": ["Abrir vista previa del borrador", "Definir la dirección deseada", "Elija la dirección de su sitio antes de completar la suscripción.", "Elegir dirección", "Dirección del proyecto Vercel", "Conectar dominio propio", "Nombre de la dirección del proyecto Vercel", "p. ej. empresa-ejemplo", "Vercel asigna la dirección .vercel.app definitiva durante la publicación.", "Dirección prevista: {address}", "Ya puede publicar su sitio web."],
+        "it": ["Apri l'anteprima della bozza", "Imposta l'indirizzo desiderato", "Scegliete l'indirizzo del sito prima di completare l'abbonamento.", "Scegli indirizzo", "Indirizzo del progetto Vercel", "Collega il tuo dominio", "Nome dell'indirizzo del progetto Vercel", "ad es. azienda-esempio", "Vercel assegna l'indirizzo .vercel.app definitivo durante la pubblicazione.", "Indirizzo previsto: {address}", "Ora potete pubblicare il sito."],
+        "hi": ["प्रारूप का लाइव पूर्वावलोकन खोलें", "पसंदीदा पता निर्धारित करें", "सदस्यता पूरी करने से पहले अपनी वेबसाइट का पता चुनें।", "पता चुनें", "Vercel परियोजना पता", "अपना डोमेन जोड़ें", "Vercel परियोजना पते का नाम", "उदा. example-company", "प्रकाशन के समय Vercel अंतिम .vercel.app पता निर्धारित करता है।", "नियोजित पता: {address}", "अब आप अपनी वेबसाइट प्रकाशित कर सकते हैं।"],
+    }
+    domain_labels = domain_copy_by_language.get(language, domain_copy_by_language["en"])
+    domain_options = ["Vercel-Projektadresse", "Eigene Domain verbinden"]
+    domain_option_labels = dict(zip(domain_options, domain_labels[4:6]))
+    action_copy_by_language = {
+        "de": ["Veröffentlichung mit Chatbot", "Das Paket enthält den aktuellen Website-Entwurf einschließlich des konfigurierten Chatbots.", "Vercel-ZIP-Paket mit Chatbot generieren", "Website-Paket wird erstellt ...", "Das Website-Paket ist bereit zum Download.", "Website mit Chatbot herunterladen (ZIP)", "Jetzt auf Vercel veröffentlichen", "Vercel veröffentlicht die Website ...", "Die Website wurde veröffentlicht.", "Ihre Kundenwebsite ist bereit: {url}", "Kundenwebsite jetzt öffnen", "Veröffentlichung fehlgeschlagen", "Aktuelle Veröffentlichung", "Ihre Website ist live: {url}", "Noch keine Website veröffentlicht. Nach der Veröffentlichung können Sie sie hier laden oder löschen.", "Veröffentlichte Seite laden", "Löschen bestätigen", "Veröffentlichte Website löschen", "Entfernt nur das aktuelle Vercel-Deployment. Der gespeicherte Entwurf und das lokale Website-Paket bleiben erhalten.", "Veröffentlichung wird entfernt ...", "Die veröffentlichte Website wurde entfernt.", "Löschen fehlgeschlagen"],
+        "en": ["Publish with chatbot", "The package contains the current website draft including the configured chatbot.", "Generate Vercel ZIP package with chatbot", "Creating website package ...", "The website package is ready to download.", "Download website with chatbot (ZIP)", "Publish to Vercel now", "Vercel is publishing the website ...", "The website has been published.", "Your customer website is ready: {url}", "Open customer website now", "Publishing failed", "Current publication", "Your website is live: {url}", "No website has been published yet. After publishing, you can open or delete it here.", "Open published page", "Confirm deletion", "Delete published website", "Only the current Vercel deployment is removed. The saved draft and local website package remain available.", "Removing publication ...", "The published website was removed.", "Deletion failed"],
+        "ar": ["النشر مع روبوت المحادثة", "تتضمن الحزمة مسودة الموقع الحالية مع روبوت المحادثة الذي تم إعداده.", "إنشاء حزمة Vercel ZIP مع روبوت المحادثة", "جارٍ إنشاء حزمة الموقع...", "حزمة الموقع جاهزة للتنزيل.", "تنزيل الموقع مع روبوت المحادثة (ZIP)", "النشر الآن على Vercel", "يقوم Vercel بنشر الموقع...", "تم نشر الموقع.", "موقع عميلك جاهز: {url}", "فتح موقع العميل الآن", "فشل النشر", "النشر الحالي", "موقعك متاح الآن: {url}", "لم يتم نشر أي موقع بعد. بعد النشر يمكنك فتحه أو حذفه هنا.", "فتح الصفحة المنشورة", "تأكيد الحذف", "حذف الموقع المنشور", "يؤدي هذا إلى إزالة نشر Vercel الحالي فقط. تبقى المسودة المحفوظة وحزمة الموقع المحلية محفوظتين.", "جارٍ إزالة النشر...", "تمت إزالة الموقع المنشور.", "فشل الحذف"],
+        "ku": ["بڵاوکردنەوە لەگەڵ چاتبۆت", "پاکێجەکە ڕەشنووسی ئێستای وێبگە لەگەڵ چاتبۆتی ڕێکخراو لەخۆدەگرێت.", "دروستکردنی پاکێجی Vercel ZIP لەگەڵ چاتبۆت", "پاکێجی وێبگە دروست دەکرێت...", "پاکێجی وێبگە ئامادەی داگرتنە.", "داگرتنی وێبگە لەگەڵ چاتبۆت (ZIP)", "ئێستا لە Vercel بڵاوبکەرەوە", "Vercel وێبگەکە بڵاودەکاتەوە...", "وێبگەکە بڵاوکرایەوە.", "وێبگەی کڕیارەکەت ئامادەیە: {url}", "ئێستا وێبگەی کڕیار بکەرەوە", "بڵاوکردنەوە سەرکەوتوو نەبوو", "بڵاوکراوەی ئێستا", "وێبگەکەت لەسەر هێڵە: {url}", "هێشتا هیچ وێبگەیەک بڵاونەکراوەتەوە. دوای بڵاوکردنەوە دەتوانیت لێرە بیکەیتەوە یان بیسڕیتەوە.", "کردنەوەی پەڕەی بڵاوکراوە", "پشتڕاستکردنەوەی سڕینەوە", "سڕینەوەی وێبگەی بڵاوکراوە", "تەنها بڵاوکراوەی ئێستای Vercel لادەبات. ڕەشنووسی پاشەکەوتکراو و پاکێجی ناوخۆیی دەمێننەوە.", "بڵاوکراوەکە لادەبرێت...", "وێبگە بڵاوکراوەکە لابرا.", "سڕینەوە سەرکەوتوو نەبوو"],
+        "es": ["Publicación con chatbot", "El paquete contiene el borrador actual y el chatbot configurado.", "Generar paquete ZIP de Vercel con chatbot", "Creando el paquete del sitio...", "El paquete está listo para descargar.", "Descargar sitio con chatbot (ZIP)", "Publicar ahora en Vercel", "Vercel está publicando el sitio...", "El sitio ha sido publicado.", "El sitio de su cliente está listo: {url}", "Abrir ahora el sitio del cliente", "Error de publicación", "Publicación actual", "Su sitio está en línea: {url}", "Todavía no se ha publicado ningún sitio. Después de publicarlo podrá abrirlo o eliminarlo aquí.", "Abrir página publicada", "Confirmar eliminación", "Eliminar sitio publicado", "Solo se elimina el despliegue actual de Vercel. El borrador y el paquete local se conservan.", "Eliminando publicación...", "El sitio publicado fue eliminado.", "Error al eliminar"],
+        "it": ["Pubblicazione con chatbot", "Il pacchetto contiene la bozza attuale e il chatbot configurato.", "Genera pacchetto ZIP Vercel con chatbot", "Creazione del pacchetto del sito...", "Il pacchetto è pronto per il download.", "Scarica sito con chatbot (ZIP)", "Pubblica ora su Vercel", "Vercel sta pubblicando il sito...", "Il sito è stato pubblicato.", "Il sito del cliente è pronto: {url}", "Apri ora il sito del cliente", "Pubblicazione non riuscita", "Pubblicazione attuale", "Il sito è online: {url}", "Nessun sito è stato ancora pubblicato. Dopo la pubblicazione potrete aprirlo o eliminarlo qui.", "Apri pagina pubblicata", "Conferma eliminazione", "Elimina sito pubblicato", "Viene rimosso solo il deployment Vercel attuale. La bozza e il pacchetto locale restano disponibili.", "Rimozione della pubblicazione...", "Il sito pubblicato è stato rimosso.", "Eliminazione non riuscita"],
+        "hi": ["चैटबॉट के साथ प्रकाशन", "पैकेज में कॉन्फ़िगर किए गए चैटबॉट सहित वर्तमान वेबसाइट प्रारूप शामिल है।", "चैटबॉट सहित Vercel ZIP पैकेज बनाएं", "वेबसाइट पैकेज बनाया जा रहा है...", "वेबसाइट पैकेज डाउनलोड के लिए तैयार है।", "चैटबॉट सहित वेबसाइट डाउनलोड करें (ZIP)", "अब Vercel पर प्रकाशित करें", "Vercel वेबसाइट प्रकाशित कर रहा है...", "वेबसाइट प्रकाशित हो गई है।", "आपके ग्राहक की वेबसाइट तैयार है: {url}", "ग्राहक वेबसाइट अभी खोलें", "प्रकाशन विफल", "वर्तमान प्रकाशन", "आपकी वेबसाइट लाइव है: {url}", "अभी कोई वेबसाइट प्रकाशित नहीं हुई है। प्रकाशन के बाद आप इसे यहां खोल या हटा सकते हैं।", "प्रकाशित पृष्ठ खोलें", "हटाने की पुष्टि करें", "प्रकाशित वेबसाइट हटाएं", "केवल वर्तमान Vercel प्रकाशन हटाया जाएगा। सहेजा गया प्रारूप और स्थानीय पैकेज उपलब्ध रहेंगे।", "प्रकाशन हटाया जा रहा है...", "प्रकाशित वेबसाइट हटा दी गई।", "हटाना विफल"],
+    }
+    action_labels = action_copy_by_language.get(language, action_copy_by_language["en"])
+    old_publication_copy = {
+        "de": ["Alte Veröffentlichung löschen", "Vercel-URL oder Deployment-ID der alten Website", "z. B. meine-seite-abc123.vercel.app", "Ich möchte diese alte Veröffentlichung endgültig löschen.", "Alte veröffentlichte Seite löschen", "Alte Veröffentlichung wird entfernt ...", "Die alte veröffentlichte Website wurde entfernt.", "Löschen fehlgeschlagen"],
+        "en": ["Delete an old publication", "Vercel URL or deployment ID of the old website", "e.g. my-site-abc123.vercel.app", "I want to permanently delete this old publication.", "Delete old published page", "Removing old publication ...", "The old published website was removed.", "Deletion failed"],
+        "ar": ["حذف نشر قديم", "رابط Vercel أو معرّف نشر الموقع القديم", "مثال: my-site-abc123.vercel.app", "أريد حذف هذا النشر القديم نهائياً.", "حذف الصفحة القديمة المنشورة", "جارٍ إزالة النشر القديم...", "تمت إزالة الموقع القديم المنشور.", "فشل الحذف"],
+        "ku": ["سڕینەوەی بڵاوکراوەی کۆن", "بەستەری Vercel یان ناسنامەی بڵاوکردنەوەی وێبگە کۆنەکە", "بۆ نموونە: my-site-abc123.vercel.app", "دەمەوێت ئەم بڵاوکراوە کۆنە بە یەکجاری بسڕمەوە.", "سڕینەوەی پەڕە کۆنە بڵاوکراوەکە", "بڵاوکراوە کۆنەکە لادەبرێت...", "وێبگە کۆنە بڵاوکراوەکە لابرا.", "سڕینەوە سەرکەوتوو نەبوو"],
+        "es": ["Eliminar una publicación anterior", "URL de Vercel o ID de despliegue del sitio anterior", "p. ej. mi-sitio-abc123.vercel.app", "Quiero eliminar definitivamente esta publicación anterior.", "Eliminar página publicada anterior", "Eliminando publicación anterior...", "El sitio publicado anterior fue eliminado.", "Error al eliminar"],
+        "it": ["Elimina una vecchia pubblicazione", "URL Vercel o ID deployment del vecchio sito", "ad es. mio-sito-abc123.vercel.app", "Voglio eliminare definitivamente questa vecchia pubblicazione.", "Elimina la vecchia pagina pubblicata", "Rimozione della vecchia pubblicazione...", "Il vecchio sito pubblicato è stato rimosso.", "Eliminazione non riuscita"],
+        "hi": ["पुराना प्रकाशन हटाएं", "पुरानी वेबसाइट का Vercel URL या प्रकाशन ID", "उदा. my-site-abc123.vercel.app", "मैं इस पुराने प्रकाशन को स्थायी रूप से हटाना चाहता हूं।", "पुराना प्रकाशित पृष्ठ हटाएं", "पुराना प्रकाशन हटाया जा रहा है...", "पुरानी प्रकाशित वेबसाइट हटा दी गई।", "हटाना विफल"],
+    }.get(language)
+    if old_publication_copy is None:
+        old_publication_copy = []
+    custom_domain_copy = {
+        "de": ["Domain kaufen und verbinden: Anleitung", "1. Geben Sie unten Ihre gewünschte Domain ohne Pfad ein, zum Beispiel `mein-betrieb.de`.\n2. Prüfen Sie mit MCP, ob für die Domain bereits ein öffentlicher RDAP-Eintrag besteht.\n3. Kaufen Sie eine freie Domain direkt bei einem Domainanbieter Ihrer Wahl.\n4. Fügen Sie die Domain anschließend in Vercel hinzu und übernehmen Sie die dort angezeigten DNS-Einträge beim Domainanbieter.", "Preisorientierung: Eine .de-Domain kostet häufig etwa 5-20 EUR pro Jahr, eine .com-Domain etwa 10-25 EUR pro Jahr. Aktionspreise gelten oft nur im ersten Jahr; prüfen Sie deshalb immer den Verlängerungspreis und die Mehrwertsteuer.", "Die App kauft keine Domain automatisch und bucht dafür nichts ab. Der Domainanbieter berechnet die Domain separat. Ein App-Abonnement und mögliche Vercel-Kosten sind ebenfalls getrennte Verträge.", "Offizielle Vercel-Anleitung zur Domain-Verbindung", "Gewünschte oder bereits gekaufte Domain", "z. B. www.mein-unternehmen.de", "Die MCP-Prüfung ist ein Hinweis anhand öffentlicher Registrierungsdaten und keine Kaufgarantie.", "Geplante Domain: {domain}", "Eigene Domain per MCP prüfen", "MCP prüft die Domain ...", "Nächster Schritt: {step}"],
+        "en": ["Buy and connect a domain: instructions", "1. Enter your preferred domain without a path, for example `my-business.com`.\n2. Use MCP to check whether a public RDAP record already exists.\n3. Buy an available domain from a provider of your choice.\n4. Add the domain to Vercel and copy the displayed DNS records to your domain provider.", "Price guide: a .de domain often costs about EUR 5-20 per year and a .com domain about EUR 10-25 per year. Promotional prices often apply only to the first year, so check renewal prices and taxes.", "The app does not buy or charge for a domain automatically. The domain provider bills it separately. The app subscription and possible Vercel costs are separate agreements.", "Official Vercel domain connection guide", "Preferred or already purchased domain", "e.g. www.my-company.com", "The MCP check uses public registration data as guidance and is not a purchase guarantee.", "Planned domain: {domain}", "Check own domain with MCP", "MCP is checking the domain ...", "Next step: {step}"],
+        "ar": ["شراء نطاق وربطه: التعليمات", "1. أدخل النطاق المطلوب أدناه من دون مسار، مثل `my-business.com`.\n2. استخدم MCP للتحقق من وجود سجل RDAP عام للنطاق.\n3. اشترِ النطاق المتاح مباشرة من مزود تختاره.\n4. أضف النطاق إلى Vercel وانسخ سجلات DNS المعروضة إلى مزود النطاق.", "دليل الأسعار: يكلف نطاق .de عادةً نحو 5-20 يورو سنوياً، ونطاق .com نحو 10-25 يورو سنوياً. غالباً ما تسري الأسعار الترويجية في السنة الأولى فقط، لذا تحقق من سعر التجديد والضرائب.", "لا يشتري التطبيق أي نطاق تلقائياً ولا يخصم رسوماً مقابله. يحاسب مزود النطاق بشكل منفصل. كما أن اشتراك التطبيق وتكاليف Vercel المحتملة عقود منفصلة.", "دليل Vercel الرسمي لربط النطاق", "النطاق المطلوب أو الذي تم شراؤه", "مثال: www.my-company.com", "يعتمد فحص MCP على بيانات التسجيل العامة للإرشاد ولا يضمن إمكانية الشراء.", "النطاق المخطط: {domain}", "فحص النطاق الخاص باستخدام MCP", "يفحص MCP النطاق...", "الخطوة التالية: {step}"],
+        "ku": ["کڕین و بەستنەوەی دۆمەین: ڕێنمایی", "1. دۆمەینی دڵخوازت بەبێ ڕێڕەو بنووسە، بۆ نموونە `my-business.com`.\n2. بە MCP بپشکنە کە تۆمارێکی گشتی RDAP هەیە یان نا.\n3. دۆمەینی بەردەست لە دابینکەرێکی هەڵبژێردراو بکڕە.\n4. دۆمەینەکە لە Vercel زیاد بکە و تۆمارەکانی DNS بگوازەرەوە بۆ دابینکەری دۆمەین.", "ڕێنمایی نرخ: دۆمەینی .de زۆرجار ساڵانە نزیکەی 5-20 یۆرۆ و .com نزیکەی 10-25 یۆرۆیە. نرخی داشکاندن زۆرجار تەنها بۆ ساڵی یەکەمە؛ نرخی نوێکردنەوە و باج بپشکنە.", "ئەپەکە خۆکارانە دۆمەین ناکڕێت و هیچ پارەیەک بۆی وەرناگرێت. دابینکەری دۆمەین جیاواز هەژمار دەکات. بەشداریکردنی ئەپ و خەرجییەکانی Vercel گرێبەستی جیاوازن.", "ڕێنمایی فەرمی Vercel بۆ بەستنەوەی دۆمەین", "دۆمەینی دڵخواز یان پێشتر کڕدراو", "بۆ نموونە: www.my-company.com", "پشکنینی MCP تەنها ڕێنماییە بە پشتبەستن بە زانیاری تۆماری گشتی و دڵنیایی کڕین نییە.", "دۆمەینی پلانکراو: {domain}", "پشکنینی دۆمەینی خۆت بە MCP", "MCP دۆمەینەکە دەپشکنێت...", "هەنگاوی داهاتوو: {step}"],
+        "es": ["Comprar y conectar un dominio: instrucciones", "1. Introduzca el dominio deseado sin ruta, por ejemplo `mi-empresa.com`.\n2. Compruebe con MCP si ya existe un registro RDAP público.\n3. Compre un dominio disponible al proveedor que prefiera.\n4. Añada el dominio a Vercel y copie los registros DNS mostrados al proveedor.", "Guía de precios: un dominio .de suele costar entre 5 y 20 EUR al año y un .com entre 10 y 25 EUR. Las promociones suelen aplicarse solo el primer año; compruebe la renovación y los impuestos.", "La aplicación no compra ni cobra dominios automáticamente. El proveedor factura el dominio por separado. La suscripción de la aplicación y los posibles costes de Vercel son contratos independientes.", "Guía oficial de Vercel para conectar dominios", "Dominio deseado o ya adquirido", "p. ej. www.mi-empresa.com", "La comprobación MCP se basa en datos públicos y no garantiza la compra.", "Dominio previsto: {domain}", "Comprobar dominio propio con MCP", "MCP está comprobando el dominio...", "Siguiente paso: {step}"],
+        "it": ["Acquistare e collegare un dominio: istruzioni", "1. Inserite il dominio desiderato senza percorso, ad esempio `mia-azienda.com`.\n2. Verificate con MCP se esiste già un record RDAP pubblico.\n3. Acquistate un dominio disponibile dal provider preferito.\n4. Aggiungete il dominio a Vercel e copiate i record DNS mostrati nel provider.", "Guida ai prezzi: un dominio .de costa spesso circa 5-20 EUR l'anno e un .com circa 10-25 EUR. Le promozioni valgono spesso solo il primo anno; controllate rinnovo e imposte.", "L'app non acquista né addebita automaticamente un dominio. Il provider lo fattura separatamente. L'abbonamento dell'app e gli eventuali costi Vercel sono contratti distinti.", "Guida ufficiale Vercel al collegamento del dominio", "Dominio desiderato o già acquistato", "ad es. www.mia-azienda.com", "Il controllo MCP usa dati pubblici a scopo indicativo e non garantisce l'acquisto.", "Dominio previsto: {domain}", "Controlla il dominio con MCP", "MCP sta controllando il dominio...", "Passo successivo: {step}"],
+        "hi": ["डोमेन खरीदें और जोड़ें: निर्देश", "1. नीचे बिना पथ के अपना पसंदीदा डोमेन लिखें, जैसे `my-business.com`।\n2. MCP से जांचें कि सार्वजनिक RDAP रिकॉर्ड मौजूद है या नहीं।\n3. अपनी पसंद के प्रदाता से उपलब्ध डोमेन खरीदें।\n4. डोमेन को Vercel में जोड़ें और दिखाए गए DNS रिकॉर्ड प्रदाता में दर्ज करें।", "मूल्य मार्गदर्शिका: .de डोमेन प्रायः 5-20 EUR और .com डोमेन 10-25 EUR प्रति वर्ष होता है। प्रचार मूल्य अक्सर केवल पहले वर्ष के लिए होते हैं; नवीनीकरण मूल्य और कर जांचें।", "ऐप अपने आप डोमेन नहीं खरीदता और शुल्क नहीं लेता। डोमेन प्रदाता अलग बिल देता है। ऐप सदस्यता और संभावित Vercel लागत अलग अनुबंध हैं।", "डोमेन जोड़ने की आधिकारिक Vercel मार्गदर्शिका", "पसंदीदा या पहले से खरीदा हुआ डोमेन", "उदा. www.my-company.com", "MCP जांच सार्वजनिक पंजीकरण डेटा पर आधारित संकेत है और खरीद की गारंटी नहीं है।", "नियोजित डोमेन: {domain}", "MCP से अपना डोमेन जांचें", "MCP डोमेन की जांच कर रहा है...", "अगला कदम: {step}"],
+    }.get(language)
+    if custom_domain_copy is None:
+        custom_domain_copy = []
+    automated_domain_copy = {
+        "de": ["Domain wird geprüft ...", "Jetzt kaufen & veröffentlichen", "Website und sicherer Checkout werden vorbereitet ...", "Sichere Zahlung öffnen", "Der automatische Domainkauf ist momentan nicht verfügbar.", "{domain} ist verfügbar.", "{domain} ist nicht verfügbar.", "Wunschdomain prüfen", "Nach erfolgreicher Zahlung wird Ihre Domain automatisch registriert, verbunden und mit SSL veröffentlicht."],
+        "en": ["Checking domain ...", "Buy & publish now", "Preparing your website and secure checkout ...", "Open secure payment", "Automated domain purchasing is currently unavailable.", "{domain} is available.", "{domain} is unavailable.", "Check preferred domain", "After successful payment, your domain is registered, connected, and published with SSL automatically."],
+        "ar": ["جارٍ التحقق من النطاق...", "الشراء والنشر الآن", "جارٍ إعداد موقعك والدفع الآمن...", "فتح الدفع الآمن", "شراء النطاق تلقائياً غير متاح حالياً.", "النطاق {domain} متاح.", "النطاق {domain} غير متاح.", "التحقق من النطاق المطلوب", "بعد نجاح الدفع، يتم تسجيل نطاقك وربطه ونشره مع SSL تلقائياً."],
+        "ku": ["دۆمەینەکە دەپشکنرێت...", "ئێستا بیکڕە و بڵاوی بکەرەوە", "وێبگە و پارەدانی پارێزراو ئامادە دەکرێت...", "کردنەوەی پارەدانی پارێزراو", "کڕینی خۆکاری دۆمەین لە ئێستادا بەردەست نییە.", "{domain} بەردەستە.", "{domain} بەردەست نییە.", "پشکنینی دۆمەینی دڵخواز", "دوای پارەدانی سەرکەوتوو، دۆمەینەکەت خۆکارانە تۆمار و پەیوەست و بە SSL بڵاودەکرێتەوە."],
+        "es": ["Comprobando dominio...", "Comprar y publicar ahora", "Preparando su sitio y el pago seguro...", "Abrir pago seguro", "La compra automática de dominios no está disponible actualmente.", "{domain} está disponible.", "{domain} no está disponible.", "Comprobar dominio deseado", "Tras el pago, su dominio se registra, conecta y publica con SSL automáticamente."],
+        "it": ["Verifica del dominio...", "Acquista e pubblica ora", "Preparazione del sito e del pagamento sicuro...", "Apri pagamento sicuro", "L'acquisto automatico del dominio non è al momento disponibile.", "{domain} è disponibile.", "{domain} non è disponibile.", "Verifica dominio desiderato", "Dopo il pagamento, il dominio viene registrato, collegato e pubblicato con SSL automaticamente."],
+        "hi": ["डोमेन जांचा जा रहा है...", "अभी खरीदें और प्रकाशित करें", "वेबसाइट और सुरक्षित भुगतान तैयार हो रहा है...", "सुरक्षित भुगतान खोलें", "स्वचालित डोमेन खरीद अभी उपलब्ध नहीं है।", "{domain} उपलब्ध है।", "{domain} उपलब्ध नहीं है।", "पसंदीदा डोमेन जांचें", "सफल भुगतान के बाद आपका डोमेन स्वतः पंजीकृत, कनेक्ट और SSL सहित प्रकाशित होगा।"],
+    }.get(language, [])
+    provisioning_copy = {
+        "de": ["Zahlung bestätigt. Ihre Website wird eingerichtet ...", "Ihre Website ist fertig.", "Live-Website öffnen", "Die Einrichtung dauert noch an. Diese Seite kann gleich erneut geprüft werden.", "Die automatische Einrichtung konnte nicht abgeschlossen werden. Der Support wurde informiert."],
+        "en": ["Payment confirmed. Your website is being set up ...", "Your website is ready.", "Open live website", "Setup is still in progress. You can check this page again shortly.", "Automatic setup could not be completed. Support has been notified."],
+        "ar": ["تم تأكيد الدفع. جارٍ إعداد موقعك...", "موقعك جاهز.", "فتح الموقع المباشر", "لا يزال الإعداد جارياً. يمكنك التحقق من هذه الصفحة مرة أخرى بعد قليل.", "تعذر إكمال الإعداد التلقائي. تم إبلاغ الدعم."],
+        "ku": ["پارەدان پشتڕاست کرایەوە. وێبگەکەت ئامادە دەکرێت...", "وێبگەکەت ئامادەیە.", "کردنەوەی وێبگەی ڕاستەوخۆ", "ئامادەکردن هێشتا بەردەوامە. دەتوانیت بەم زووانە دووبارە بپشکنیت.", "ئامادەکردنی خۆکار تەواو نەکرا. پشتگیری ئاگادار کرایەوە."],
+        "es": ["Pago confirmado. Estamos configurando su sitio...", "Su sitio está listo.", "Abrir sitio web", "La configuración continúa. Puede volver a comprobar esta página en breve.", "No se pudo completar la configuración automática. Se ha informado al soporte."],
+        "it": ["Pagamento confermato. Configurazione del sito in corso...", "Il sito è pronto.", "Apri il sito", "La configurazione è ancora in corso. Puoi ricontrollare tra poco.", "Non è stato possibile completare la configurazione automatica. L'assistenza è stata informata."],
+        "hi": ["भुगतान की पुष्टि हो गई। आपकी वेबसाइट तैयार की जा रही है...", "आपकी वेबसाइट तैयार है।", "लाइव वेबसाइट खोलें", "सेटअप अभी जारी है। थोड़ी देर बाद इस पृष्ठ पर फिर जांचें।", "स्वचालित सेटअप पूरा नहीं हो सका। सहायता टीम को सूचित कर दिया गया है।"],
+    }.get(language, [])
+    domain_input_copy = {
+        "de": ["Ihre Wunschdomain", "z. B. noor.com", "Geben Sie nur Ihren gewünschten Domainnamen ein.", "Gewünschte Domain: {domain}"],
+        "en": ["Your preferred domain", "e.g. noor.com", "Enter only your preferred domain name.", "Preferred domain: {domain}"],
+        "ar": ["النطاق المطلوب", "مثال: noor.com", "أدخل اسم النطاق الذي تريده فقط.", "النطاق المطلوب: {domain}"],
+        "ku": ["دۆمەینی دڵخوازت", "بۆ نموونە: noor.com", "تەنها ناوی دۆمەینی دڵخوازت بنووسە.", "دۆمەینی دڵخواز: {domain}"],
+        "es": ["Su dominio deseado", "p. ej. noor.com", "Introduzca únicamente el nombre de dominio deseado.", "Dominio deseado: {domain}"],
+        "it": ["Il dominio desiderato", "ad es. noor.com", "Inserite solo il nome del dominio desiderato.", "Dominio desiderato: {domain}"],
+        "hi": ["आपका पसंदीदा डोमेन", "उदा. noor.com", "केवल अपना पसंदीदा डोमेन नाम दर्ज करें।", "पसंदीदा डोमेन: {domain}"],
+    }.get(language, [])
+    st.header(labels["title"])
+
+    if not st.session_state.generated_html:
+        st.info(labels["need_site"])
+        return
+
+    paid_domain_session_id = str(
+        st.session_state.get("paid_domain_checkout_session_id", "")
+    ).strip()
+    if paid_domain_session_id:
+        with st.status(provisioning_copy[0], expanded=True) as status:
+            try:
+                provisioning = wait_for_domain_provisioning(paid_domain_session_id)
+            except ValueError as error:
+                status.update(label=str(error), state="error")
+            else:
+                if provisioning["status"] == "complete" and provisioning["domain"]:
+                    live_url = f"https://{provisioning['domain']}"
+                    st.session_state.live_url = live_url
+                    st.session_state.paid_domain_checkout_session_id = ""
+                    status.update(label=provisioning_copy[1], state="complete")
+                    st.link_button(
+                        provisioning_copy[2],
+                        live_url,
+                        icon=":material/open_in_new:",
+                        type="primary",
+                        width="stretch",
+                    )
+                elif provisioning["status"] == "failed":
+                    st.session_state.paid_domain_checkout_session_id = ""
+                    status.update(label=provisioning_copy[4], state="error")
+                else:
+                    status.update(label=provisioning_copy[3], state="running")
+
+    chatbot_environment_warning = str(
+        st.session_state.get("chatbot_environment_warning", "")
+    ).strip()
+    if chatbot_environment_warning:
+        st.warning(chatbot_environment_warning)
+
+    if st.session_state.get("creation_mode") == "Professionelle Vorlage":
+        if st.button(
+            domain_labels[0],
+            icon=":material/visibility:",
+            key="open_full_draft_preview",
+            width="stretch",
+        ):
+            show_full_draft_preview()
+
+    st.subheader(domain_labels[1])
+    st.caption(domain_labels[2])
+    domain_type = st.radio(
+        domain_labels[3],
+        domain_options,
+        format_func=lambda option: domain_option_labels[option],
+        key="domain_type",
+    )
+    requested_name = ""
+    if domain_type == "Vercel-Projektadresse":
+        requested_name = st.text_input(
+            domain_labels[6],
+            value=st.session_state.project_name,
+            placeholder=domain_labels[7],
+            key="deployment_project_name",
+            help=domain_labels[8],
+        )
+        if requested_name:
+            st.caption(
+                domain_labels[9].format(
+                    address=f"{safe_project_name(requested_name)}.vercel.app"
+                )
+            )
+    else:
+        st.info(automated_domain_copy[8])
+        custom_domain = st.text_input(
+            domain_input_copy[0],
+            placeholder=domain_input_copy[1],
+            key="custom_domain",
+            help=domain_input_copy[2],
+        )
+        if custom_domain:
+            try:
+                displayed_domain = normalize_domain(custom_domain)
+            except ProvisioningError:
+                displayed_domain = custom_domain.strip()
+            st.caption(domain_input_copy[3].format(domain=displayed_domain))
+        if st.button(
+            automated_domain_copy[7],
+            icon=":material/domain_verification:",
+            disabled=not custom_domain.strip() or not (INWX_USERNAME and INWX_PASSWORD),
+            key="check_custom_domain_with_mcp",
+            width="stretch",
+        ):
+            with st.spinner(automated_domain_copy[0]):
+                try:
+                    if INWX_USERNAME and INWX_PASSWORD:
+                        domain_check = check_domain_with_registrar(custom_domain)
+                        domain_check["source"] = "authoritative"
+                        domain_check["message"] = automated_domain_copy[
+                            5 if domain_check.get("available") else 6
+                        ].format(domain=domain_check["domain"])
+                    st.session_state.domain_check_result = domain_check
+                    if domain_check.get("available"):
+                        st.success(str(domain_check["message"]))
+                    elif domain_check.get("status") == "registered":
+                        st.warning(str(domain_check["message"]))
+                    else:
+                        st.error(str(domain_check["message"]))
+                except ValueError as error:
+                    st.error(str(error))
+                except ProvisioningError as error:
+                    st.error(str(error))
+        domain_check = st.session_state.get("domain_check_result")
+        if isinstance(domain_check, dict) and domain_check.get("domain"):
+            checked_domain = str(domain_check.get("domain", ""))
+            if checked_domain == custom_domain.strip().lower().removeprefix("https://").removeprefix("http://").rstrip("/"):
+                if domain_check.get("next_step"):
+                    st.info(custom_domain_copy[11].format(step=domain_check["next_step"]))
+                if domain_check.get("cost_guidance"):
+                    st.caption(str(domain_check["cost_guidance"]))
+        registrar_ready = bool(INWX_USERNAME and INWX_PASSWORD)
+        try:
+            normalized_custom_domain = normalize_domain(custom_domain)
+        except ProvisioningError:
+            normalized_custom_domain = ""
+        domain_available = bool(
+            isinstance(domain_check, dict)
+            and domain_check.get("source") == "authoritative"
+            and domain_check.get("available")
+            and str(domain_check.get("domain", "")) == normalized_custom_domain
+        )
+        if not registrar_ready:
+            st.warning(automated_domain_copy[4])
+        if st.button(
+            automated_domain_copy[1],
+            icon=":material/shopping_cart_checkout:",
+            type="primary",
+            disabled=not domain_available,
+            key="buy_and_publish_custom_domain",
+            width="stretch",
+        ):
+            with st.status(automated_domain_copy[2], expanded=True) as status:
+                try:
+                    st.session_state.project_name = create_deployment_project_name()
+                    project_id = create_empty_vercel_project(st.session_state.project_name)
+                    st.session_state.vercel_project_id = project_id
+                    st.session_state.stripe_checkout_url = create_stripe_checkout_session(
+                        int(st.session_state.user_id),
+                        st.session_state.user_email,
+                        str(domain_check["domain"]),
+                        project_id,
+                    )
+                    status.update(label=automated_domain_copy[3], state="complete")
+                except (ValueError, ProvisioningError) as error:
+                    status.update(label=action_labels[11], state="error")
+                    st.error(str(error))
+        custom_checkout_url = str(st.session_state.get("stripe_checkout_url", ""))
+        if domain_available and custom_checkout_url:
+            st.link_button(
+                automated_domain_copy[3],
+                custom_checkout_url,
+                icon=":material/lock:",
+                type="primary",
+                width="stretch",
+            )
+
+    if st.session_state.get("publish_after_checkout"):
+        st.session_state.publish_after_checkout = False
+        if domain_type == "Vercel-Projektadresse":
+            st.session_state.project_name = safe_project_name(requested_name or "")
+        with st.status("Zahlung bestätigt. Vercel veröffentlicht Ihre Website ...", expanded=True) as status:
+            try:
+                publish_website()
+                status.update(label="Ihre Website wurde veröffentlicht.", state="complete")
+                st.success(f"Ihre Kundenwebsite ist bereit: {st.session_state.live_url}")
+                st.link_button(
+                    "Kundenwebsite jetzt öffnen",
+                    st.session_state.live_url,
+                    icon=":material/open_in_new:",
+                    type="primary",
+                    key="open_customer_site_after_checkout",
+                    width="stretch",
+                )
+            except ValueError as error:
+                status.update(label="Veröffentlichung fehlgeschlagen", state="error")
+                st.error(str(error))
+
+    st.info(
+        "Website-Erstellung, Vorschau und Veröffentlichung auf einer Vercel-Adresse "
+        "sind direkt ohne Stripe-Zahlung möglich."
+    )
+    st.divider()
+    st.subheader(action_labels[0], anchor=False)
+    st.caption(action_labels[1])
+    if st.button(
+        action_labels[2],
+        icon=":material/folder_zip:",
+        key="generate_chatbot_website_zip",
+        width="stretch",
+    ):
+        with st.spinner(action_labels[3]):
+            st.session_state.finished_website_zip = build_website_zip()
+        st.success(action_labels[4])
+    if st.session_state.get("finished_website_zip"):
+        st.download_button(
+            action_labels[5],
+            data=st.session_state.finished_website_zip,
+            file_name="kunden-website-mit-chatbot.zip",
+            mime="application/zip",
+            icon=":material/download:",
+            key="download_website_zip",
+            width="stretch",
+        )
+    if domain_type == "Vercel-Projektadresse":
+        if st.button(
+            action_labels[6],
+            icon=":material/rocket_launch:",
+            type="primary",
+            key="publish_from_domain_center",
+            width="stretch",
+        ):
+            st.session_state.project_name = safe_project_name(requested_name or "")
+            with st.status(action_labels[7], expanded=True) as status:
+                try:
+                    publish_website()
+                    status.update(label=action_labels[8], state="complete")
+                    st.success(action_labels[9].format(url=st.session_state.live_url))
+                    st.link_button(
+                        action_labels[10],
+                        st.session_state.live_url,
+                        icon=":material/open_in_new:",
+                        type="primary",
+                        key="open_customer_site_after_publish",
+                        width="stretch",
+                    )
+                except ValueError as error:
+                    status.update(
+                        label=f"{action_labels[11]}: {error}",
+                        state="error",
+                        expanded=True,
+                    )
+                    st.error(str(error))
+    else:
+        custom_domain = str(st.session_state.get("custom_domain", "")).strip()
+        if custom_domain:
+            st.info(
+                "Die Domain muss vor der Verknüpfung gekauft sein. Für die automatische "
+                "Anbindung benötigen Sie eine verifizierte Domain, passende DNS-Einträge und eine "
+                "serverseitige Vercel-Domain-API-Integration."
+            )
+
+    st.divider()
+    st.subheader(action_labels[12], anchor=False)
+    if st.session_state.deployment_id:
+        st.success(action_labels[13].format(url=st.session_state.live_url))
+    else:
+        st.info(action_labels[14])
+    action_column, delete_column = st.columns(2)
+    with action_column:
+        if st.session_state.deployment_id:
+            st.link_button(
+                action_labels[15],
+                st.session_state.live_url,
+                icon=":material/open_in_new:",
+                key="open_published_site_from_domain_center",
+                width="stretch",
+            )
+        else:
+            st.button(
+                action_labels[15],
+                icon=":material/open_in_new:",
+                disabled=True,
+                key="open_published_site_disabled",
+                width="stretch",
+            )
+    with delete_column:
+        delete_confirmed = st.checkbox(
+            action_labels[16],
+            key="delete_published_site_confirmation",
+            disabled=not st.session_state.deployment_id,
+        )
+        delete_requested = st.button(
+            action_labels[17],
+            icon=":material/delete:",
+            type="secondary",
+            disabled=not st.session_state.deployment_id or not delete_confirmed,
+            key="delete_published_site_from_domain_center",
+            width="stretch",
+        )
+    st.caption(action_labels[18])
+    if delete_requested:
+        with st.status(action_labels[19], expanded=True) as status:
+            try:
+                delete_published_website()
+                status.update(
+                    label=action_labels[20],
+                    state="complete",
+                )
+                st.rerun()
+            except ValueError as error:
+                status.update(label=action_labels[21], state="error")
+                st.error(str(error))
+
+    st.divider()
+    st.subheader(old_publication_copy[0], anchor=False)
+    old_deployment_reference = st.text_input(
+        old_publication_copy[1],
+        placeholder=old_publication_copy[2],
+        key="old_deployment_reference",
+    )
+    old_deployment_confirmed = st.checkbox(
+        old_publication_copy[3],
+        key="old_deployment_delete_confirmation",
+    )
+    if st.button(
+        old_publication_copy[4],
+        icon=":material/delete_forever:",
+        type="secondary",
+        disabled=not old_deployment_reference.strip() or not old_deployment_confirmed,
+        key="delete_old_published_site",
+        width="stretch",
+    ):
+        with st.status(old_publication_copy[5], expanded=True) as status:
+            try:
+                delete_previous_vercel_deployment(old_deployment_reference)
+                status.update(
+                    label=old_publication_copy[6],
+                    state="complete",
+                )
+                st.rerun()
+            except ValueError as error:
+                status.update(label=old_publication_copy[7], state="error")
+                st.error(str(error))
+
+
+def render_customer_service_ui(user_id: int, user_email: str) -> None:
+    """Ermöglicht Kunden Feedback und nachvollziehbare Supportanfragen."""
+    language = str(st.session_state.app_language)
+    copy = {
+        "de": ["Kundenservice", "Melden Sie einen Fehler, eine Frage oder Feedback. Beschreiben Sie den betroffenen Bereich und die Schritte möglichst genau, damit wir schnell helfen können.", "Anliegen", "Betroffener App-Bereich", "Kurzer Betreff", "z. B. Vorschau lädt nach Bild-Upload nicht", "Was ist passiert oder welches Feedback möchten Sie geben?", "Beschreiben Sie das gewünschte Ergebnis und was stattdessen passiert ist.", "Schritte bis zum Problem (optional)", "1. Vorlage wählen\n2. Bild hochladen\n3. Vorschau öffnen", "Anfrage an Kundenservice senden", "Bitte geben Sie einen kurzen Betreff mit mindestens 4 Zeichen ein.", "Bitte beschreiben Sie Ihr Anliegen mit mindestens 15 Zeichen.", "Ihre Anfrage wurde gespeichert. Der Kundenservice kann sie jetzt prüfen.", "Meine Anfragen", "Sie haben noch keine Anfrage gesendet.", "Bereich", "Gesendet", "Kundenservice-Inbox", "Noch keine Kundenanfragen vorhanden.", "Kunde"],
+        "en": ["Customer service", "Report an error, ask a question, or share feedback. Describe the affected area and steps precisely so we can help quickly.", "Request type", "Affected app area", "Short subject", "e.g. Preview does not load after image upload", "What happened or what feedback would you like to share?", "Describe the expected result and what happened instead.", "Steps leading to the issue (optional)", "1. Choose template\n2. Upload image\n3. Open preview", "Send request to customer service", "Enter a subject with at least 4 characters.", "Describe your request using at least 15 characters.", "Your request was saved and can now be reviewed.", "My requests", "You have not sent any requests yet.", "Area", "Sent", "Customer service inbox", "No customer requests yet.", "Customer"],
+        "ar": ["خدمة العملاء", "أبلغ عن خطأ أو اطرح سؤالاً أو أرسل ملاحظاتك. صف القسم المتأثر والخطوات بدقة حتى نتمكن من مساعدتك سريعاً.", "نوع الطلب", "القسم المتأثر في التطبيق", "موضوع مختصر", "مثال: المعاينة لا تعمل بعد رفع الصورة", "ماذا حدث أو ما الملاحظات التي تريد إرسالها؟", "صف النتيجة المتوقعة وما حدث بدلاً منها.", "خطوات الوصول إلى المشكلة (اختياري)", "1. اختر القالب\n2. ارفع الصورة\n3. افتح المعاينة", "إرسال الطلب إلى خدمة العملاء", "يرجى كتابة موضوع من 4 أحرف على الأقل.", "يرجى وصف طلبك باستخدام 15 حرفاً على الأقل.", "تم حفظ طلبك ويمكن لخدمة العملاء مراجعته الآن.", "طلباتي", "لم ترسل أي طلب بعد.", "القسم", "تاريخ الإرسال", "صندوق طلبات خدمة العملاء", "لا توجد طلبات عملاء بعد.", "العميل"],
+        "ku": ["خزمەتگوزاری کڕیار", "هەڵەیەک ڕاپۆرت بکە، پرسیارێک بکە یان بۆچوون بنێرە. بەش و هەنگاوە پەیوەندیدارەکان بە وردی باس بکە بۆ ئەوەی زوو یارمەتیت بدەین.", "جۆری داواکاری", "بەشی پەیوەندیداری ئەپ", "بابەتی کورت", "بۆ نموونە: پێشبینین دوای بارکردنی وێنە کار ناکات", "چی ڕوویدا یان چ بۆچوونێکت هەیە؟", "ئەنجامی چاوەڕوانکراو و ئەوەی لە جیاتی ڕوویدا باس بکە.", "هەنگاوەکانی گەیشتن بە کێشەکە (ئارەزوومەندانە)", "1. قاڵب هەڵبژێرە\n2. وێنە بار بکە\n3. پێشبینین بکەرەوە", "ناردنی داواکاری بۆ خزمەتگوزاری کڕیار", "تکایە بابەتێک بە لانیکەم 4 پیت بنووسە.", "تکایە داواکارییەکەت بە لانیکەم 15 پیت باس بکە.", "داواکارییەکەت پاشەکەوت کرا و ئێستا دەتوانرێت پشکنین بکرێت.", "داواکارییەکانم", "هێشتا هیچ داواکارییەکت نەناردووە.", "بەش", "نێردراوە", "سندووقی خزمەتگوزاری کڕیار", "هێشتا هیچ داواکارییەکی کڕیار نییە.", "کڕیار"],
+    }.get(language)
+    if copy is None:
+        copy = ["Customer service", "Report an error, ask a question, or share feedback.", "Request type", "Affected app area", "Short subject", "e.g. Preview does not load", "What happened?", "Describe the expected result and what happened instead.", "Steps (optional)", "1. Choose template\n2. Upload image\n3. Open preview", "Send request", "Enter a subject with at least 4 characters.", "Describe your request using at least 15 characters.", "Your request was saved.", "My requests", "You have not sent any requests yet.", "Area", "Sent", "Customer service inbox", "No customer requests yet.", "Customer"]
+    request_types = ["Fehler melden", "Frage zur Nutzung", "Idee oder Feedback"]
+    app_areas = ["Website planen", "Vorlage und Design", "Bilder und Inhalte", "Vorschau und Editor", "Veröffentlichung", "Anmeldung oder Konto", "Andere Funktion"]
+    option_labels = {
+        "ar": dict(zip(request_types + app_areas, ["الإبلاغ عن خطأ", "سؤال حول الاستخدام", "فكرة أو ملاحظة", "تخطيط الموقع", "القالب والتصميم", "الصور والمحتوى", "المعاينة والمحرر", "النشر", "تسجيل الدخول أو الحساب", "وظيفة أخرى"])),
+        "ku": dict(zip(request_types + app_areas, ["ڕاپۆرتکردنی هەڵە", "پرسیار دەربارەی بەکارهێنان", "بیرۆکە یان بۆچوون", "پلانکردنی وێبگە", "قاڵب و دیزاین", "وێنە و ناوەڕۆک", "پێشبینین و دەستکاریکەر", "بڵاوکردنەوە", "چوونەژوورەوە یان هەژمار", "تایبەتمەندیی تر"])),
+    }.get(language, {})
+    display_option = lambda option: option_labels.get(option, option)
+    st.header(copy[0])
+    st.caption(copy[1])
+
+    with st.form("customer_service_form", clear_on_submit=True):
+        request_type, app_area = st.columns(2)
+        with request_type:
+            support_type = st.selectbox(
+                copy[2],
+                request_types,
+                format_func=display_option,
+                key="support_request_type",
+            )
+        with app_area:
+            affected_area = st.selectbox(
+                copy[3],
+                app_areas,
+                format_func=display_option,
+                key="support_app_area",
+            )
+        subject = st.text_input(
+            copy[4],
+            placeholder=copy[5],
+            key="support_subject",
+        )
+        description = st.text_area(
+            copy[6],
+            placeholder=copy[7],
+            key="support_description",
+            height=150,
+        )
+        reproduction_steps = st.text_area(
+            copy[8],
+            placeholder=copy[9],
+            key="support_reproduction_steps",
+            height=110,
+        )
+        submitted = st.form_submit_button(
+            copy[10],
+            icon=":material/send:",
+            type="primary",
+            width="stretch",
+        )
+
+    if submitted:
+        if len(subject.strip()) < 4:
+            st.error(copy[11])
+        elif len(description.strip()) < 15:
+            st.error(copy[12])
+        else:
+            save_support_request(
+                user_id, support_type, affected_area, subject, description, reproduction_steps
+            )
+            st.success(copy[13])
+
+    own_requests = get_support_requests(user_id)
+    st.subheader(copy[14], anchor=False)
+    if not own_requests:
+        st.caption(copy[15])
+    for request_id, support_type, affected_area, subject, description, steps, created_at in own_requests:
+        with st.expander(f"#{request_id} · {support_type} · {subject}"):
+            st.caption(f"{copy[16]}: {display_option(affected_area)} · {copy[17]}: {created_at[:16].replace('T', ' ')} UTC")
+            st.write(description)
+            if steps:
+                st.code(steps, language=None)
+
+    if user_email.strip().lower() != SUPPORT_ADMIN_EMAIL or not SUPPORT_ADMIN_EMAIL:
+        return
+
+    st.divider()
+    st.subheader(copy[18], anchor=False)
+    support_requests = get_support_requests()
+    if not support_requests:
+        st.caption(copy[19])
+    for request_id, requester_email, support_type, affected_area, subject, description, steps, created_at in support_requests:
+        with st.expander(f"#{request_id} · {support_type} · {subject}"):
+            st.caption(
+                f"{copy[20]}: {requester_email} · {copy[16]}: {display_option(affected_area)} · "
+                f"{copy[17]}: {created_at[:16].replace('T', ' ')} UTC"
+            )
+            st.write(description)
+            if steps:
+                st.code(steps, language=None)
+
+
+def render_website_recommendation_ui() -> None:
+    """Rendert die automatische Empfehlung für eine Website-Branche."""
+    st.caption("Geben Sie ein Schlagwort ein und erhalten Sie einen Titel, Leistungen und ein Angebot.")
+    topic = st.text_input(
+        "Thema oder Branche, zum Beispiel Kfz-Werkstatt, Friseur oder Dachdecker",
+        key="website_recommendation_topic",
+    )
+    if st.button(
+        "Automatische Empfehlung generieren",
+        icon=":material/auto_awesome:",
+        type="primary",
+        key="website_recommendation_submit",
+    ):
+        if not topic.strip():
+            st.warning("Bitte geben Sie zuerst ein Thema oder eine Branche ein.")
+        else:
+            with st.spinner(f"Empfehlung für {topic.strip()} wird erstellt ..."):
+                try:
+                    st.session_state.current_website_recommendation = (
+                        generate_website_recommendation(topic)
+                    )
+                except ValueError as error:
+                    st.error(str(error))
+
+    recommendation = str(
+        st.session_state.get("current_website_recommendation", "")
+    ).strip()
+    if recommendation:
+        st.markdown("#### Automatisch generierte Website-Vorlage")
+        st.info(recommendation)
+
+
+def render_industry_content_preset_ui() -> None:
+    """Rendert die formularbasierte Branchenauswahl für Website-Inhalte."""
+    language = str(st.session_state.app_language)
+    copy_by_language = {
+        "de": {"caption": "Wählen Sie eine Branche und übernehmen Sie vorbereitete Inhalte in den Entwurf.", "question": "Was ist Ihr Betrieb?", "choose": "Bitte wählen...", "other": "Andere Branche oder Kleingewerbe", "custom": "Branche oder Art des Kleingewerbes", "placeholder": "z. B. Kosmetikstudio, Reinigungsservice oder Fotograf", "apply": "Vorlage automatisch mit Brancheninhalten befüllen", "required": "Bitte geben Sie zuerst eine Branche oder Art des Kleingewerbes ein.", "success": "Die Inhalte für „{industry}“ wurden vorbereitet."},
+        "en": {"caption": "Choose an industry and add prepared content to the draft.", "question": "What type of business is it?", "choose": "Please choose...", "other": "Other industry or small business", "custom": "Industry or type of small business", "placeholder": "e.g. beauty salon, cleaning service, or photographer", "apply": "Automatically fill template with industry content", "required": "Please enter an industry or type of small business first.", "success": "Content for “{industry}” has been prepared."},
+        "ar": {"caption": "اختر مجال العمل وأضف المحتوى المُعد مسبقاً إلى المسودة.", "question": "ما نوع نشاطك التجاري؟", "choose": "يرجى الاختيار...", "other": "مجال آخر أو مشروع صغير", "custom": "المجال أو نوع المشروع الصغير", "placeholder": "مثال: صالون تجميل أو شركة تنظيف أو مصور", "apply": "ملء القالب تلقائياً بمحتوى المجال", "required": "يرجى إدخال المجال أو نوع المشروع الصغير أولاً.", "success": "تم إعداد المحتوى للمجال «{industry}»."},
+        "ku": {"caption": "بوارێک هەڵبژێرە و ناوەڕۆکی ئامادەکراو زیاد بکە بۆ ڕەشنووسەکە.", "question": "جۆری کاروبارەکەت چییە؟", "choose": "تکایە هەڵبژێرە...", "other": "بواری تر یان کاروباری بچووک", "custom": "بوار یان جۆری کاروباری بچووک", "placeholder": "بۆ نموونە: سالۆنی جوانکاری، خزمەتگوزاری پاککردنەوە یان وێنەگر", "apply": "قاڵبەکە خۆکارانە بە ناوەڕۆکی بوارەکە پڕ بکەرەوە", "required": "تکایە سەرەتا بوار یان جۆری کاروباری بچووک بنووسە.", "success": "ناوەڕۆکی «{industry}» ئامادە کرا."},
+    }
+    labels = copy_by_language.get(language, copy_by_language["en"])
+    industry_names = {
+        "ar": {"Bitte wählen...": labels["choose"], "Kfz-Meisterwerkstatt": "ورشة سيارات متخصصة", "Friseursalon": "صالون حلاقة وتجميل", "Dachdeckerfachbetrieb": "شركة متخصصة في الأسقف", "Physiotherapie-Praxis": "عيادة علاج طبيعي", "Restaurant": "مطعم", "Café und Bäckerei": "مقهى ومخبز", "Onlineshop": "متجر إلكتروني", OTHER_INDUSTRY_OPTION: labels["other"]},
+        "ku": {"Bitte wählen...": labels["choose"], "Kfz-Meisterwerkstatt": "وەرشەی پسپۆڕی ئۆتۆمبێل", "Friseursalon": "سالۆنی قژبڕین و جوانکاری", "Dachdeckerfachbetrieb": "کۆمپانیای پسپۆڕی سەربان", "Physiotherapie-Praxis": "کلینیکی فیزیۆتێراپی", "Restaurant": "چێشتخانە", "Café und Bäckerei": "کافێ و نانەواخانە", "Onlineshop": "فرۆشگای ئۆنلاین", OTHER_INDUSTRY_OPTION: labels["other"]},
+    }.get(language, {"Bitte wählen...": labels["choose"], OTHER_INDUSTRY_OPTION: labels["other"]})
+    display_industry = lambda option: industry_names.get(option, option)
+    industry_options = ["Bitte wählen..."] + list(INDUSTRY_CONTENT_PRESETS) + [OTHER_INDUSTRY_OPTION]
+    selected_industry = str(st.session_state.get("industry_content_preset", "Bitte wählen..."))
+    selected_index = industry_options.index(selected_industry) if selected_industry in industry_options else 0
+    st.caption(labels["caption"])
+    industry = st.selectbox(
+        labels["question"],
+        industry_options,
+        index=selected_index,
+        format_func=display_industry,
+        key=f"industry_content_preset_{language}",
+    )
+    st.session_state.industry_content_preset = industry
+    custom_industry = ""
+    if industry == OTHER_INDUSTRY_OPTION:
+        custom_industry = st.text_input(
+            labels["custom"],
+            placeholder=labels["placeholder"],
+            key="custom_industry_name",
+        ).strip()
+    if industry != "Bitte wählen..." and st.button(
+        labels["apply"],
+        icon=":material/auto_awesome:",
+        type="primary",
+        key="apply_industry_content_preset",
+    ):
+        if industry == OTHER_INDUSTRY_OPTION and not custom_industry:
+            st.warning(labels["required"])
+        else:
+            apply_industry_content_preset()
+            st.rerun()
+    applied_industry = custom_industry or industry
+    if industry != "Bitte wählen..." and st.session_state.get("industry_preset_applied") == applied_industry:
+        st.success(labels["success"].format(industry=display_industry(applied_industry)))
+
+
+def render_transformer_test_ui() -> None:
+    """Rendert den manuellen Test für die Transformer-Textoptimierung."""
+    st.divider()
+    st.subheader("Live-Test: Transformer-Netzwerk", anchor=False)
+    st.write("Verwandeln Sie kurze Stichpunkte in einen professionellen Website-Text.")
+    test_input = st.text_area(
+        "Eingabe, zum Beispiel für die Angebotsseite",
+        value=(
+            "Bremsen-Service für PKW. Wechseln Beläge und Scheiben. "
+            "Dauer ca. 1 Stunde. Qualitätsteile."
+        ),
+        height=100,
+        key="transformer_test_input",
+    )
+    if st.button(
+        "Transformer-Anfrage starten",
+        icon=":material/auto_awesome:",
+        type="primary",
+        key="transformer_test_submit",
+    ):
+        if not test_input.strip():
+            st.warning("Bitte geben Sie zunächst Stichpunkte ein.")
+            return
+        with st.spinner("Text wird optimiert ..."):
+            try:
+                st.session_state.transformer_test_result = optimize_text_with_transformer(test_input)
+            except ValueError as error:
+                st.error(str(error))
+
+    result = str(st.session_state.get("transformer_test_result", "")).strip()
+    if result:
+        st.markdown("#### Optimierter Website-Text")
+        st.info(result)
+
+
+def render_privacy_policy_ui() -> None:
+    """Zeigt eine verständliche Übersicht der in der App genutzten Datenverarbeitung."""
+    st.header("Datenschutzbestimmungen")
+    st.caption("Stand: 2. September 2026")
+
+    st.subheader("1. Verantwortliche Stelle", anchor=False)
+    st.write(PRIVACY_CONTROLLER_NAME or "App-Betreiber")
+    if PRIVACY_CONTROLLER_ADDRESS:
+        st.write(PRIVACY_CONTROLLER_ADDRESS)
+    if PRIVACY_CONTACT_EMAIL:
+        st.write(f"Datenschutz-Kontakt: {PRIVACY_CONTACT_EMAIL}")
+
+    st.subheader("2. Datenkategorien", anchor=False)
+    st.write(
+        "Wir verarbeiten Ihre Konto-E-Mail-Adresse, ein sicher gehashtes Passwort, den Guthaben- "
+        "und Premiumstatus sowie gespeicherte Website-Entwürfe. Bei einer Supportanfrage speichern "
+        "wir Anliegen, Beschreibung und optionale Reproduktionsschritte. Bitte übermitteln Sie in "
+        "Freitextfeldern keine besonderen Kategorien personenbezogener Daten oder Zugangsdaten."
+    )
+
+    st.subheader("3. Zwecke und Rechtsgrundlagen", anchor=False)
+    st.write(
+        "Die Verarbeitung erfolgt zur Bereitstellung Ihres Nutzerkontos, zum Speichern und "
+        "Bearbeiten Ihrer Entwürfe sowie zur Bearbeitung von Supportanfragen. Rechtsgrundlage ist "
+        "in der Regel Art. 6 Abs. 1 lit. b DSGVO zur Vertragserfüllung. Die optionale KI-Erstellung "
+        "und Veröffentlichung erfolgen nur, wenn Sie die jeweilige Funktion aktiv starten."
+    )
+
+    st.subheader("4. Empfänger und externe Dienste", anchor=False)
+    st.write(
+        "Wenn Sie eine Website erstellen oder Inhalte per KI bearbeiten, werden die eingegebenen "
+        "Anforderungen an OpenAI übermittelt. Starten Sie eine Veröffentlichung, werden die von "
+        "Ihnen gewählten Website-Dateien und Bilder an Vercel übertragen. Der lokale Hilfe-Chat "
+        "übermittelt seine Standardantworten und Schreibkorrekturen nicht an OpenAI. Informationen "
+        "zu möglichen Drittlandübermittlungen entnehmen Sie bitte den Datenschutzinformationen der "
+        "jeweiligen Anbieter."
+    )
+
+    st.subheader("5. Speicherdauer", anchor=False)
+    st.write(
+        "Kontodaten und Entwürfe werden gespeichert, solange Ihr Konto besteht oder bis Sie die "
+        "jeweiligen Entwürfe löschen. Supportanfragen werden nur so lange aufbewahrt, wie sie zur "
+        "Bearbeitung und nachvollziehbaren Dokumentation erforderlich sind. Gesetzliche "
+        "Aufbewahrungspflichten bleiben unberührt."
+    )
+
+    st.subheader("6. Sicherheit", anchor=False)
+    st.write(
+        "Die Anwendung schützt Passwörter durch einen salt-basierten Hash und speichert Daten in "
+        "einer lokalen Anwendungsdatenbank. Bitte sichern Sie Ihr Konto mit einem starken, nur hier "
+        "verwendeten Passwort und teilen Sie keine Zugangsdaten über den Kundenservice."
+    )
+
+    st.subheader("7. Ihre Rechte", anchor=False)
+    st.write(
+        "Sie haben das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung "
+        "und Datenübertragbarkeit nach Maßgabe der DSGVO. Soweit eine Verarbeitung auf einer "
+        "Einwilligung beruht, können Sie diese mit Wirkung für die Zukunft widerrufen. Sie können "
+        "sich außerdem bei einer Datenschutzaufsichtsbehörde beschweren."
+    )
+
+    st.subheader("8. Kontakt und Änderungen", anchor=False)
+    if PRIVACY_CONTACT_EMAIL:
+        st.write(f"Für Datenschutzanfragen schreiben Sie an: {PRIVACY_CONTACT_EMAIL}")
+    else:
+        st.write(
+            "Nutzen Sie für Datenschutzanfragen den Bereich Kundenservice in dieser App. Der "
+            "App-Betreiber sollte zusätzlich eine Datenschutz-Kontaktadresse in "
+            "`privacy_contact_email` in den Streamlit-Secrets hinterlegen."
+        )
+    st.info(
+        "Diese Informationen beschreiben die technische Datenverarbeitung dieser App. Lassen Sie "
+        "die Erklärung vor einem öffentlichen oder gewerblichen Einsatz rechtlich prüfen und "
+        "aktualisieren Sie sie bei Änderungen an eingesetzten Diensten oder Datenflüssen."
+    )
+
+
+def render_sidebar(user_info: dict) -> None:
+    """Rendert Konto, Guthaben und gespeicherte Entwürfe in der Seitenleiste."""
+    with st.sidebar:
+        workspace_labels = workspace_copy()
+        with st.container(border=True):
+            st.subheader(t("account"))
+            st.caption(st.session_state.user_email)
+
+            if user_info["subscribed"]:
+                st.badge(t("premium_active"), icon=":material/workspace_premium:", color="green")
+            else:
+                st.caption(
+                    workspace_labels["trial_sidebar"].format(
+                        hours=user_info["trial_remaining_hours"]
+                    )
+                    if user_info["trial_active"]
+                    else workspace_labels["trial_expired"]
+                )
+                st.caption(workspace_labels["premium_hint"])
+
+            if st.button(t("logout"), icon=":material/logout:", width="stretch"):
+                st.session_state.clear()
+                st.rerun()
+
+        st.subheader(t("drafts"))
+
+        history_site_name = st.text_input(
+            t("draft_name"),
+            value=st.session_state.project_name,
+            key="history_site_name",
+        )
+        if st.button(
+            t("save_draft"),
+            icon=":material/save:",
+            disabled=not st.session_state.generated_html,
+            width="stretch",
+        ):
+            save_website(
+                st.session_state.user_id,
+                str(history_site_name or ""),
+                create_preview_html(st.session_state.generated_html),
+                st.session_state.live_url,
+            )
+            st.success(workspace_labels["draft_saved"])
+            st.rerun()
+
+        saved_websites = get_websites(st.session_state.user_id)
+        if not saved_websites:
+            st.caption(t("no_drafts"))
+
+        for website_id, site_name, domain in saved_websites:
+            with st.expander(site_name):
+                if domain:
+                    st.caption(domain)
+                if st.button(
+                    t("load"),
+                    key=f"load_website_{website_id}",
+                    icon=":material/folder_open:",
+                    width="stretch",
+                ):
+                    saved_website = load_website(st.session_state.user_id, website_id)
+                    if saved_website is not None:
+                        loaded_name, loaded_html, loaded_domain, analytics_site_id = saved_website
+                        st.session_state.assets = {}
+                        st.session_state.pending_html = loaded_html
+                        st.session_state.live_url = loaded_domain
+                        st.session_state.deployment_url = loaded_domain
+                        st.session_state.deployment_id = ""
+                        st.session_state.project_name = safe_project_name(loaded_name)
+                        st.session_state.analytics_site_id = (
+                            analytics_site_id or str(uuid.uuid4())
+                        )
+                        st.rerun()
+                if st.button(
+                    t("delete"),
+                    key=f"delete_website_{website_id}",
+                    icon=":material/delete:",
+                    width="stretch",
+                ):
+                    delete_saved_website(st.session_state.user_id, website_id)
+                    st.rerun()
+
+
+def render_main_tabs() -> None:
+    """Rendert Titel und die Hauptbereiche Erstellen, Verwalten, Service und Datenschutz."""
+    workspace_labels = workspace_copy()
+    st.title(t("main_title"), anchor=False)
+
+    st.caption(t("main_subtitle"))
+
+    new_tab, manage_tab, service_tab, privacy_tab = st.tabs(
+        [t("new_website"), t("load_published"), workspace_labels["service"], workspace_labels["privacy"]]
+    )
+
+    with new_tab:
+        st.subheader(workspace_labels["project_title"])
+        st.caption(workspace_labels["project_hint"])
+        creation_mode_labels = {
+            "Professionelle Vorlage": workspace_labels["professional"],
+            "Freier Entwurf": workspace_labels["free"],
+            "Bestehenden Entwurf anpassen": workspace_labels["existing"],
+        }
+        creation_mode = st.segmented_control(
+            workspace_labels["start"],
+            ["Professionelle Vorlage", "Freier Entwurf", "Bestehenden Entwurf anpassen"],
+            default="Professionelle Vorlage",
+            format_func=lambda option: creation_mode_labels[option],
+            key="creation_mode",
+        )
+        page_structure_labels = {
+            "Eine übersichtliche Seite": workspace_labels["single"],
+            "Mehrseitige Website": workspace_labels["multi"],
+        }
+        page_structure = st.segmented_control(
+            workspace_labels["structure"],
+            ["Eine übersichtliche Seite", "Mehrseitige Website"],
+            default="Eine übersichtliche Seite",
+            format_func=lambda option: page_structure_labels[option],
+            key="page_structure",
+        )
+        render_industry_content_preset_ui()
+        st.divider()
+
+        if creation_mode != "Bestehenden Entwurf anpassen":
+            st.subheader(workspace_labels["client_title"])
+            st.caption(workspace_labels["client_hint"])
+            render_client_contact_ui()
+            st.divider()
+
+        template_prompt = ""
+        if creation_mode == "Professionelle Vorlage":
+            template_prompt = render_template_and_design_ui()
+        elif creation_mode == "Bestehenden Entwurf anpassen":
+            st.info(
+                "Importieren Sie eine eigene HTML-Vorlage oder eine öffentlich erreichbare Website. "
+            "Danach stehen Vorschau und alle Bearbeitungswerkzeuge zur Verfügung.",
+                icon=":material/edit_document:",
+            )
+            upload_column, website_column = st.columns(2, gap="large")
+            with upload_column:
+                st.subheader("Eigene Vorlage hochladen", anchor=False)
+                uploaded_template = st.file_uploader(
+                    "HTML-Vorlage",
+                    type=["html", "htm"],
+                    key="existing_template_upload",
+                    help="Laden Sie eine vollständige HTML-Datei hoch, die Sie für Ihren Kunden anpassen möchten.",
+                )
+                if st.button(
+                    "Vorlage zur Bearbeitung öffnen",
+                    icon=":material/upload_file:",
+                    key="load_uploaded_template",
+                    width="stretch",
+                ):
+                    try:
+                        load_uploaded_html_template(uploaded_template)
+                        st.success("Die Vorlage wurde geladen und kann jetzt bearbeitet werden.")
+                        st.rerun()
+                    except ValueError as error:
+                        st.error(str(error))
+
+            with website_column:
+                st.subheader("Vorlage aus dem Internet laden", anchor=False)
+                template_url = st.text_input(
+                    "Öffentliche Website-Adresse",
+                    placeholder="https://www.beispiel.de",
+                    key="existing_template_url",
+                    help="Die Seite muss öffentlich erreichbar sein und darf keinen Login erfordern.",
+                )
+                if st.button(
+                    "Website zur Bearbeitung laden",
+                    icon=":material/language:",
+                    key="load_existing_template_url",
+                    width="stretch",
+                ):
+                    if not template_url.strip():
+                        st.warning("Bitte geben Sie eine öffentliche Website-Adresse ein.")
+                    else:
+                        with st.status("Website wird als Vorlage geladen ...", expanded=True) as status:
+                            try:
+                                load_published_website(template_url)
+                                st.session_state.project_name = get_project_name_from_url(template_url)
+                                status.update(
+                                    label="Website wurde geladen und kann bearbeitet werden.",
+                                    state="complete",
+                                )
+                                st.rerun()
+                            except ValueError as error:
+                                status.update(label="Vorlage konnte nicht geladen werden.", state="error")
+                                st.error(str(error))
+
+        section_prompt = ""
+        if creation_mode != "Bestehenden Entwurf anpassen":
+            section_prompt = render_section_configuration()
+
+        if creation_mode != "Bestehenden Entwurf anpassen":
+            creation_copy = get_creation_form_copy()
+            creation_labels = creation_copy["labels"]
+            placement_labels = creation_copy["placements"]
+            if creation_mode == "Professionelle Vorlage":
+                description = str(st.session_state.get("template_custom_description", ""))
+            else:
+                description = st.text_area(
+                    creation_labels[9],
+                    placeholder=creation_labels[10],
+                    key="creation_description",
+                    height=150,
+                )
+            source_documents = []
+            if creation_mode != "Professionelle Vorlage":
+                document_copy = {
+                    "de": ("Unternehmensdokumente für die KI (optional)", "PDF-, TXT- oder Markdown-Dateien werden zerlegt und per Vektorsuche als belegte Inhaltsquelle verwendet."),
+                    "en": ("Business documents for AI (optional)", "PDF, TXT, or Markdown files are chunked and used as verified content sources through vector search."),
+                    "ar": ("مستندات الشركة للذكاء الاصطناعي (اختياري)", "تُقسّم ملفات PDF أو TXT أو Markdown وتُستخدم كمصادر موثوقة عبر البحث المتجهي."),
+                    "ku": ("بەڵگەنامەکانی کۆمپانیا بۆ زیرەکی دەستکرد (ئارەزوومەندانە)", "فایلەکانی PDF و TXT یان Markdown پارچە دەکرێن و بە گەڕانی ڤێکتەر وەک سەرچاوە بەکاردێن."),
+                    "es": ("Documentos de empresa para la IA (opcional)", "Los archivos PDF, TXT o Markdown se dividen y se usan como fuentes verificadas mediante búsqueda vectorial."),
+                    "it": ("Documenti aziendali per l'IA (facoltativi)", "I file PDF, TXT o Markdown vengono suddivisi e usati come fonti verificate tramite ricerca vettoriale."),
+                    "hi": ("एआई के लिए व्यावसायिक दस्तावेज़ (वैकल्पिक)", "PDF, TXT या Markdown फ़ाइलों को भागों में बांटकर वेक्टर खोज से प्रमाणित स्रोत के रूप में उपयोग किया जाता है।"),
+                }.get(str(st.session_state.app_language), ("Business documents for AI (optional)", "Documents are used as verified content sources."))
+                source_documents = st.file_uploader(
+                    document_copy[0],
+                    type=["pdf", "txt", "md"],
+                    accept_multiple_files=True,
+                    help=document_copy[1],
+                    key="website_source_documents",
+                )
+                st.caption(document_copy[1])
+                if source_documents:
+                    st.success(
+                        f"{len(source_documents)} Dokument(e) bereit: "
+                        + ", ".join(document.name for document in source_documents)
+                    )
+                used_sources = st.session_state.get("document_source_names", [])
+                if used_sources:
+                    st.info("Für den letzten Entwurf verwendete Quellen: " + ", ".join(used_sources))
+            st.subheader(creation_labels[11])
+            initial_image = st.file_uploader(
+                creation_labels[12],
+                type=["png", "jpg", "jpeg", "webp"],
+                key="initial_image",
+            )
+            image_placement = st.selectbox(
+                creation_labels[13],
+                [
+                    "Logo",
+                    "Hero- und Willkommensbereich",
+                    "Über-uns-Bereich",
+                    "Projektbereich",
+                ],
+                format_func=lambda placement: placement_labels.get(placement, placement),
+                disabled=initial_image is None,
+                key="image_placement",
+            )
+            submit_label = (
+                creation_labels[14]
+                if creation_mode == "Professionelle Vorlage"
+                else creation_labels[15]
+            )
+            if st.button(
+                submit_label,
+                icon=":material/edit_document:",
+                type="primary",
+                key="create_website",
+                width="stretch",
+            ):
+                if creation_mode == "Professionelle Vorlage":
+                    try:
+                        company_name = str(st.session_state.client_company_name).strip()
+                        business_email = str(st.session_state.client_business_email).strip()
+                        if not company_name or not EMAIL_PATTERN.fullmatch(business_email):
+                            raise ValueError("Bitte geben Sie Unternehmensname und eine gültige geschäftliche E-Mail-Adresse ein.")
+                        background_color = BACKGROUND_PRESET_COLORS[
+                            st.session_state.template_background_preset
+                        ]
+                        html = build_customized_template_html(
+                            str(st.session_state.template_name),
+                            background_color,
+                            str(st.session_state.template_accent_color),
+                            str(st.session_state.template_border_style),
+                            company_name,
+                            business_email,
+                            str(st.session_state.get("template_hero_heading", "")).strip()
+                            or str(st.session_state.client_company_slogan),
+                            str(st.session_state.client_business_phone),
+                            description,
+                            initial_image,
+                            str(st.session_state.get("template_button_text", "")),
+                            str(st.session_state.get("template_footer_text", "")),
+                            page_structure == "Mehrseitige Website",
+                            get_configured_chatbot_knowledge(),
+                            str(st.session_state.get("customer_chatbot_name", "")),
+                            str(st.session_state.get("customer_chatbot_color", "#2563EB")),
+                            {"Rund (Kreis)": "50%", "Eckig mit Rundung": "8px", "Quadratisch": "0"}.get(str(st.session_state.get("customer_chatbot_shape", "Rund (Kreis)")), "50%"),
+                            str(st.session_state.get("template_sections_text", "")),
+                        )
+                        queue_html_update(html, reset_site_pages=True)
+                        st.session_state.site_pages["styles.css"] = (
+                            build_customized_template_styles()
+                        )
+                        if page_structure == "Mehrseitige Website":
+                            st.session_state.site_pages.update(
+                                build_customized_template_pages(
+                                    company_name,
+                                    business_email,
+                                    background_color,
+                                    str(st.session_state.template_accent_color),
+                                    description,
+                                    get_configured_chatbot_knowledge(),
+                                    str(st.session_state.get("customer_chatbot_name", "")),
+                                    str(st.session_state.get("customer_chatbot_color", "#2563EB")),
+                                )
+                            )
+                        st.success("Die Vorlage wurde mit Ihren Kundendaten übernommen und kann jetzt direkt bearbeitet werden.")
+                        st.rerun()
+                    except ValueError as error:
+                        st.error(str(error))
+                else:
+                    page_prompt = (
+                        "Erstelle die statische Startseite `index.html` für eine Vercel-Website. Verwende ausschließlich echte Dateilinks in der Navigation: `index.html` für Leistungen/Start, `angebote.html`, `projekte.html`, `ueber-uns.html` und `kontakt.html`. Verwende keine Hash-Navigation, keine `data-page`-Ansichten und kein JavaScript-Routing. Die verlinkten Unterseiten werden beim Deployment als eigenständige HTML-Dateien bereitgestellt."
+                        if page_structure == "Mehrseitige Website"
+                        else "Erstelle eine klar gegliederte, einseitige Website mit Navigation zu den jeweiligen Inhaltsbereichen."
+                    )
+                    prompt = (
+                        f"{template_prompt}\n{section_prompt}\n\n"
+                    f"WEITERE KUNDENANFORDERUNGEN:\n{description.strip()}\n\n"
+                    f"SEITENSTRUKTUR:\n{page_prompt}"
+                    )
+                    with st.status("Website wird erstellt ...", expanded=True) as status:
+                        try:
+                            generate_website(
+                                prompt,
+                                initial_image,
+                                source_documents,
+                                image_placement,
+                                multi_page=page_structure == "Mehrseitige Website",
+                            )
+                            status.update(label="Website wurde erstellt.", state="complete")
+                            st.rerun()
+                        except Exception as error:
+                            error_message = str(error) or "Unbekannter Fehler bei der Erstellung."
+                            status.update(
+                                label=f"Erstellung fehlgeschlagen: {error_message}",
+                                state="error",
+                            )
+                            st.error(error_message)
+
+    with manage_tab:
+        import_labels = publish_copy()
+        st.subheader(import_labels["load_title"])
+        st.caption(import_labels["load_hint"])
+
+        live_url_input = st.text_input(
+            import_labels["live_link"],
+            placeholder="https://ihre-website.vercel.app",
+            key="manage_live_url",
+        )
+
+        if st.button(
+            import_labels["load_button"],
+            icon=":material/settings:",
+            type="primary",
+            width="stretch",
+        ):
+            if not live_url_input.strip():
+                st.warning(import_labels["link_required"])
+            else:
+                with st.status(import_labels["loading"], expanded=True) as status:
+                    try:
+                        load_published_website(live_url_input)
+                        status.update(
+                            label=import_labels["loaded"],
+                            state="complete",
+                        )
+                        st.rerun()
+                    except Exception as error:
+                        status.update(
+                            label=import_labels["failed"],
+                            state="error",
+                        )
+                        st.error(str(error))
+
+    with service_tab:
+        render_mcp_content_tools_ui()
+        render_analytics_optimization_ui(st.session_state.user_email)
+        st.divider()
+        render_customer_service_ui(int(st.session_state.user_id), st.session_state.user_email)
+        render_transformer_test_ui()
+
+    with privacy_tab:
+        render_privacy_policy_ui()
+
+    if st.session_state.live_url:
+        st.success("Eine veröffentlichte oder geladene Website ist verfügbar.")
+
+        st.link_button(
+            "🔗 Geänderte Website öffnen",
+            st.session_state.live_url,
+            width="stretch",
+        )
+
+        st.caption(f"Live-Link: {st.session_state.live_url}")
+
+
+def render_generated_website_editor() -> None:
+    """Rendert Vorschau, Bearbeitung und Download der erstellten Website."""
+    if st.session_state.generated_html:
+        st.divider()
+        if st.session_state.get("creation_mode") != "Professionelle Vorlage":
+            with st.container(border=True):
+                st.subheader("Optional: aktuellen Entwurf ersetzen", anchor=False)
+                st.caption(
+                    "Erstellt aus Ihren Unternehmensdaten eine vollständige, responsive Website mit "
+                "klarer Navigation, Leistungen, Vertrauenselementen, Kontaktführung und Chatbot."
+                )
+                if st.button(
+                    "Aktuellen Entwurf durch Standard-Entwurf ersetzen",
+                    icon=":material/auto_awesome:",
+                    type="secondary",
+                    key="create_professional_standard_draft",
+                    width="stretch",
+                ):
+                    with st.status(
+                        "Professioneller Standard-Entwurf wird erstellt ...", expanded=True
+                    ) as status:
+                        try:
+                            create_professional_standard_draft()
+                            status.update(
+                                label="Professioneller Standard-Entwurf wurde erstellt.",
+                                state="complete",
+                            )
+                            st.rerun()
+                        except ValueError as error:
+                            status.update(label="Entwurf konnte nicht erstellt werden.", state="error")
+                            st.error(str(error))
+            st.divider()
+        st.header(t("edit_website"))
+
+        editor_language = str(st.session_state.app_language)
+        editor_copy = {
+            "de": {"tabs": ["Live-Design", "Direkt bearbeiten", "Inhalte", "Design", "Bilder", "HTML-Code"], "select": "Bereich auswählen", "sections": ["Navigation", "Hero-Bereich", "Über mich", "Leistungen", "Projekte", "Kontakt", "Footer", "Neuen Bereich hinzufügen"], "change": "Gewünschte Änderung", "placeholder": "Beispiel: Ersetzen Sie das Kontaktformular und behalten Sie das aktuelle Design.", "update": "Bereich aktualisieren", "required": "Bitte beschreiben Sie die gewünschte Änderung.", "working": "Bereich wird bearbeitet ...", "done": "Vorschau wurde aktualisiert.", "failed": "Änderung fehlgeschlagen"},
+            "en": {"tabs": ["Live design", "Direct editing", "Content", "Design", "Images", "HTML code"], "select": "Select section", "sections": ["Navigation", "Hero section", "About", "Services", "Projects", "Contact", "Footer", "Add new section"], "change": "Requested change", "placeholder": "Example: Replace the contact form and preserve the current design.", "update": "Update section", "required": "Please describe the requested change.", "working": "Editing section ...", "done": "Preview updated.", "failed": "Change failed"},
+            "ar": {"tabs": ["التصميم المباشر", "التحرير المباشر", "المحتوى", "التصميم", "الصور", "كود HTML"], "select": "اختر القسم", "sections": ["التنقل", "الواجهة الرئيسية", "من نحن", "الخدمات", "المشاريع", "الاتصال", "التذييل", "إضافة قسم جديد"], "change": "التغيير المطلوب", "placeholder": "مثال: استبدل نموذج الاتصال مع الحفاظ على التصميم الحالي.", "update": "تحديث القسم", "required": "يرجى وصف التغيير المطلوب.", "working": "جارٍ تعديل القسم...", "done": "تم تحديث المعاينة.", "failed": "فشل التغيير"},
+            "ku": {"tabs": ["دیزاینی ڕاستەوخۆ", "دەستکاریی ڕاستەوخۆ", "ناوەڕۆک", "دیزاین", "وێنەکان", "کۆدی HTML"], "select": "بەش هەڵبژێرە", "sections": ["ڕێنیشاندەر", "بەشی سەرەکی", "دەربارە", "خزمەتگوزارییەکان", "پڕۆژەکان", "پەیوەندی", "پێپەڕە", "زیادکردنی بەشی نوێ"], "change": "گۆڕانکاریی داواکراو", "placeholder": "بۆ نموونە: فۆڕمی پەیوەندی بگۆڕە و دیزاینی ئێستا بهێڵەرەوە.", "update": "نوێکردنەوەی بەش", "required": "تکایە گۆڕانکاریی داواکراو ڕوون بکەرەوە.", "working": "بەشەکە دەستکاری دەکرێت...", "done": "پێشبینین نوێ کرایەوە.", "failed": "گۆڕانکاری سەرکەوتوو نەبوو"},
+            "es": {"tabs": ["Diseño en vivo", "Edición directa", "Contenido", "Diseño", "Imágenes", "Código HTML"], "select": "Seleccionar sección", "sections": ["Navegación", "Portada", "Sobre nosotros", "Servicios", "Proyectos", "Contacto", "Pie de página", "Añadir nueva sección"], "change": "Cambio solicitado", "placeholder": "Ejemplo: Sustituye el formulario de contacto y conserva el diseño actual.", "update": "Actualizar sección", "required": "Describe el cambio solicitado.", "working": "Editando la sección...", "done": "Vista previa actualizada.", "failed": "Error al aplicar el cambio"},
+            "it": {"tabs": ["Design dal vivo", "Modifica diretta", "Contenuti", "Design", "Immagini", "Codice HTML"], "select": "Seleziona sezione", "sections": ["Navigazione", "Sezione principale", "Chi siamo", "Servizi", "Progetti", "Contatti", "Piè di pagina", "Aggiungi nuova sezione"], "change": "Modifica richiesta", "placeholder": "Esempio: sostituisci il modulo di contatto e conserva il design attuale.", "update": "Aggiorna sezione", "required": "Descrivi la modifica richiesta.", "working": "Modifica della sezione...", "done": "Anteprima aggiornata.", "failed": "Modifica non riuscita"},
+            "hi": {"tabs": ["लाइव डिज़ाइन", "सीधा संपादन", "सामग्री", "डिज़ाइन", "चित्र", "HTML कोड"], "select": "अनुभाग चुनें", "sections": ["नेविगेशन", "मुख्य अनुभाग", "हमारे बारे में", "सेवाएं", "परियोजनाएं", "संपर्क", "पादलेख", "नया अनुभाग जोड़ें"], "change": "अनुरोधित बदलाव", "placeholder": "उदाहरण: संपर्क फ़ॉर्म बदलें और वर्तमान डिज़ाइन बनाए रखें।", "update": "अनुभाग अपडेट करें", "required": "कृपया अनुरोधित बदलाव का वर्णन करें।", "working": "अनुभाग संपादित हो रहा है...", "done": "पूर्वावलोकन अपडेट हो गया।", "failed": "बदलाव विफल रहा"},
+        }.get(editor_language)
+        if editor_copy is None:
+            editor_copy = {"tabs": ["Live design", "Direct editing", "Content", "Design", "Images", "HTML code"], "select": "Select section", "sections": ["Navigation", "Hero section", "About", "Services", "Projects", "Contact", "Footer", "Add new section"], "change": "Requested change", "placeholder": "Describe the requested change.", "update": "Update section", "required": "Please describe the requested change.", "working": "Editing section ...", "done": "Preview updated.", "failed": "Change failed"}
+        internal_sections = ["Navigation", "Hero-Bereich", "Über mich", "Leistungen", "Projekte", "Kontakt", "Footer", "Neuen Bereich hinzufügen"]
+        localized_sections = dict(zip(internal_sections, editor_copy["sections"]))
+        live_editor_tab, direct_edit_tab, content_tab, design_tab, image_tab, html_tab = st.tabs(
+            editor_copy["tabs"]
+        )
+
+        with live_editor_tab:
+            render_editor()
+
+        with direct_edit_tab:
+            render_direct_content_editor()
+
+        with content_tab:
+            section = st.selectbox(
+                editor_copy["select"],
+                internal_sections,
+                format_func=lambda option: localized_sections.get(option, option),
+                key="content_editor_section",
+            )
+
+            change_request = st.text_area(
+                editor_copy["change"],
+                placeholder=editor_copy["placeholder"],
+                key="content_editor_request",
+                height=130,
+            )
+
+            if st.button(
+                editor_copy["update"],
+                key="apply_content_editor_request",
+                width="stretch",
+            ):
+                if not change_request.strip():
+                    st.warning(editor_copy["required"])
+                else:
+                    with st.status(editor_copy["working"], expanded=True) as status:
+                        try:
+                            modify_current_website(
+                                f"Ändere ausschließlich den Bereich „{section}“: "
+                            f"{change_request}"
+                            )
+                            status.update(
+                                label=editor_copy["done"],
+                                state="complete",
+                            )
+                            st.rerun()
+                        except Exception as error:
+                            status.update(
+                                label=editor_copy["failed"],
+                                state="error",
+                            )
+                            st.error(str(error))
+
+        with design_tab:
+            st.subheader("Markenauftritt")
+            company_name = str(st.session_state.get("client_company_name", "")).strip()
+            company_slogan = str(st.session_state.get("client_company_slogan", "")).strip()
+            contact_email = str(st.session_state.get("client_business_email", "")).strip()
+            contact_phone = str(st.session_state.get("client_business_phone", "")).strip()
+            chatbot_knowledge = get_configured_chatbot_knowledge()
+            st.caption(
+                "Firmenname, Slogan, Kontaktdaten und Chatbot-Wissen bearbeiten Sie oben "
+            "im Bereich Kundendaten."
+            )
+            brand_color = st.color_picker(
+                "Markenfarbe",
+                "#38BDF8",
+                key="premium_brand_color",
+            )
+            accent_color = st.color_picker(
+                "Akzentfarbe für Highlights und Icons",
+                "#14B8A6",
+                key="premium_accent_color",
+            )
+            company_description = st.text_area(
+                "Kurzbeschreibung für Über uns",
+                key="premium_company_description",
+                height=100,
+            )
+            social_columns = st.columns(2)
+            with social_columns[0]:
+                instagram_link = st.text_input(
+                    "Instagram-Link",
+                    placeholder="https://instagram.com/ihrunternehmen",
+                    key="premium_instagram_link",
+                )
+            with social_columns[1]:
+                linkedin_link = st.text_input(
+                    "LinkedIn-Link",
+                    placeholder="https://linkedin.com/company/ihrunternehmen",
+                    key="premium_linkedin_link",
+                )
+
+            if st.button(
+                "Markenauftritt übernehmen",
+                icon=":material/save:",
+                key="apply_premium_basics",
+                width="stretch",
+            ):
+                if not company_name.strip() or not re.fullmatch(
+                    r"[^@\s]+@[^@\s]+\.[^@\s]+", contact_email.strip()
+                ):
+                    st.warning("Geben Sie einen Firmennamen und eine gültige Kontakt-E-Mail-Adresse ein.")
+                else:
+                    with st.status("Markenauftritt wird aktualisiert ...", expanded=True) as status:
+                        try:
+                            modify_current_website(
+                                f"""
+Aktualisiere den Markenauftritt: Firmenname „{company_name.strip()}“,
+Slogan „{company_slogan.strip()}“, Kontakt-E-Mail „{contact_email.strip()}“,
+Telefonnummer „{contact_phone.strip()}“, Markenfarbe „{brand_color}" und
+Akzentfarbe „{accent_color}". Aktualisiere den Über-uns-Bereich mit dieser
+Kurzbeschreibung: „{company_description.strip()}“.
+Nutze im Footer nur diese Social-Media-Links: Instagram „{instagram_link.strip()}"
+und LinkedIn „{linkedin_link.strip()}". Entferne einen Social-Link, wenn dafür
+keine gültige URL angegeben wurde. Aktualisiere den Website-Chatbot mit diesem Wissen:
+„{chatbot_knowledge.strip()}“. Erfinde keine zusätzlichen Öffnungszeiten, Preise oder
+Angebote. Alle sonstigen Inhalte und Bilder bleiben erhalten.
+"""
+                            )
+                            status.update(label="Markenauftritt wurde übernommen.", state="complete")
+                            st.rerun()
+                        except Exception as error:
+                            status.update(label="Aktualisierung fehlgeschlagen", state="error")
+                            st.error(str(error))
+
+            st.divider()
+            design_request = st.text_area(
+                "Design-Änderung",
+                placeholder=(
+                    "Beispiel: Dunkles Premium-Design mit goldenen Akzenten, "
+                "runden Karten und größeren Buttons."
+                ),
+                key="design_editor_request",
+                height=130,
+            )
+
+            if st.button(
+                "🎨 Design aktualisieren",
+                key="apply_design_editor_request",
+                width="stretch",
+            ):
+                if not design_request.strip():
+                    st.warning("Bitte beschreibe die gewünschte Design-Änderung.")
+                else:
+                    with st.status("Design wird angepasst ...", expanded=True) as status:
+                        try:
+                            modify_current_website(
+                                "Ändere ausschließlich Farben, Layout, Abstände und "
+                            "Styling. Texte, Bilder und Struktur bleiben erhalten. "
+                            f"Wunsch: {design_request}"
+                            )
+                            status.update(
+                                label="✅ Design wurde aktualisiert.",
+                                state="complete",
+                            )
+                            st.rerun()
+                        except Exception as error:
+                            status.update(
+                                label="❌ Design-Änderung fehlgeschlagen",
+                                state="error",
+                            )
+                            st.error(str(error))
+
+        with image_tab:
+            image_section = st.selectbox(
+                "Abschnitt für das Bild",
+                ["Logo", "Hero-Bereich", "Über mich", "Leistungen", "Projekte", "Kontakt"],
+                key="image_editor_section",
+            )
+
+            image_file = st.file_uploader(
+                "Neues Bild hochladen",
+                type=["png", "jpg", "jpeg", "webp"],
+                key="section_image",
+            )
+
+            if st.button(
+                "🖼️ Bild aktualisieren",
+                key="apply_image_editor_request",
+                width="stretch",
+            ):
+                if image_file is None:
+                    st.warning("Bitte wähle zuerst ein Bild aus.")
+                else:
+                    with st.status("Bild wird aktualisiert ...", expanded=True) as status:
+                        try:
+                            image_name = save_uploaded_image(image_file, image_section)
+
+                            modify_current_website(
+                                f"""
+Ändere ausschließlich das Bild im Bereich „{image_section}“.
+
+Verwende exakt dieses Bild:
+<img src="{image_name}" alt="{image_section} Bild">
+
+Alle anderen Inhalte müssen unverändert bleiben.
+"""
+                            )
+
+                            status.update(
+                                label="✅ Bild wurde aktualisiert.",
+                                state="complete",
+                            )
+                            st.rerun()
+                        except Exception as error:
+                            status.update(
+                                label="❌ Bild-Änderung fehlgeschlagen",
+                                state="error",
+                            )
+                            st.error(str(error))
+
+        with html_tab:
+            st.text_area(
+                "HTML-Quellcode",
+                height=620,
+                key="html_editor",
+            )
+
+            if st.button(
+                "👁️ Vorschau aus HTML aktualisieren",
+                key="apply_html_editor_preview",
+                width="stretch",
+            ):
+                try:
+                    st.session_state.generated_html = require_complete_html(
+                        st.session_state.html_editor
+                    )
+                    st.rerun()
+                except ValueError as error:
+                    st.warning(str(error))
+
+            st.download_button(
+                "⬇️ HTML herunterladen",
+                data=st.session_state.generated_html,
+                file_name="website.html",
+                mime="text/html",
+                width="stretch",
+            )
+
+        if st.session_state.deployment_id:
+            with st.expander("Letzte Veröffentlichung verwalten"):
+                st.checkbox(
+                    "Ich möchte das letzte Deployment löschen.",
+                    key="delete_confirmation",
+                )
+                if st.button(
+                    "Letztes Deployment löschen",
+                    icon=":material/delete:",
+                    disabled=not st.session_state.delete_confirmation,
+                    key="delete_latest_deployment",
+                    width="stretch",
+                ):
+                    try:
+                        delete_published_website()
+                        st.success("Deployment wurde gelöscht.")
+                        st.rerun()
+                    except Exception as error:
+                        st.error(f"Löschen fehlgeschlagen: {error}")
