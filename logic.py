@@ -27,14 +27,16 @@ import streamlit as st
 from fastmcp import Client
 from openai import OpenAI
 from pypdf import PdfReader
+
 from analytics_automation import SupabaseAnalyticsClient, summarize_analytics
-from mcp_server import mcp as website_mcp_server
+from mcp_server import (
+    CHATBOT_INDUSTRY_PROFILES,
+    GENERIC_CHATBOT_PROFILES,
+    mcp as website_mcp_server,
+)
 
 
 OPENAI_MODEL = "gpt-4o-mini"
-
-
-FORMSPREE_ENDPOINT = "https://formspree.io/f/mnpqnyvk"
 
 
 VERCEL_DEPLOYMENTS_URL = (
@@ -54,7 +56,7 @@ EMAIL_PATTERN = re.compile(
 TEMPLATES = {
     "Automobil und KFZ-Gewerbe": {
         "icon": ":material/directions_car:",
-        "description": "Dynamisches Design fuer Autohaeuser, Werkstaetten und Zulieferer.",
+        "description": "Dynamisches Design für Autohäuser, Werkstätten und Zulieferer.",
         "sections": "Fahrzeugangebote oder Werkstattservices, Service-Termin, Finanzierung und Leasing, Kundenversprechen, Standort und Kontakt",
         "style_hint": (
             "Nutze scharfkantige Karten, metallische Grautoene, dunkle Akzente "
@@ -64,7 +66,7 @@ TEMPLATES = {
     },
     "GmbH und Corporate Unternehmen": {
         "icon": ":material/business:",
-        "description": "Serioeses, vertrauenswuerdiges B2B-Layout fuer Unternehmen.",
+        "description": "Seriöses, vertrauenswürdiges B2B-Layout für Unternehmen.",
         "sections": "Leistungsportfolio, Branchenkompetenz, Arbeitsweise, Kennzahlen oder Zertifizierungen, Ansprechpartner und Kontakt",
         "style_hint": (
             "Nutze grosszuegigen Freiraum, klare Linien sowie tiefblaue oder "
@@ -74,7 +76,7 @@ TEMPLATES = {
     },
     "Cafe und Baeckerei": {
         "icon": ":material/bakery_dining:",
-        "description": "Warmes, handwerkliches Design fuer Cafes und Baeckereien.",
+        "description": "Warmes, handwerkliches Design für Cafes und Bäckereien.",
         "sections": "Frühstücks- und Speisekarte, handwerkliche Spezialitäten, Tagesangebot, Öffnungszeiten, Standort und Vorbestellung",
         "style_hint": (
             "Nutze weiche Ecken und warme Toene. Integriere eine Speise- oder "
@@ -93,7 +95,7 @@ TEMPLATES = {
     },
     "Formale Agentur oder Kanzlei": {
         "icon": ":material/account_balance:",
-        "description": "Minimalistisches, hochprofessionelles Design fuer Beratungen und Kanzleien.",
+        "description": "Minimalistisches, hochprofessionelles Design für Beratungen und Kanzleien.",
         "sections": "Beratungsfelder, Vorgehensweise, Expertise und Referenzen, Erstgespräch, Ansprechpartner und Kontakt",
         "style_hint": (
             "Nutze elegante serifenlose Typografie, geometrische Strukturen und "
@@ -103,7 +105,7 @@ TEMPLATES = {
     },
     "Schule und Bildung": {
         "icon": ":material/school:",
-        "description": "Uebersichtliche, einladende Vorlage fuer Schulen, Lernzentren und Bildungseinrichtungen.",
+        "description": "Übersichtliche, einladende Vorlage für Schulen, Lernzentren und Bildungseinrichtungen.",
         "sections": "Bildungsangebote, Aktuelles und Termine, Lernkonzept, Lehrkräfte oder Team, Informationen für Eltern und Kontakt",
         "style_hint": (
             "Nutze eine freundliche, gut lesbare Gestaltung mit klaren Bereichen fuer "
@@ -113,7 +115,7 @@ TEMPLATES = {
     },
     "Bibliothek": {
         "icon": ":material/local_library:",
-        "description": "Ruhige, zugängliche Vorlage fuer Bibliotheken, Medienzentren und Lesecafes.",
+        "description": "Ruhige, zugängliche Vorlage für Bibliotheken, Medienzentren und Lesecafes.",
         "sections": "Medienangebot, Neuerscheinungen, Veranstaltungen, Mitgliedschaft und Ausleihe, Öffnungszeiten und Kontakt",
         "style_hint": (
             "Nutze ein ruhiges, lesefreundliches Design mit einer klaren Mediensuche, "
@@ -123,70 +125,13 @@ TEMPLATES = {
     },
     "Supermarkt und Einzelhandel": {
         "icon": ":material/storefront:",
-        "description": "Praktische, kundennahe Vorlage fuer Supermaerkte, Lebensmittelgeschaefte und Einzelhandel.",
+        "description": "Praktische, kundennahe Vorlage für Supermärkte, Lebensmittelgeschäfte und Einzelhandel.",
         "sections": "Wochenangebote, Sortiment, Services, Nachhaltigkeit oder Qualität, Öffnungszeiten, Standort und Kontakt",
         "style_hint": (
             "Gestalte einen klaren, aktionsorientierten Auftritt mit Wochenangeboten, "
             "Sortiment, Standort, Oeffnungszeiten und Kontakt. Angebote muessen auf "
             "Mobilgeraeten besonders schnell erfassbar sein."
         ),
-    },
-}
-
-
-DESIGN_USE_CASES = {
-    "Individuell konfigurieren": {},
-    "Landingpage für Angebot oder Kampagne": {
-        "background": "#FFFFFF",
-        "accent": "#0F766E",
-        "border_style": "rounded",
-        "page_structure": "Eine übersichtliche Seite",
-        "sections": [
-            "Hero und Willkommensbereich",
-            "Leistungen oder Produkte",
-            "Kundenstimmen oder Referenzen",
-            "Kontakt und Erreichbarkeit",
-        ],
-        "description": "Klare Landingpage mit starkem Angebot, Nutzenargumenten, Vertrauen und einer eindeutigen Kontaktaktion.",
-    },
-    "Business-Website": {
-        "background": "#F3F4F6",
-        "accent": "#1D4ED8",
-        "border_style": "rounded",
-        "page_structure": "Mehrseitige Website",
-        "sections": [
-            "Hero und Willkommensbereich",
-            "Über uns",
-            "Leistungen oder Produkte",
-            "Galerie oder Projekte",
-            "Kontakt und Erreichbarkeit",
-        ],
-        "description": "Vertrauenswürdiger Unternehmensauftritt mit Leistungen, Unternehmensprofil, Projekten und Kontakt.",
-    },
-    "Kontakt- und Leadformular": {
-        "background": "#EFF6FF",
-        "accent": "#2563EB",
-        "border_style": "rounded",
-        "page_structure": "Eine übersichtliche Seite",
-        "sections": [
-            "Hero und Willkommensbereich",
-            "Leistungen oder Produkte",
-            "Kontakt und Erreichbarkeit",
-        ],
-        "description": "Fokussierte Formularseite zur Gewinnung qualifizierter Anfragen mit klaren Vorteilen und Kontaktmöglichkeit.",
-    },
-    "Daten-Dashboard und Reporting": {
-        "background": "#111827",
-        "accent": "#22C55E",
-        "border_style": "sharp",
-        "page_structure": "Mehrseitige Website",
-        "sections": [
-            "Hero und Willkommensbereich",
-            "Leistungen oder Produkte",
-            "Galerie oder Projekte",
-            "Kontakt und Erreichbarkeit",
-        ],
-        "description": "Professionelles Informations- und Reporting-Portal mit Kennzahlen, klaren Datenbereichen und Kontakt.",
     },
 }
 
@@ -300,48 +245,331 @@ TRANSLATIONS = {
 }
 
 
-LANGUAGE_SWITCHER_REQUIREMENTS = """
-MEHRSPRACHIGKEIT UND RTL:
-- Baue rechts in die Navigation ein elegantes dunkles <select id="language-switcher"> mit
-    den Optionen DE, EN, AR und KU. Es muss im Dark-Mode gut lesbar sein und ohne Seiten-Reload arbeiten.
-- Binde direkt vor </body> ein JavaScript ein. Definiere darin ein JSON-Objekt namens translations
-    mit den Sprachcodes de, en, ar und ku. Jede Sprache enthaelt Texte fuer nav_home, nav_about,
-    nav_services, nav_contact, hero_title, hero_text, about_title, about_text, services_title,
-    services_text, contact_title und contact_text.
-- Verwende diese biografischen Inhalte, fehlerfrei uebersetzt: Mayada ist AI Engineer, hat einen
-    Bachelor an der Universitaet Aleppo, einen Master in Hannover und die AI-Engineer-Weiterbildung
-    bei alfatraining abgeschlossen. Kontakt-E-Mail: mayada2678@gmail.com.
-- Kennzeichne alle wechselbaren Navigation-, Hero-, Ueber-mich-, Services- und Kontakttexte mit
-    passenden data-i18n-Attributen. Beim Aendern des Dropdowns ersetzt JavaScript deren textContent
-    aus translations ohne Neuladen.
-- Lege die vier Uebersetzungen vollstaendig im JavaScript ab:
-    de: "Mayada - AI Engineer", "Bachelor an der Universitaet Aleppo, Master in Hannover und
-    AI-Engineer-Weiterbildung bei alfatraining.", "Ueber mich", "Ich entwickle intelligente,
-    nutzerfreundliche digitale Loesungen.", "Leistungen", "KI-Loesungen, Webentwicklung und
-    technische Beratung.", "Kontakt", "Schreiben Sie an mayada2678@gmail.com.";
-    en: "Mayada - AI Engineer", "Bachelor's degree from the University of Aleppo, Master's degree
-    in Hanover, and AI Engineer training at alfatraining.", "About me", "I build intelligent,
-    user-friendly digital solutions.", "Services", "AI solutions, web development, and technical
-    consulting.", "Contact", "Email mayada2678@gmail.com.";
-    ar: "مايادا - مهندسة ذكاء اصطناعي", "حاصلة على البكالوريوس من جامعة حلب والماجستير من هانوفر،
-    وأكملت تدريب مهندسة الذكاء الاصطناعي في alfatraining.", "من أنا", "أطوّر حلولاً رقمية ذكية
-    وسهلة الاستخدام.", "الخدمات", "حلول الذكاء الاصطناعي وتطوير الويب والاستشارات التقنية.",
-    "تواصل", "راسليني على mayada2678@gmail.com.";
-    ku: "مایادا - ئەندازیاری زیرەکی دەستکرد", "بڕوانامەی بەکالۆریۆس لە زانکۆی حەلەب و ماستەر لە
-    هانوڤەر، و ڕاهێنانی ئەندازیاری زیرەکی دەستکرد لە alfatraining تەواو کردووە.", "دەربارەی من",
-    "چارەسەری دیجیتاڵی زیرەک و بەکارهێنەر-دۆست پەرەپێدەدەم.", "خزمەتگوزارییەکان", "چارەسەرییەکانی
-    زیرەکی دەستکرد، پەرەپێدانی وێب و ڕاوێژکاریی تەکنیکی.", "پەیوەندی", "بۆ پەیوەندی بنووسە بۆ
-    mayada2678@gmail.com.".
-- Die Funktion applyLanguage(code) muss document.documentElement.lang auf den Code und dir fuer
-    ar und ku auf "rtl", sonst auf "ltr" setzen. Bei RTL muessen text-left/text-right-Klassen
-    getauscht sowie Flex- und Navigationsrichtungen gespiegelt werden; bei de/en ist alles wieder
-    auf LTR und linksbuendig zurueckzusetzen. Verwende classList und speichere den LTR-Ausgangszustand,
-    damit wiederholtes Umschalten keine Klassen verliert.
-"""
+# --- Konten und Testphase ---
+TRIAL_DURATION = timedelta(hours=24)
+
+
+# --- Konfiguration aus den Streamlit-Secrets ---
+try:
+    OPENAI_API_KEY = st.secrets["openai_api_key"]
+    VERCEL_TOKEN = st.secrets["vercel_token"]
+except KeyError:
+    # Fehlende Schlüssel meldet app.py, bevor die Oberfläche aufgebaut wird.
+    OPENAI_API_KEY = None
+    VERCEL_TOKEN = None
+
+
+client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+
+
+if OPENAI_API_KEY:
+    os.environ["OPENAI_API_KEY"] = str(OPENAI_API_KEY)
+
+
+STRIPE_SECRET_KEY = str(st.secrets.get("stripe_secret_key", "")).strip()
+STRIPE_PRICE_ID = str(st.secrets.get("stripe_price_id", "")).strip()
+STRIPE_SUCCESS_URL = str(st.secrets.get("stripe_success_url", "")).strip().rstrip("?")
+INWX_USERNAME = str(st.secrets.get("inwx_username", "")).strip()
+INWX_PASSWORD = str(st.secrets.get("inwx_password", "")).strip()
+INWX_ENVIRONMENT = str(st.secrets.get("inwx_environment", "ote")).strip().lower()
+
+
+for environment_key, environment_value in {
+    "INWX_USERNAME": INWX_USERNAME,
+    "INWX_PASSWORD": INWX_PASSWORD,
+    "INWX_ENVIRONMENT": INWX_ENVIRONMENT,
+}.items():
+    if environment_value:
+        os.environ[environment_key] = environment_value
+
+
+HF_API_KEY = str(st.secrets.get("HF_API_KEY", "")).strip()
+
+
+SUPABASE_URL = str(
+    st.secrets.get("supabase_url", st.secrets.get("SUPABASE_URL", ""))
+).strip().rstrip("/")
+
+
+SUPABASE_SERVICE_ROLE_KEY = str(
+    st.secrets.get(
+        "supabase_service_role_key",
+        st.secrets.get("SUPABASE_SERVICE_ROLE_KEY", ""),
+    )
+).strip()
+
+
+HF_TEXT_MODEL_URL = (
+    "https://router.huggingface.co/hf-inference/models/Qwen/Qwen2.5-7B-Instruct"
+)
+
+
+SUPPORT_ADMIN_EMAIL = str(st.secrets.get("support_admin_email", "")).strip().lower()
+PRIVACY_CONTACT_EMAIL = str(st.secrets.get("privacy_contact_email", "")).strip()
+
+
+PRIVACY_CONTROLLER_NAME = str(
+    st.secrets.get("privacy_controller_name", "App-Betreiber")
+).strip()
+
+
+PRIVACY_CONTROLLER_ADDRESS = str(
+    st.secrets.get("privacy_controller_address", "")
+).strip()
+
+
+PRIVACY_PROCESSOR_NAME = str(
+    st.secrets.get("privacy_processor_name", PRIVACY_CONTROLLER_NAME)
+).strip()
+
+
+try:
+    ANALYTICS_RETENTION_DAYS = max(
+        1, min(730, int(st.secrets.get("analytics_retention_days", 90)))
+    )
+except (TypeError, ValueError):
+    ANALYTICS_RETENTION_DAYS = 90
+
+
+# --- Sitzungsstatus ---
+DEFAULT_STATE = {
+    "user_id": None,
+    "user_email": "",
+    "target_language": "Deutsch",
+    "generated_html": "",
+    "html_editor": "",
+    "pending_html": "",
+    "published_html": "",
+    "assets": {},
+    "site_pages": {},
+    "template_preview_page": "start",
+    "live_url": "",
+    "deployment_url": "",
+    "deployment_id": "",
+    "vercel_project_id": "",
+    "project_name": "ai-website-builder",
+    "document_context": "",
+    "document_source_names": [],
+    "stripe_checkout_url": "",
+    "publish_after_checkout": False,
+    "delete_confirmation": False,
+    "client_chatbot_hours": "",
+    "client_chatbot_contact": "",
+    "client_chatbot_services": "",
+    "client_chatbot_emergency": "",
+    "client_company_address": "",
+    "customer_chatbot_color": "#2563EB",
+    "customer_chatbot_shape": "Rund (Kreis)",
+    "customer_chatbot_figure": "Freundlicher Roboter",
+    "customer_chatbot_name": "Kundenservice-Assistent",
+    "customer_chatbot_position": "Unten rechts",
+    "customer_chatbot_fixed": True,
+}
+
+
+APP_LANGUAGE_NAMES_BY_CODE = {
+    language_code: language_name
+    for language_name, language_code in APP_LANGUAGES.items()
+}
+
+
+TARGET_LANGUAGE_BY_APP_CODE = {
+    "de": "Deutsch",
+    "en": "English",
+    "ar": "Arabisch (العربية)",
+    "ku": "Kurdisch (Kurdî / كوردی)",
+    "es": "Spanisch (Español)",
+    "it": "Italienisch (Italiano)",
+    "hi": "Hindi (हिन्दी)",
+}
+
+
+# --- Texte der Oberfläche ---
+AUTHENTICATION_COPY = {
+    "de": {
+        "workflow": "KI-gestützter Website-Workflow",
+        "plan": "**Planen** Sie Struktur, Inhalte und Markenauftritt.",
+        "review": "**Prüfen** Sie Ihr Ergebnis in einer Live-Vorschau.",
+        "publish": "**Veröffentlichen** Sie fertige Entwürfe direkt auf Vercel.",
+        "workspace": "Ihr Arbeitsbereich",
+        "workspace_hint": "Melden Sie sich an oder erstellen Sie ein neues Konto.",
+        "privacy": "Ihre Entwürfe, Einstellungen und Bearbeitungen bleiben Ihrem Konto zugeordnet.",
+    },
+    "en": {
+        "workflow": "AI-powered website workflow",
+        "plan": "**Plan** your structure, content, and brand presence.",
+        "review": "**Review** your result in a live preview.",
+        "publish": "**Publish** finished drafts directly to Vercel.",
+        "workspace": "Your workspace",
+        "workspace_hint": "Log in or create a new account.",
+        "privacy": "Your drafts, settings, and edits remain associated with your account.",
+    },
+    "ar": {
+        "workflow": "مسار عمل لإنشاء المواقع بالذكاء الاصطناعي",
+        "plan": "**خطّط** لبنية موقعك ومحتواه وهوية علامتك التجارية.",
+        "review": "**راجع** النتيجة من خلال المعاينة المباشرة.",
+        "publish": "**انشر** المسودات المكتملة مباشرة على Vercel.",
+        "workspace": "مساحة عملك",
+        "workspace_hint": "سجّل الدخول أو أنشئ حساباً جديداً.",
+        "privacy": "تبقى مسوداتك وإعداداتك وتعديلاتك مرتبطة بحسابك.",
+    },
+    "ku": {
+        "workflow": "ڕێڕەوی دروستکردنی وێبگە بە زیرەکی دەستکرد",
+        "plan": "**پلان دابنێ** بۆ پێکهاتە، ناوەڕۆک و ناسنامەی براندەکەت.",
+        "review": "**ئەنجامەکە پشکنە** لە پێشبینینی ڕاستەوخۆدا.",
+        "publish": "**ڕەشنووسە تەواوەکان بڵاو بکەرەوە** ڕاستەوخۆ لە Vercel.",
+        "workspace": "شوێنی کارەکەت",
+        "workspace_hint": "بچۆ ژوورەوە یان هەژمارێکی نوێ دروست بکە.",
+        "privacy": "ڕەشنووس و ڕێکخستن و دەستکارییەکانت بە هەژمارەکەتەوە بەستراو دەمێننەوە.",
+    },
+}
+
+
+WORKSPACE_COPY = {
+    "de": {"trial_active": "Kostenlose Testphase aktiv: noch etwa {hours} Stunden.", "trial_sidebar": "Kostenlose Testphase: noch etwa {hours} Stunden", "trial_expired": "Kostenlose Testphase abgelaufen", "premium_hint": "Premium kann im Bereich Veröffentlichung sicher abgeschlossen werden.", "service": "Kundenservice", "privacy": "Datenschutz", "project_title": "1. Website-Projekt festlegen", "project_hint": "Wählen Sie Branche, Startmodus und Seitenstruktur. Alle Inhalte bleiben anschließend bearbeitbar.", "start": "Wie möchten Sie starten?", "professional": "Professionelle Vorlage", "free": "Freier Entwurf", "existing": "Bestehenden Entwurf anpassen", "structure": "Seitenstruktur", "single": "Eine übersichtliche Seite", "multi": "Mehrseitige Website", "client_title": "2. Kundendaten und Kunden-Chatbot", "client_hint": "Diese Angaben werden direkt in Vorschau, Kontaktbereich und Chatbot übernommen.", "draft_saved": "Ihr Entwurf wurde gespeichert."},
+    "en": {"trial_active": "Free trial active: about {hours} hours remaining.", "trial_sidebar": "Free trial: about {hours} hours remaining", "trial_expired": "Free trial expired", "premium_hint": "Premium can be purchased securely in Publishing.", "service": "Customer service", "privacy": "Privacy", "project_title": "1. Define website project", "project_hint": "Choose the industry, starting mode, and page structure. All content remains editable.", "start": "How would you like to start?", "professional": "Professional template", "free": "Blank draft", "existing": "Edit existing draft", "structure": "Page structure", "single": "Single-page website", "multi": "Multi-page website", "client_title": "2. Customer details and customer chatbot", "client_hint": "These details are used directly in the preview, contact section, and chatbot.", "draft_saved": "Your draft has been saved."},
+    "ar": {"trial_active": "الفترة التجريبية المجانية نشطة: متبقٍ نحو {hours} ساعة.", "trial_sidebar": "الفترة التجريبية المجانية: متبقٍ نحو {hours} ساعة", "trial_expired": "انتهت الفترة التجريبية المجانية", "premium_hint": "يمكن الاشتراك في Premium بأمان من قسم النشر.", "service": "خدمة العملاء", "privacy": "الخصوصية", "project_title": "1. تحديد مشروع الموقع", "project_hint": "اختر المجال وطريقة البدء وبنية الصفحات. ويمكن تعديل جميع المحتويات لاحقاً.", "start": "كيف تريد أن تبدأ؟", "professional": "قالب احترافي", "free": "مسودة حرة", "existing": "تعديل مسودة موجودة", "structure": "بنية الصفحات", "single": "صفحة واحدة واضحة", "multi": "موقع متعدد الصفحات", "client_title": "2. بيانات العميل وروبوت المحادثة", "client_hint": "تُستخدم هذه البيانات مباشرة في المعاينة وقسم الاتصال وروبوت المحادثة.", "draft_saved": "تم حفظ المسودة."},
+    "ku": {"trial_active": "ماوەی تاقیکردنەوەی بەخۆڕایی چالاکە: نزیکەی {hours} کاتژمێر ماوە.", "trial_sidebar": "تاقیکردنەوەی بەخۆڕایی: نزیکەی {hours} کاتژمێر ماوە", "trial_expired": "ماوەی تاقیکردنەوەی بەخۆڕایی کۆتایی هات", "premium_hint": "دەتوانیت Premium بە پارێزراوی لە بەشی بڵاوکردنەوە بکڕیت.", "service": "خزمەتگوزاری کڕیار", "privacy": "پاراستنی نهێنی", "project_title": "1. دیاریکردنی پڕۆژەی وێبگە", "project_hint": "بوار، شێوازی دەستپێکردن و پێکهاتەی پەڕەکان هەڵبژێرە. هەموو ناوەڕۆکێک دواتر دەستکاری دەکرێت.", "start": "چۆن دەتەوێت دەست پێ بکەیت؟", "professional": "قاڵبی پیشەیی", "free": "ڕەشنووسی ئازاد", "existing": "دەستکاریکردنی ڕەشنووسی هەبوو", "structure": "پێکهاتەی پەڕەکان", "single": "یەک پەڕەی ڕوون", "multi": "وێبگەی چەند پەڕەیی", "client_title": "2. زانیاری کڕیار و چاتبۆت", "client_hint": "ئەم زانیارییانە ڕاستەوخۆ لە پێشبینین و بەشی پەیوەندی و چاتبۆت بەکاردێن.", "draft_saved": "ڕەشنووسەکە پاشەکەوت کرا."},
+}
+
+
+PUBLISH_COPY = {
+    "de": {"title": "Veröffentlichung und Liveschaltung", "need_site": "Erstellen oder laden Sie zuerst eine Website, bevor Sie sie veröffentlichen.", "load_title": "Öffentliche Website laden", "load_hint": "Die Original-Website wird geladen, ohne HTML oder Design vor der Bearbeitung zu ändern.", "live_link": "Öffentlicher Live-Link", "load_button": "Original-Website laden", "link_required": "Bitte geben Sie einen Live-Link ein.", "loading": "Website wird geladen ...", "loaded": "Original-Website wurde unverändert geladen.", "failed": "Laden fehlgeschlagen"},
+    "en": {"title": "Publishing and going live", "need_site": "Create or load a website before publishing it.", "load_title": "Load public website", "load_hint": "The original website is loaded without changing its HTML or design before editing.", "live_link": "Public live link", "load_button": "Load original website", "link_required": "Please enter a live link.", "loading": "Loading website ...", "loaded": "The original website was loaded unchanged.", "failed": "Loading failed"},
+    "ar": {"title": "النشر وإطلاق الموقع", "need_site": "أنشئ موقعاً أو حمّله أولاً قبل نشره.", "load_title": "تحميل موقع عام", "load_hint": "يتم تحميل الموقع الأصلي من دون تغيير HTML أو التصميم قبل التعديل.", "live_link": "الرابط العام للموقع", "load_button": "تحميل الموقع الأصلي", "link_required": "يرجى إدخال رابط عام للموقع.", "loading": "جارٍ تحميل الموقع...", "loaded": "تم تحميل الموقع الأصلي من دون تغيير.", "failed": "فشل التحميل"},
+    "ku": {"title": "بڵاوکردنەوە و خستنە سەر هێڵ", "need_site": "پێش بڵاوکردنەوە سەرەتا وێبگەیەک دروست بکە یان باری بکە.", "load_title": "بارکردنی وێبگەی گشتی", "load_hint": "وێبگە ڕەسەنەکە بەبێ گۆڕینی HTML یان دیزاین پێش دەستکاریکردن بار دەکرێت.", "live_link": "بەستەری گشتی وێبگە", "load_button": "بارکردنی وێبگە ڕەسەنەکە", "link_required": "تکایە بەستەری گشتی وێبگە بنووسە.", "loading": "وێبگەکە بار دەکرێت...", "loaded": "وێبگە ڕەسەنەکە بەبێ گۆڕانکاری بار کرا.", "failed": "بارکردن سەرکەوتوو نەبوو"},
+}
+
+
+# --- Branchenvorlagen ---
+CURRENT_YEAR = datetime.now().year
+
+
+INDUSTRY_CONTENT_PRESETS = {
+    "Kfz-Meisterwerkstatt": {
+        "client_company_name": "Kfz-Meisterbetrieb Schmidt",
+        "client_company_slogan": "Ihre zuverlässige Autowerkstatt für alle Marken",
+        "section_hero_title": "Meisterservice für Ihr Fahrzeug.",
+        "section_hero_subtitle": "Persönlich, präzise und zuverlässig für alle Marken.",
+        "template_hero_heading": "Ihre zuverlässige Autowerkstatt für alle Marken",
+        "template_custom_description": "Vom Reifenwechsel über den Ölwechsel bis zur Motordiagnose: Wir halten Ihr Fahrzeug mit Meisterqualität sicher auf der Straße.",
+        "template_footer_text": f"© {CURRENT_YEAR} Kfz-Meisterbetrieb Schmidt | Impressum und Datenschutz",
+        "template_sections_text": "Reparatur und Diagnose | Meisterhafte Reparaturen und präzise Fehleranalyse für alle Marken.\nReifen und Räder | Sicher unterwegs mit fachgerechtem Reifenwechsel und Einlagerung.\nInspektion und Service | Transparenter Autoservice mit Qualitätsersatzteilen.",
+        "section_services": "Meisterhafte Kfz-Reparaturen, präziser Reifenwechsel, umfassender Autoservice",
+        "section_about_text": "Seit über 15 Jahren reparieren wir Fahrzeuge aller Marken mit Leidenschaft und Meisterqualität.",
+        "offer_page_name": "Ölwechsel-Komplettservice",
+        "offer_page_price": "ab 49 EUR",
+        "offer_page_details": "Inklusive kostenlosem Sicherheits- und Bremsencheck.",
+    },
+    "Friseursalon": {
+        "client_company_name": "Haardesign und Wohlfühlen",
+        "client_company_slogan": "Ihr perfekter Look in entspannter Atmosphäre",
+        "section_hero_title": "Ihr Look. Unser Handwerk.",
+        "section_hero_subtitle": "Individuelles Styling in entspannter Wohlfühlatmosphäre.",
+        "template_hero_heading": "Ihr perfekter Look in entspannter Atmosphäre",
+        "template_custom_description": "Ob Haarschnitt, Balayage oder klassisches Styling: Unser kreatives Team nimmt sich Zeit für Ihre Persönlichkeit und Ihr Haar.",
+        "template_footer_text": f"© {CURRENT_YEAR} Haardesign und Wohlfühlen | Impressum und Datenschutz",
+        "template_sections_text": "Schnitt und Styling | Individuelle Looks für Damen, Herren und Kinder.\nFarbe und Balayage | Brillante Colorationen, präzise auf Ihren Typ abgestimmt.\nPflege und Beratung | Erstklassige Produkte und persönliche Empfehlungen für gesundes Haar.",
+        "section_services": "Moderne Haarschnitte, brillante Colorationen, individuelles Styling für Damen, Herren und Kinder",
+        "section_about_text": "Unser kreatives Team sorgt in Wohlfühlatmosphäre für Ihren perfekten Look und gesundes Haar.",
+        "offer_page_name": "Premium-Balayage-Paket",
+        "offer_page_price": "Beratung gratis",
+        "offer_page_details": "Individuell abgestimmt inklusive hochwertiger Pflege.",
+    },
+    "Dachdeckerfachbetrieb": {
+        "client_company_name": "Bedachungen Bednarz",
+        "client_company_slogan": "Ihr Dach in besten Händen",
+        "section_hero_title": "Schutz und Qualität für Ihr Dach.",
+        "section_hero_subtitle": "Fachgerechte Lösungen für Neubau, Sanierung und Reparatur.",
+        "template_hero_heading": "Ihr Dach in besten Händen",
+        "template_custom_description": "Als Meisterbetrieb bieten wir zuverlässige Arbeiten für Steil- und Flachdächer, Fassaden und Bauklempnerei.",
+        "template_footer_text": f"© {CURRENT_YEAR} Bedachungen Bednarz | Impressum und Datenschutz",
+        "template_sections_text": "Dachsanierung | Langlebige Lösungen für ein sicheres und energieeffizientes Dach.\nNeueindeckung | Hochwertige Materialien und sorgfältige Ausführung für Neubau und Umbau.\nReparatur und Abdichtung | Schnelle Hilfe bei Schäden, Feuchtigkeit und Undichtigkeiten.",
+        "section_services": "Dachsanierung, Neueindeckung, Abdichtung und Reparatur, Dachfenster und Wärmedämmung",
+        "section_about_text": "Wir verbinden solides Handwerk, langlebige Materialien und eine transparente Beratung für Ihr Zuhause.",
+        "offer_page_name": "Kostenloser Dach-Check",
+        "offer_page_price": "unverbindlich",
+        "offer_page_details": "Wir prüfen den Zustand Ihres Dachs und beraten zu passenden Maßnahmen.",
+    },
+    "Physiotherapie-Praxis": {
+        "client_company_name": "Praxis für Physiotherapie und Bewegung",
+        "client_company_slogan": "Zurück zu Schmerzfreiheit und Mobilität",
+        "section_hero_title": "Bewegung zurückgewinnen.",
+        "section_hero_subtitle": "Persönliche Therapie für mehr Gesundheit und Lebensqualität.",
+        "template_hero_heading": "Zurück zu Schmerzfreiheit und Mobilität",
+        "template_custom_description": "Mit maßgeschneiderten Therapiekonzepten begleiten wir Sie nach Verletzungen, Operationen und bei chronischen Beschwerden.",
+        "template_footer_text": f"© {CURRENT_YEAR} Praxis für Physiotherapie und Bewegung | Impressum und Datenschutz",
+        "template_sections_text": "Krankengymnastik | Individuelle Übungen für mehr Kraft, Beweglichkeit und Stabilität.\nManuelle Therapie | Gezielte Behandlung von Beschwerden und Bewegungseinschränkungen.\nLymphdrainage und Beratung | Persönliche Begleitung für Ihre nachhaltige Gesundheit.",
+        "section_services": "Krankengymnastik, manuelle Therapie, Lymphdrainage und individuelle Trainingsberatung",
+        "section_about_text": "Wir begleiten Sie mit fachlicher Kompetenz und einem ganzheitlichen Blick auf Ihre Gesundheit.",
+        "offer_page_name": "Erstberatung",
+        "offer_page_price": "persönlich und individuell",
+        "offer_page_details": "Gemeinsam entwickeln wir den passenden Weg zu mehr Beweglichkeit.",
+    },
+    "Restaurant": {
+        "client_company_name": "Restaurant Genusszeit",
+        "client_company_slogan": "Frisch gekocht. Herzlich serviert.",
+        "section_hero_title": "Genuss, der verbindet.",
+        "section_hero_subtitle": "Saisonale Küche und echte Gastfreundschaft.",
+        "template_hero_heading": "Frisch gekocht. Herzlich serviert.",
+        "template_custom_description": "Wir servieren frisch zubereitete Gerichte, ausgewählte Getränke und eine entspannte Atmosphäre für Ihren Besuch.",
+        "template_footer_text": f"© {CURRENT_YEAR} Restaurant Genusszeit | Impressum und Datenschutz",
+        "template_sections_text": "Speisekarte | Frische Gerichte und saisonale Spezialitäten.\nReservierung | Sichern Sie sich Ihren Tisch für einen genussvollen Abend.\nFeiern und Gruppen | Der passende Rahmen für besondere Anlässe.",
+        "section_services": "Saisonale Küche, Tischreservierung, Gruppen und Feiern",
+        "section_about_text": "Unser Team verbindet gute Zutaten, sorgfältige Zubereitung und persönliche Gastfreundschaft.",
+        "offer_page_name": "Mittagsmenü",
+        "offer_page_price": "ab 12,90 EUR",
+        "offer_page_details": "Täglich frisch zubereitet, inklusive wechselnder Empfehlung des Hauses.",
+    },
+    "Café und Bäckerei": {
+        "client_company_name": "Café Morgenrot",
+        "client_company_slogan": "Kaffee, Kuchen und Zeit zum Genießen",
+        "section_hero_title": "Ihr Lieblingsplatz im Alltag.",
+        "section_hero_subtitle": "Hausgemachte Köstlichkeiten und guter Kaffee.",
+        "template_hero_heading": "Kaffee, Kuchen und Zeit zum Genießen",
+        "template_custom_description": "Bei uns erwarten Sie aromatischer Kaffee, frische Backwaren und hausgemachte Kuchen in entspannter Atmosphäre.",
+        "template_footer_text": f"© {CURRENT_YEAR} Café Morgenrot | Impressum und Datenschutz",
+        "template_sections_text": "Kaffee und Getränke | Sorgfältig zubereitete Kaffeespezialitäten und erfrischende Getränke.\nFrühstück und Backwaren | Frisch gebacken für einen guten Start in den Tag.\nKuchen und Torten | Hausgemachte Klassiker und saisonale Kreationen.",
+        "section_services": "Kaffeespezialitäten, Frühstück, frische Backwaren und hausgemachte Kuchen",
+        "section_about_text": "Wir schaffen einen Ort für gute Gespräche, kleine Auszeiten und ehrlichen Genuss.",
+        "offer_page_name": "Frühstück für zwei",
+        "offer_page_price": "ab 24 EUR",
+        "offer_page_details": "Ausgewählte Backwaren, Aufstriche und zwei Heißgetränke.",
+    },
+    "Onlineshop": {
+        "client_company_name": "Studio Lieblingsstücke",
+        "client_company_slogan": "Besondere Produkte einfach online entdecken",
+        "section_hero_title": "Schönes für Ihren Alltag.",
+        "section_hero_subtitle": "Ausgewählte Produkte, sicher bestellt und schnell geliefert.",
+        "template_hero_heading": "Besondere Produkte einfach online entdecken",
+        "template_custom_description": "Entdecken Sie sorgfältig ausgewählte Produkte mit klaren Informationen, sicheren Zahlungsarten und zuverlässigem Versand.",
+        "template_footer_text": f"© {CURRENT_YEAR} Studio Lieblingsstücke | Impressum und Datenschutz",
+        "template_sections_text": "Unsere Produkte | Ausgewählte Artikel mit klaren Details und Bildern.\nVersand und Zahlung | Transparent, sicher und bequem bestellen.\nKundenservice | Persönliche Hilfe vor und nach Ihrem Einkauf.",
+        "section_services": "Produktauswahl, sicherer Onlinekauf, Versand und Kundenservice",
+        "section_about_text": "Wir wählen Produkte mit Anspruch aus und machen den Online-Einkauf angenehm und transparent.",
+        "offer_page_name": "Willkommensrabatt",
+        "offer_page_price": "10 Prozent",
+        "offer_page_details": "Für Ihre erste Bestellung im Onlineshop.",
+    },
+}
+
+
+OTHER_INDUSTRY_OPTION = "Andere Branche oder Kleingewerbe"
+
+
+INDUSTRY_TEMPLATE_MAP = {
+    "Kfz-Meisterwerkstatt": "Automobil und KFZ-Gewerbe",
+    "Friseursalon": "Formale Agentur oder Kanzlei",
+    "Dachdeckerfachbetrieb": "GmbH und Corporate Unternehmen",
+    "Physiotherapie-Praxis": "Formale Agentur oder Kanzlei",
+    "Restaurant": "Restaurant und Gastronomie",
+    "Café und Bäckerei": "Cafe und Baeckerei",
+    "Onlineshop": "Supermarkt und Einzelhandel",
+}
 
 
 def initialize_database() -> None:
-    """Erstellt die lokale Datenbank fuer Nutzer und gespeicherte Websites."""
+    """Erstellt die lokale Datenbank für Nutzer und gespeicherte Websites."""
     with sqlite3.connect(DATABASE_PATH) as connection:
         connection.execute(
             """
@@ -411,7 +639,7 @@ def hash_password(password: str) -> str:
 
 
 def password_matches(password: str, stored_value: str) -> bool:
-    """Prueft ein Passwort gegen den gespeicherten scrypt-Hash."""
+    """Prüft ein Passwort gegen den gespeicherten scrypt-Hash."""
     try:
         salt_hex, hash_hex = stored_value.split(":", maxsplit=1)
         expected_hash = bytes.fromhex(hash_hex)
@@ -422,7 +650,7 @@ def password_matches(password: str, stored_value: str) -> bool:
             r=8,
             p=1,
         )
-    except (ValueError, TypeError):
+    except (AttributeError, TypeError, ValueError):
         return False
 
     return hmac.compare_digest(actual_hash, expected_hash)
@@ -433,7 +661,7 @@ def register_user(email: str, password: str) -> None:
     normalized_email = email.strip().lower()
 
     if not EMAIL_PATTERN.fullmatch(normalized_email):
-        raise ValueError("Bitte gib eine gueltige E-Mail-Adresse ein.")
+        raise ValueError("Bitte geben Sie eine gültige E-Mail-Adresse ein.")
     if len(password) < 8:
         raise ValueError("Das Passwort muss mindestens 8 Zeichen haben.")
 
@@ -448,7 +676,7 @@ def register_user(email: str, password: str) -> None:
 
 
 def authenticate_user(email: str, password: str) -> tuple[int, str] | None:
-    """Gibt die Nutzer-ID bei gueltiger Anmeldung zurueck."""
+    """Gibt die Nutzer-ID bei gültiger Anmeldung zurück."""
     with sqlite3.connect(DATABASE_PATH) as connection:
         user = connection.execute(
             "SELECT id, email, password_hash FROM users WHERE email = ?",
@@ -460,7 +688,9 @@ def authenticate_user(email: str, password: str) -> tuple[int, str] | None:
     return None
 
 
-def save_website(user_id: int, site_name: str, html: str, domain: str) -> None:
+def save_website(
+    user_id: int, site_name: str, html: str, domain: str, analytics_site_id: str
+) -> None:
     """Speichert einen Entwurf in der Historie des angemeldeten Nutzers."""
     with sqlite3.connect(DATABASE_PATH) as connection:
         connection.execute(
@@ -474,13 +704,13 @@ def save_website(user_id: int, site_name: str, html: str, domain: str) -> None:
                 site_name.strip() or "Meine Website",
                 html,
                 domain,
-                str(st.session_state.analytics_site_id),
+                analytics_site_id,
             ),
         )
 
 
 def get_websites(user_id: int) -> list[tuple[int, str, str]]:
-    """Laedt die gespeicherten Websites eines Nutzers, zuletzt gespeicherte zuerst."""
+    """Lädt die gespeicherten Websites eines Nutzers, zuletzt gespeicherte zuerst."""
     with sqlite3.connect(DATABASE_PATH) as connection:
         return connection.execute(
             """
@@ -494,7 +724,7 @@ def get_websites(user_id: int) -> list[tuple[int, str, str]]:
 
 
 def load_website(user_id: int, website_id: int) -> tuple[str, str, str, str] | None:
-    """Laedt eine Website nur, wenn sie dem angemeldeten Nutzer gehoert."""
+    """Lädt eine Website nur, wenn sie dem angemeldeten Nutzer gehört."""
     with sqlite3.connect(DATABASE_PATH) as connection:
         return connection.execute(
             """
@@ -508,7 +738,7 @@ def load_website(user_id: int, website_id: int) -> tuple[str, str, str, str] | N
 
 
 def delete_saved_website(user_id: int, website_id: int) -> None:
-    """Loescht eine Website nur aus der eigenen Historie."""
+    """Löscht eine Website nur aus der eigenen Historie."""
     with sqlite3.connect(DATABASE_PATH) as connection:
         connection.execute(
             "DELETE FROM websites WHERE id = ? AND user_id = ?",
@@ -572,9 +802,6 @@ def get_support_requests(user_id: int | None = None) -> list[tuple]:
         ).fetchall()
 
 
-TRIAL_DURATION = timedelta(hours=24)
-
-
 def get_user_status(user_id: int) -> dict[str, float | bool | int]:
     """Liest Premium- und 24-Stunden-Teststatus des angemeldeten Nutzers."""
     with sqlite3.connect(DATABASE_PATH) as connection:
@@ -598,8 +825,8 @@ def get_user_status(user_id: int) -> dict[str, float | bool | int]:
     }
 
 
-def deduct_tokens(user_id: int, amount: float = 0.05) -> bool:
-    """Erlaubt Generierungen waehrend der 24-Stunden-Testphase oder mit Premium."""
+def has_generation_access(user_id: int) -> bool:
+    """Erlaubt KI-Generierungen während der 24-Stunden-Testphase oder mit Premium."""
     with sqlite3.connect(DATABASE_PATH) as connection:
         user = connection.execute(
             "SELECT is_subscribed, created_at FROM users WHERE id = ?",
@@ -617,13 +844,8 @@ def deduct_tokens(user_id: int, amount: float = 0.05) -> bool:
         return datetime.now(timezone.utc) < created_at + TRIAL_DURATION
 
 
-def refund_tokens(user_id: int, amount: float = 0.05) -> None:
-    """Kompatibilitaetsfunktion: Die kostenlose Testphase verbraucht kein Guthaben."""
-    return None
-
-
-def activate_premium_demo(user_id: int) -> None:
-    """Aktiviert Premium fuer lokale Tests, bis eine Zahlungsintegration vorhanden ist."""
+def activate_premium(user_id: int) -> None:
+    """Schaltet Premium nach bestätigter Zahlung für das Nutzerkonto frei."""
     with sqlite3.connect(DATABASE_PATH) as connection:
         connection.execute(
             "UPDATE users SET is_subscribed = 1 WHERE id = ?",
@@ -665,12 +887,15 @@ def create_stripe_checkout_session(
                 "subscription_data[metadata][vercel_project_id]": vercel_project_id,
             }
         )
-    response = requests.post(
-        "https://api.stripe.com/v1/checkout/sessions",
-        auth=(STRIPE_SECRET_KEY, ""),
-        data=checkout_data,
-        timeout=30,
-    )
+    try:
+        response = requests.post(
+            "https://api.stripe.com/v1/checkout/sessions",
+            auth=(STRIPE_SECRET_KEY, ""),
+            data=checkout_data,
+            timeout=30,
+        )
+    except requests.RequestException as error:
+        raise ValueError("Stripe ist derzeit nicht erreichbar. Bitte versuchen Sie es erneut.") from error
     if response.status_code != 200:
         raise ValueError("Stripe konnte die Zahlung nicht vorbereiten.")
     checkout_url = response.json().get("url")
@@ -684,11 +909,15 @@ def confirm_stripe_checkout(user_id: int) -> bool:
     session_id = st.query_params.get("checkout_session_id")
     if not session_id or not STRIPE_SECRET_KEY:
         return False
-    response = requests.get(
-        f"https://api.stripe.com/v1/checkout/sessions/{session_id}",
-        auth=(STRIPE_SECRET_KEY, ""),
-        timeout=30,
-    )
+    try:
+        response = requests.get(
+            f"https://api.stripe.com/v1/checkout/sessions/{session_id}",
+            auth=(STRIPE_SECRET_KEY, ""),
+            timeout=30,
+        )
+    except requests.RequestException:
+        # Bei Netzwerkfehlern bleibt die Zahlung unbestätigt; der nächste Aufruf prüft erneut.
+        return False
     if response.status_code != 200:
         return False
     checkout = response.json()
@@ -700,7 +929,7 @@ def confirm_stripe_checkout(user_id: int) -> bool:
     metadata = checkout.get("metadata") or {}
     if metadata.get("domain"):
         st.session_state.paid_domain_checkout_session_id = str(session_id)
-    activate_premium_demo(user_id)
+    activate_premium(user_id)
     st.query_params.clear()
     return True
 
@@ -728,144 +957,6 @@ def wait_for_domain_provisioning(session_id: str, timeout_seconds: int = 45) -> 
     return {"status": "pending", "domain": ""}
 
 
-try:
-    OPENAI_API_KEY = st.secrets["openai_api_key"]
-    VERCEL_TOKEN = st.secrets["vercel_token"]
-except KeyError:
-    # Fehlende Schlüssel meldet app.py, bevor die Oberfläche aufgebaut wird.
-    OPENAI_API_KEY = None
-    VERCEL_TOKEN = None
-
-client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
-if OPENAI_API_KEY:
-    os.environ["OPENAI_API_KEY"] = str(OPENAI_API_KEY)
-
-
-STRIPE_PAYMENT_LINK = "https://buy.stripe.com/3cIfZh5qseusaOpdYP5Rm02"
-
-
-STRIPE_SECRET_KEY = str(st.secrets.get("stripe_secret_key", "")).strip()
-
-
-STRIPE_PRICE_ID = str(st.secrets.get("stripe_price_id", "")).strip()
-
-
-STRIPE_SUCCESS_URL = str(st.secrets.get("stripe_success_url", "")).strip().rstrip("?")
-
-
-INWX_USERNAME = str(st.secrets.get("inwx_username", "")).strip()
-
-
-INWX_PASSWORD = str(st.secrets.get("inwx_password", "")).strip()
-
-
-INWX_ENVIRONMENT = str(st.secrets.get("inwx_environment", "ote")).strip().lower()
-
-
-for environment_key, environment_value in {
-    "INWX_USERNAME": INWX_USERNAME,
-    "INWX_PASSWORD": INWX_PASSWORD,
-    "INWX_ENVIRONMENT": INWX_ENVIRONMENT,
-}.items():
-    if environment_value:
-        os.environ[environment_key] = environment_value
-
-
-HF_API_KEY = str(st.secrets.get("HF_API_KEY", "")).strip()
-
-
-SUPABASE_URL = str(
-    st.secrets.get("supabase_url", st.secrets.get("SUPABASE_URL", ""))
-).strip().rstrip("/")
-
-
-SUPABASE_SERVICE_ROLE_KEY = str(
-    st.secrets.get(
-        "supabase_service_role_key",
-        st.secrets.get("SUPABASE_SERVICE_ROLE_KEY", ""),
-    )
-).strip()
-
-
-HF_TEXT_MODEL_URL = (
-    "https://router.huggingface.co/hf-inference/models/Qwen/Qwen2.5-7B-Instruct"
-)
-
-
-SUPPORT_ADMIN_EMAIL = str(st.secrets.get("support_admin_email", "")).strip().lower()
-
-
-PRIVACY_CONTACT_EMAIL = str(st.secrets.get("privacy_contact_email", "")).strip()
-
-
-PRIVACY_CONTROLLER_NAME = str(
-    st.secrets.get("privacy_controller_name", "App-Betreiber")
-).strip()
-
-
-PRIVACY_CONTROLLER_ADDRESS = str(
-    st.secrets.get("privacy_controller_address", "")
-).strip()
-
-
-PRIVACY_PROCESSOR_NAME = str(
-    st.secrets.get("privacy_processor_name", PRIVACY_CONTROLLER_NAME)
-).strip()
-
-
-try:
-    ANALYTICS_RETENTION_DAYS = max(
-        1, min(730, int(st.secrets.get("analytics_retention_days", 90)))
-    )
-except (TypeError, ValueError):
-    ANALYTICS_RETENTION_DAYS = 90
-
-
-DEFAULT_STATE = {
-    "user_id": None,
-    "user_email": "",
-    "target_language": "Deutsch",
-    "generated_html": "",
-    "html_editor": "",
-    "pending_html": "",
-    "published_html": "",
-    "assets": {},
-    "site_pages": {},
-    "template_preview_page": "start",
-    "live_url": "",
-    "deployment_url": "",
-    "deployment_id": "",
-    "vercel_project_id": "",
-    "project_name": "ai-website-builder",
-    "document_context": "",
-    "document_source_names": [],
-    "stripe_checkout_url": "",
-    "publish_after_checkout": False,
-    "delete_confirmation": False,
-    "show_botpress_chatbot": True,
-    "client_chatbot_hours": "",
-    "client_chatbot_contact": "",
-    "client_chatbot_services": "",
-    "client_chatbot_emergency": "",
-    "client_company_address": "",
-    "customer_chatbot_color": "#2563EB",
-    "customer_chatbot_shape": "Rund (Kreis)",
-    "customer_chatbot_figure": "Freundlicher Roboter",
-    "customer_chatbot_name": "Kundenservice-Assistent",
-    "customer_chatbot_position": "Unten rechts",
-    "customer_chatbot_fixed": True,
-    "chat_messages": [
-        {
-            "role": "assistant",
-            "content": (
-                "Herzlich willkommen. Ich unterstütze Sie bei der Erstellung, "
-                "Vorschau und Veröffentlichung Ihrer Website."
-            ),
-        }
-    ],
-}
-
-
 def initialize_session_state() -> None:
     """Legt fehlende Sitzungswerte mit ihren Standardwerten an."""
     for key, value in DEFAULT_STATE.items():
@@ -882,76 +973,11 @@ def initialize_session_state() -> None:
     )
 
 
-APP_LANGUAGE_NAMES_BY_CODE = {
-    language_code: language_name
-    for language_name, language_code in APP_LANGUAGES.items()
-}
-
-
-TARGET_LANGUAGE_BY_APP_CODE = {
-    "de": "Deutsch",
-    "en": "English",
-    "ar": "Arabisch (العربية)",
-    "ku": "Kurdisch (Kurdî / كوردی)",
-    "es": "Spanisch (Español)",
-    "it": "Italienisch (Italiano)",
-    "hi": "Hindi (हिन्दी)",
-}
-
-
 def t(key: str, **values: object) -> str:
-    """Gibt den sichtbaren App-Text in der ausgewaehlten Sprache zurueck."""
+    """Gibt den sichtbaren App-Text in der ausgewählten Sprache zurück."""
     language = str(st.session_state.app_language)
     text = TRANSLATIONS.get(language, TRANSLATIONS["de"]).get(key, key)
     return text.format(**values)
-
-
-AUTHENTICATION_COPY = {
-    "de": {
-        "workflow": "KI-gestützter Website-Workflow",
-        "plan": "**Planen** Sie Struktur, Inhalte und Markenauftritt.",
-        "review": "**Prüfen** Sie Ihr Ergebnis in einer Live-Vorschau.",
-        "publish": "**Veröffentlichen** Sie fertige Entwürfe direkt auf Vercel.",
-        "workspace": "Ihr Arbeitsbereich",
-        "workspace_hint": "Melden Sie sich an oder erstellen Sie ein neues Konto.",
-        "privacy": "Ihre Entwürfe, Einstellungen und Bearbeitungen bleiben Ihrem Konto zugeordnet.",
-    },
-    "en": {
-        "workflow": "AI-powered website workflow",
-        "plan": "**Plan** your structure, content, and brand presence.",
-        "review": "**Review** your result in a live preview.",
-        "publish": "**Publish** finished drafts directly to Vercel.",
-        "workspace": "Your workspace",
-        "workspace_hint": "Log in or create a new account.",
-        "privacy": "Your drafts, settings, and edits remain associated with your account.",
-    },
-    "ar": {
-        "workflow": "مسار عمل لإنشاء المواقع بالذكاء الاصطناعي",
-        "plan": "**خطّط** لبنية موقعك ومحتواه وهوية علامتك التجارية.",
-        "review": "**راجع** النتيجة من خلال المعاينة المباشرة.",
-        "publish": "**انشر** المسودات المكتملة مباشرة على Vercel.",
-        "workspace": "مساحة عملك",
-        "workspace_hint": "سجّل الدخول أو أنشئ حساباً جديداً.",
-        "privacy": "تبقى مسوداتك وإعداداتك وتعديلاتك مرتبطة بحسابك.",
-    },
-    "ku": {
-        "workflow": "ڕێڕەوی دروستکردنی وێبگە بە زیرەکی دەستکرد",
-        "plan": "**پلان دابنێ** بۆ پێکهاتە، ناوەڕۆک و ناسنامەی براندەکەت.",
-        "review": "**ئەنجامەکە پشکنە** لە پێشبینینی ڕاستەوخۆدا.",
-        "publish": "**ڕەشنووسە تەواوەکان بڵاو بکەرەوە** ڕاستەوخۆ لە Vercel.",
-        "workspace": "شوێنی کارەکەت",
-        "workspace_hint": "بچۆ ژوورەوە یان هەژمارێکی نوێ دروست بکە.",
-        "privacy": "ڕەشنووس و ڕێکخستن و دەستکارییەکانت بە هەژمارەکەتەوە بەستراو دەمێننەوە.",
-    },
-}
-
-
-WORKSPACE_COPY = {
-    "de": {"trial_active": "Kostenlose Testphase aktiv: noch etwa {hours} Stunden.", "trial_sidebar": "Kostenlose Testphase: noch etwa {hours} Stunden", "trial_expired": "Kostenlose Testphase abgelaufen", "premium_hint": "Premium kann im Bereich Veröffentlichung sicher abgeschlossen werden.", "service": "Kundenservice", "privacy": "Datenschutz", "project_title": "1. Website-Projekt festlegen", "project_hint": "Wählen Sie Branche, Startmodus und Seitenstruktur. Alle Inhalte bleiben anschließend bearbeitbar.", "start": "Wie möchten Sie starten?", "professional": "Professionelle Vorlage", "free": "Freier Entwurf", "existing": "Bestehenden Entwurf anpassen", "structure": "Seitenstruktur", "single": "Eine übersichtliche Seite", "multi": "Mehrseitige Website", "client_title": "2. Kundendaten und Kunden-Chatbot", "client_hint": "Diese Angaben werden direkt in Vorschau, Kontaktbereich und Chatbot übernommen.", "draft_saved": "Ihr Entwurf wurde gespeichert."},
-    "en": {"trial_active": "Free trial active: about {hours} hours remaining.", "trial_sidebar": "Free trial: about {hours} hours remaining", "trial_expired": "Free trial expired", "premium_hint": "Premium can be purchased securely in Publishing.", "service": "Customer service", "privacy": "Privacy", "project_title": "1. Define website project", "project_hint": "Choose the industry, starting mode, and page structure. All content remains editable.", "start": "How would you like to start?", "professional": "Professional template", "free": "Blank draft", "existing": "Edit existing draft", "structure": "Page structure", "single": "Single-page website", "multi": "Multi-page website", "client_title": "2. Customer details and customer chatbot", "client_hint": "These details are used directly in the preview, contact section, and chatbot.", "draft_saved": "Your draft has been saved."},
-    "ar": {"trial_active": "الفترة التجريبية المجانية نشطة: متبقٍ نحو {hours} ساعة.", "trial_sidebar": "الفترة التجريبية المجانية: متبقٍ نحو {hours} ساعة", "trial_expired": "انتهت الفترة التجريبية المجانية", "premium_hint": "يمكن الاشتراك في Premium بأمان من قسم النشر.", "service": "خدمة العملاء", "privacy": "الخصوصية", "project_title": "1. تحديد مشروع الموقع", "project_hint": "اختر المجال وطريقة البدء وبنية الصفحات. ويمكن تعديل جميع المحتويات لاحقاً.", "start": "كيف تريد أن تبدأ؟", "professional": "قالب احترافي", "free": "مسودة حرة", "existing": "تعديل مسودة موجودة", "structure": "بنية الصفحات", "single": "صفحة واحدة واضحة", "multi": "موقع متعدد الصفحات", "client_title": "2. بيانات العميل وروبوت المحادثة", "client_hint": "تُستخدم هذه البيانات مباشرة في المعاينة وقسم الاتصال وروبوت المحادثة.", "draft_saved": "تم حفظ المسودة."},
-    "ku": {"trial_active": "ماوەی تاقیکردنەوەی بەخۆڕایی چالاکە: نزیکەی {hours} کاتژمێر ماوە.", "trial_sidebar": "تاقیکردنەوەی بەخۆڕایی: نزیکەی {hours} کاتژمێر ماوە", "trial_expired": "ماوەی تاقیکردنەوەی بەخۆڕایی کۆتایی هات", "premium_hint": "دەتوانیت Premium بە پارێزراوی لە بەشی بڵاوکردنەوە بکڕیت.", "service": "خزمەتگوزاری کڕیار", "privacy": "پاراستنی نهێنی", "project_title": "1. دیاریکردنی پڕۆژەی وێبگە", "project_hint": "بوار، شێوازی دەستپێکردن و پێکهاتەی پەڕەکان هەڵبژێرە. هەموو ناوەڕۆکێک دواتر دەستکاری دەکرێت.", "start": "چۆن دەتەوێت دەست پێ بکەیت؟", "professional": "قاڵبی پیشەیی", "free": "ڕەشنووسی ئازاد", "existing": "دەستکاریکردنی ڕەشنووسی هەبوو", "structure": "پێکهاتەی پەڕەکان", "single": "یەک پەڕەی ڕوون", "multi": "وێبگەی چەند پەڕەیی", "client_title": "2. زانیاری کڕیار و چاتبۆت", "client_hint": "ئەم زانیارییانە ڕاستەوخۆ لە پێشبینین و بەشی پەیوەندی و چاتبۆت بەکاردێن.", "draft_saved": "ڕەشنووسەکە پاشەکەوت کرا."},
-}
 
 
 def workspace_copy() -> dict[str, str]:
@@ -959,51 +985,9 @@ def workspace_copy() -> dict[str, str]:
     return WORKSPACE_COPY.get(str(st.session_state.app_language), WORKSPACE_COPY["en"])
 
 
-PUBLISH_COPY = {
-    "de": {"title": "Veröffentlichung und Liveschaltung", "need_site": "Erstellen oder laden Sie zuerst eine Website, bevor Sie sie veröffentlichen.", "load_title": "Öffentliche Website laden", "load_hint": "Die Original-Website wird geladen, ohne HTML oder Design vor der Bearbeitung zu ändern.", "live_link": "Öffentlicher Live-Link", "load_button": "Original-Website laden", "link_required": "Bitte geben Sie einen Live-Link ein.", "loading": "Website wird geladen ...", "loaded": "Original-Website wurde unverändert geladen.", "failed": "Laden fehlgeschlagen"},
-    "en": {"title": "Publishing and going live", "need_site": "Create or load a website before publishing it.", "load_title": "Load public website", "load_hint": "The original website is loaded without changing its HTML or design before editing.", "live_link": "Public live link", "load_button": "Load original website", "link_required": "Please enter a live link.", "loading": "Loading website ...", "loaded": "The original website was loaded unchanged.", "failed": "Loading failed"},
-    "ar": {"title": "النشر وإطلاق الموقع", "need_site": "أنشئ موقعاً أو حمّله أولاً قبل نشره.", "load_title": "تحميل موقع عام", "load_hint": "يتم تحميل الموقع الأصلي من دون تغيير HTML أو التصميم قبل التعديل.", "live_link": "الرابط العام للموقع", "load_button": "تحميل الموقع الأصلي", "link_required": "يرجى إدخال رابط عام للموقع.", "loading": "جارٍ تحميل الموقع...", "loaded": "تم تحميل الموقع الأصلي من دون تغيير.", "failed": "فشل التحميل"},
-    "ku": {"title": "بڵاوکردنەوە و خستنە سەر هێڵ", "need_site": "پێش بڵاوکردنەوە سەرەتا وێبگەیەک دروست بکە یان باری بکە.", "load_title": "بارکردنی وێبگەی گشتی", "load_hint": "وێبگە ڕەسەنەکە بەبێ گۆڕینی HTML یان دیزاین پێش دەستکاریکردن بار دەکرێت.", "live_link": "بەستەری گشتی وێبگە", "load_button": "بارکردنی وێبگە ڕەسەنەکە", "link_required": "تکایە بەستەری گشتی وێبگە بنووسە.", "loading": "وێبگەکە بار دەکرێت...", "loaded": "وێبگە ڕەسەنەکە بەبێ گۆڕانکاری بار کرا.", "failed": "بارکردن سەرکەوتوو نەبوو"},
-}
-
-
 def publish_copy() -> dict[str, str]:
     """Liefert Import- und Veröffentlichungstexte in der App-Sprache."""
     return PUBLISH_COPY.get(str(st.session_state.app_language), PUBLISH_COPY["en"])
-
-
-def correct_customer_text(text: str) -> str:
-    """Korrigiert häufige Schreibfehler ohne Inhalte an einen Dienst zu übertragen."""
-    corrections = {
-        "webseite": "Website",
-        "webseiten": "Websites",
-        "profesionell": "professionell",
-        "profesionelle": "professionelle",
-        "profesioneller": "professioneller",
-        "proffessionell": "professionell",
-        "proffessionelle": "professionelle",
-        "proffessioneller": "professioneller",
-        "erstellund": "Erstellung",
-        "erstellenung": "Erstellung",
-        "vorlageen": "Vorlagen",
-        "kunden": "Kunden",
-        "mögllichkeit": "Möglichkeit",
-        "möchde": "möchte",
-        "können sie": "Können Sie",
-    }
-    corrected = text.strip()
-    for incorrect, replacement in corrections.items():
-        corrected = re.sub(
-            rf"\b{re.escape(incorrect)}\b",
-            replacement,
-            corrected,
-            flags=re.IGNORECASE,
-        )
-    if corrected and corrected[0].islower():
-        corrected = corrected[0].upper() + corrected[1:]
-    if corrected and corrected[-1] not in ".!?":
-        corrected += "."
-    return corrected
 
 
 def translate_content_fields_with_mcp(
@@ -1035,7 +1019,6 @@ def translate_content_fields_with_mcp(
 
 def apply_app_language() -> None:
     """Übernimmt die Sprachwahl des Kunden für den nächsten App-Durchlauf."""
-    from chat import reset_help_chat_for_language
     st.session_state.app_language = APP_LANGUAGES[st.session_state.app_language_name]
     st.session_state.target_language = TARGET_LANGUAGE_BY_APP_CODE[
         st.session_state.app_language
@@ -1046,20 +1029,16 @@ def apply_app_language() -> None:
         selected_industry = str(
             st.session_state.get("industry_content_preset", "")
         )
-        available_presets = globals().get("INDUSTRY_CONTENT_PRESETS", {})
-        source_preset = available_presets.get(selected_industry)
-        other_industry = globals().get("OTHER_INDUSTRY_OPTION")
+        source_preset = INDUSTRY_CONTENT_PRESETS.get(selected_industry)
         custom_industry = str(
             st.session_state.get("custom_industry_name", "")
         ).strip()
-        generic_preset_builder = globals().get("build_generic_industry_preset")
         if (
             source_preset is None
-            and selected_industry == other_industry
+            and selected_industry == OTHER_INDUSTRY_OPTION
             and custom_industry
-            and callable(generic_preset_builder)
         ):
-            source_preset = generic_preset_builder(custom_industry)
+            source_preset = build_generic_industry_preset(custom_industry)
         if isinstance(source_preset, dict):
             source_preset = dict(source_preset)
             st.session_state.industry_source_preset = source_preset
@@ -1074,26 +1053,6 @@ def apply_app_language() -> None:
             st.session_state.update(translated_preset)
             st.session_state.industry_preset_language = language
             st.session_state.language_translation_error = ""
-    reset_help_chat_for_language()
-
-
-def apply_design_use_case() -> None:
-    """Übernimmt eine Designhilfe als bearbeitbare Startkonfiguration."""
-    use_case = DESIGN_USE_CASES[st.session_state.design_use_case]
-    if not use_case:
-        return
-
-    st.session_state.template_background_color = use_case["background"]
-    st.session_state.template_accent_color = use_case["accent"]
-    st.session_state.template_border_style = use_case["border_style"]
-    st.session_state.page_structure = use_case["page_structure"]
-    st.session_state.selected_website_sections = use_case["sections"]
-    st.session_state.template_custom_description = use_case["description"]
-    st.session_state.template_background_preset = next(
-        name
-        for name, color in BACKGROUND_PRESET_COLORS.items()
-        if color == use_case["background"]
-    )
 
 
 def apply_background_preset() -> None:
@@ -1183,10 +1142,15 @@ def retrieve_document_context(uploaded_files, query: str, limit: int = 6) -> tup
         return "", []
     if len(chunks) > 120:
         raise ValueError("Die Dokumente sind zu umfangreich. Bitte laden Sie weniger oder kürzere Dateien hoch.")
-    embedding_response = client.embeddings.create(
-        model="text-embedding-3-small",
-        input=[query.strip() or "Unternehmen, Leistungen, Zielgruppe und Kontakt"] + [chunk for _, chunk in chunks],
-    )
+    try:
+        embedding_response = client.embeddings.create(
+            model="text-embedding-3-small",
+            input=[query.strip() or "Unternehmen, Leistungen, Zielgruppe und Kontakt"] + [chunk for _, chunk in chunks],
+        )
+    except Exception as error:
+        raise ValueError(
+            "Die Dokumente konnten nicht ausgewertet werden. Bitte versuchen Sie es erneut."
+        ) from error
     vectors = [item.embedding for item in embedding_response.data]
     query_vector = vectors[0]
 
@@ -1242,38 +1206,6 @@ def ensure_customer_email(html: str, business_email: str) -> str:
     return html
 
 
-def ensure_multi_page_navigation(html: str) -> str:
-        """Hält Hash-Navigation innerhalb eines mehrseitigen HTML-Entwurfs."""
-        hash_link_pattern = r'(?i)(<a\b[^>]*href=["\']#[^"\']+["\'][^>]*)\s+target=["\'](?:_parent|_top)["\']'
-        html = re.sub(hash_link_pattern, r"\1", html)
-        router_script = """
-<script>
-(() => {
-    const pages = [...document.querySelectorAll('[data-page]')];
-    if (!pages.length) return;
-    const showActivePage = () => {
-        const requestedPage = decodeURIComponent(location.hash.slice(1) || 'start');
-        const activePage = pages.some((page) => page.dataset.page === requestedPage)
-            ? requestedPage
-            : 'start';
-        if (location.hash.slice(1) !== activePage) history.replaceState(null, '', `#${activePage}`);
-        pages.forEach((page) => { page.hidden = page.dataset.page !== activePage; });
-    };
-    document.querySelectorAll('a[href^="#"]').forEach((link) => {
-        link.removeAttribute('target');
-        link.addEventListener('click', (event) => {
-            event.preventDefault();
-            location.hash = link.getAttribute('href');
-        });
-    });
-    addEventListener('hashchange', showActivePage);
-    showActivePage();
-})();
-</script>
-"""
-        return re.sub(r"(?i)</body\s*>", f"{router_script}</body>", html, count=1)
-
-
 def queue_html_update(html: str, reset_site_pages: bool = False) -> None:
     """Stores an updated page while preserving the adopted template page set."""
     from chat import inject_configured_customer_chatbot
@@ -1288,7 +1220,6 @@ def queue_html_update(html: str, reset_site_pages: bool = False) -> None:
 
 def create_professional_standard_draft() -> None:
     """Erstellt aus den vorhandenen Kundendaten einen hochwertigen Standardentwurf."""
-    from chat import get_configured_chatbot_knowledge
     company_name = str(st.session_state.get("client_company_name", "")).strip()
     business_email = str(st.session_state.get("client_business_email", "")).strip()
     if not company_name or not EMAIL_PATTERN.fullmatch(business_email):
@@ -1316,7 +1247,6 @@ def create_professional_standard_draft() -> None:
         or str(st.session_state.get("section_about_text", "")).strip()
     )
     multi_page = st.session_state.get("page_structure") == "Mehrseitige Website"
-    chatbot_knowledge = get_configured_chatbot_knowledge()
     html = build_customized_template_html(
         template_name,
         background_color,
@@ -1332,14 +1262,7 @@ def create_professional_standard_draft() -> None:
         str(st.session_state.get("template_button_text", "")).strip(),
         str(st.session_state.get("template_footer_text", "")).strip(),
         multi_page,
-        chatbot_knowledge,
-        str(st.session_state.get("customer_chatbot_name", "")),
-        str(st.session_state.get("customer_chatbot_color", "#2563EB")),
-        {"Rund (Kreis)": "50%", "Eckig mit Rundung": "8px", "Quadratisch": "0"}.get(
-            str(st.session_state.get("customer_chatbot_shape", "Rund (Kreis)")),
-            "50%",
-        ),
-        str(st.session_state.get("template_sections_text", "")),
+        template_sections=str(st.session_state.get("template_sections_text", "")),
     )
     queue_html_update(html, reset_site_pages=True)
     st.session_state.site_pages["styles.css"] = build_customized_template_styles()
@@ -1351,9 +1274,6 @@ def create_professional_standard_draft() -> None:
                 background_color,
                 accent_color,
                 description,
-                chatbot_knowledge,
-                str(st.session_state.get("customer_chatbot_name", "")),
-                str(st.session_state.get("customer_chatbot_color", "#2563EB")),
             )
         )
 
@@ -1378,11 +1298,12 @@ def create_analytics_optimized_version() -> tuple[object, dict[str, object]]:
             f"Für eine belastbare Optimierung werden 500 Sitzungen benötigt. Aktuell: {summary.sessions}."
         )
     current_html = require_complete_html(st.session_state.generated_html)
-    response = client.chat.completions.create(
-        model=OPENAI_MODEL,
-        temperature=0.2,
-        timeout=120,
-        messages=[
+    try:
+        response = client.chat.completions.create(
+            model=OPENAI_MODEL,
+            temperature=0.2,
+            timeout=120,
+            messages=[
             {
                 "role": "system",
                 "content": (
@@ -1402,8 +1323,12 @@ def create_analytics_optimized_version() -> tuple[object, dict[str, object]]:
                     f"AKTUELLES HTML:\n{current_html}"
                 ),
             },
-        ],
-    )
+            ],
+        )
+    except Exception as error:
+        raise ValueError(
+            "Die KI-Optimierung ist derzeit nicht erreichbar. Bitte versuchen Sie es später erneut."
+        ) from error
     optimized_html = require_complete_html(
         clean_html(response.choices[0].message.content or "")
     )
@@ -1509,26 +1434,10 @@ def build_testing_variant_api_route() -> str:
 def build_analytics_widget(site_id: str) -> str:
     """Erstellt ein minimales Consent- und Analytics-Skript ohne Cookies."""
     safe_site_id = json.dumps(site_id)
-    company_name = escape(
-        str(st.session_state.get("client_company_name", "")).strip()
-        or "Betreiber dieser Website"
-    )
-    company_address = escape(
-        str(st.session_state.get("client_company_address", "")).strip()
-        or "Anschrift ist im Impressum angegeben"
-    )
-    processor_name = escape(PRIVACY_PROCESSOR_NAME or "Betreiber der Website-Plattform")
-    widget = f'''<style data-site-analytics-style>
+    return f'''<style data-site-analytics-style>
 #dsgvo-banner{{position:fixed;bottom:20px;left:20px;right:20px;max-width:500px;margin:auto;background:#fff;color:#333;box-shadow:0 10px 30px rgba(0,0,0,.15);border-radius:8px;padding:20px;z-index:99999;font-family:Arial,sans-serif;border:1px solid #e1e4e8}}
-#dsgvo-banner[hidden]{{display:none!important}}#dsgvo-banner p{{margin:0 0 15px;font-size:14px;line-height:1.5;color:#555}}.dsgvo-buttons{{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}}.dsgvo-btn{{padding:8px 16px;border-radius:6px;border:0;font-size:13px;font-weight:700;cursor:pointer;transition:background .2s ease}}.dsgvo-accept{{background:#4a154b;color:#fff}}.dsgvo-accept:hover{{background:#381039}}.dsgvo-decline{{background:#eef2f7;color:#555}}.dsgvo-decline:hover{{background:#e1e6eb}}.dsgvo-btn:focus-visible,#analytics-consent-reset:focus-visible{{outline:3px solid #f59e0b;outline-offset:2px}}#datenschutz{{max-width:1120px;margin:0 auto;padding:48px 24px;font:15px/1.65 Arial,sans-serif}}#datenschutz h2{{margin-top:0}}#datenschutz h3{{margin:24px 0 6px;font-size:17px}}#analytics-consent-reset{{margin-top:12px;padding:9px 14px;border:1px solid currentColor;border-radius:6px;background:transparent;color:inherit;cursor:pointer;font-weight:700}}@media(max-width:540px){{#dsgvo-banner{{left:12px;right:12px;bottom:12px;padding:16px}}.dsgvo-buttons{{justify-content:stretch}}.dsgvo-btn{{flex:1}}}}
-#datenschutz{{box-sizing:border-box;margin:56px auto;background:#f8fafc;border-top:4px solid #2563eb;border-bottom:1px solid #dbe3ec;color:#1e293b}}
-#datenschutz h2{{max-width:760px;margin:0 0 32px;font-size:clamp(26px,4vw,38px);line-height:1.15;color:#0f172a}}
-#datenschutz h3{{margin:30px 0 8px;padding-left:14px;border-left:3px solid #2563eb;font-size:18px;line-height:1.35;color:#0f172a}}
-#datenschutz p{{max-width:900px;margin:0;color:#475569;font-size:15px;line-height:1.75}}
-#analytics-consent-reset{{margin-top:28px;background:#fff;color:#1d4ed8}}
-@media(max-width:540px){{#datenschutz{{margin:32px auto;padding:36px 20px}}#datenschutz h2{{font-size:27px}}}}
+#dsgvo-banner[hidden]{{display:none!important}}#dsgvo-banner p{{margin:0 0 15px;font-size:14px;line-height:1.5;color:#555}}.dsgvo-buttons{{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}}.dsgvo-btn{{padding:8px 16px;border-radius:6px;border:0;font-size:13px;font-weight:700;cursor:pointer;transition:background .2s ease}}.dsgvo-accept{{background:#4a154b;color:#fff}}.dsgvo-accept:hover{{background:#381039}}.dsgvo-decline{{background:#eef2f7;color:#555}}.dsgvo-decline:hover{{background:#e1e6eb}}.dsgvo-btn:focus-visible,#analytics-consent-reset:focus-visible{{outline:3px solid #f59e0b;outline-offset:2px}}@media(max-width:540px){{#dsgvo-banner{{left:12px;right:12px;bottom:12px;padding:16px}}.dsgvo-buttons{{justify-content:stretch}}.dsgvo-btn{{flex:1}}}}
 </style>
-<section id="datenschutz" aria-labelledby="analytics-privacy-title"><h2 id="analytics-privacy-title">Datenschutz: Nutzungsanalyse und A/B-Testing</h2><h3>Verantwortlicher</h3><p>{company_name}<br>{company_address}</p><h3>Art und Zweck der Verarbeitung</h3><p>Nach Ihrer ausdrücklichen Einwilligung erfassen wir Interaktionen wie Klicks auf Links und Schaltflächen, das Erreichen von Kontaktmöglichkeiten, die Scrolltiefe, die Sitzungsdauer und die Geräteklasse. Die Angaben dienen ausschließlich dazu, Benutzerfreundlichkeit und Leistung dieser Website zu bewerten und zu verbessern. Zeitweise werden zwei Gestaltungsvarianten verglichen. Dafür wird einer Browsersitzung automatisiert Variante A oder B zugeordnet.</p><h3>Sitzungskennung und Speicherdauer</h3><p>Zur Zusammenfassung der Ereignisse innerhalb eines Besuchs wird eine zufällige Sitzungskennung vorübergehend im Session Storage des Browsers gespeichert. Wir übermitteln keine Namen, E-Mail-Adressen oder Inhalte aus Formularfeldern als Analysedaten. Ereignisdaten werden höchstens {ANALYTICS_RETENTION_DAYS} Tage gespeichert und danach automatisiert gelöscht.</p><h3>Auftragsverarbeitung und Drittlandübermittlung</h3><p>Die technische Verarbeitung erfolgt im Auftrag über {processor_name} sowie die Hosting- und Datenbankdienstleister Vercel und Supabase. Soweit personenbezogene Daten in die USA oder andere Drittländer übermittelt werden, stützt sich die Übermittlung je nach Anbieter und Verfügbarkeit auf einen Angemessenheitsbeschluss, insbesondere das EU-US Data Privacy Framework, und/oder die Standardvertragsklauseln der Europäischen Kommission. Angaben zum aktuellen Zertifizierungsstatus und zu den abgeschlossenen Auftragsverarbeitungsverträgen sind vom Verantwortlichen regelmäßig zu prüfen.</p><h3>Rechtsgrundlage und Widerruf</h3><p>Rechtsgrundlage ist Ihre Einwilligung gemäß Art. 6 Abs. 1 lit. a DSGVO. Sie können diese jederzeit mit Wirkung für die Zukunft widerrufen. Der Widerruf berührt nicht die Rechtmäßigkeit der Verarbeitung vor dem Widerruf.</p><button id="analytics-consent-reset" type="button">Einwilligung ändern oder widerrufen</button></section>
 <div id="dsgvo-banner" hidden role="dialog" aria-label="Datenschutz-Hinweis" aria-live="polite"><p><strong>Datenschutz-Hinweis:</strong> Um diese Website kontinuierlich zu verbessern, analysieren wir nach Ihrer Zustimmung das Nutzungsverhalten mit einer zufälligen Sitzungskennung, zum Beispiel Klicks und Scrolltiefe. Es werden keine Namen, Kontaktdaten oder Formulareingaben als Analysedaten gespeichert.</p><div class="dsgvo-buttons"><button type="button" class="dsgvo-btn dsgvo-decline" data-consent="denied">Ablehnen</button><button type="button" class="dsgvo-btn dsgvo-accept" data-consent="granted">Akzeptieren</button></div></div>
 <script data-site-analytics>(()=>{{
 const siteId={safe_site_id},consentKey=`site-analytics-consent:${{siteId}}`,banner=document.getElementById('dsgvo-banner');
@@ -1540,19 +1449,8 @@ const currentVersion=new URLSearchParams(location.search).get('ab')==='B'?'B':'A
 const send=(eventType='session',elementClicked=null,isConversion=false)=>{{if(consent!=='granted')return;const body=JSON.stringify({{site_id:siteId,session_id:sessionId,version:currentVersion,event_type:eventType,device_type:device(),element_clicked:elementClicked,is_conversion:isConversion,duration_seconds:Math.round((Date.now()-startedAt)/1000),scroll_depth:maxScroll}});if(navigator.sendBeacon)navigator.sendBeacon('/api/analytics',new Blob([body],{{type:'application/json'}}));else fetch('/api/analytics',{{method:'POST',headers:{{'Content-Type':'application/json'}},body,keepalive:true}}).catch(()=>{{}});}};
 const start=()=>{{const params=new URLSearchParams(location.search);if(assignedVersion==='B'&&currentVersion!=='B'&&!params.has('ab_unavailable')){{location.replace(`/api/variant?site_id=${{encodeURIComponent(siteId)}}&ab=B`);return;}}addEventListener('scroll',()=>{{const height=Math.max(1,document.documentElement.scrollHeight-innerHeight);maxScroll=Math.max(maxScroll,Math.min(100,Math.round(scrollY/height*100)));}},{{passive:true}});document.addEventListener('click',event=>{{const target=event.target.closest('a,button,input[type="submit"]');if(!target)return;const label=(target.getAttribute('aria-label')||target.textContent||target.id||target.tagName).trim().replace(/\\s+/g,' ').slice(0,120);const href=target.getAttribute('href')||'';const conversion=/^(mailto:|tel:)/.test(href)||target.matches('[data-conversion],input[type="submit"]');send(conversion?'conversion':'click',label,conversion);}});addEventListener('pagehide',()=>send('session'));setTimeout(()=>send('page_view','page-view'),3000);}};
 if(!consent)banner.hidden=false;else if(consent==='granted')start();banner.querySelectorAll('[data-consent]').forEach(button=>button.onclick=()=>{{consent=button.dataset.consent;localStorage.setItem(consentKey,consent);banner.hidden=true;if(consent==='granted')start();}});
-document.getElementById('analytics-consent-reset').onclick=()=>{{localStorage.removeItem(consentKey);sessionStorage.removeItem(sessionKey);location.reload();}};
+const resetButton=document.getElementById('analytics-consent-reset');if(resetButton)resetButton.onclick=()=>{{localStorage.removeItem(consentKey);sessionStorage.removeItem(sessionKey);location.reload();}};
 }})();</script>'''
-    widget = re.sub(
-        r'(?is)<section id="datenschutz".*?</section>',
-        "",
-        widget,
-        count=1,
-    )
-    return widget.replace(
-        "document.getElementById('analytics-consent-reset').onclick=()=>{",
-        "const resetButton=document.getElementById('analytics-consent-reset');"
-        "if(resetButton)resetButton.onclick=()=>{",
-    )
 
 
 def inject_site_analytics(html: str, site_id: str) -> str:
@@ -1664,7 +1562,7 @@ def create_preview_html(html: str, include_customer_chatbot: bool = False) -> st
 
 def replace_first_image_source(html: str, image_name: str, alt_text: str) -> str:
     """Ersetzt das erste Bild im Entwurf lokal durch ein hochgeladenes Asset."""
-    image_tag = f'<img src="{image_name}" alt="{alt_text}">'
+    image_tag = f'<img src="{escape(image_name)}" alt="{escape(alt_text)}">'
     if re.search(r"(?i)<img\b[^>]*>", html):
         return re.sub(r"(?i)<img\b[^>]*>", image_tag, html, count=1)
     if re.search(r'(?i)<div\b[^>]*class=["\'][^"\']*image-placeholder[^"\']*["\'][^>]*>.*?</div>', html, re.DOTALL):
@@ -1749,14 +1647,12 @@ def build_customized_template_html(
     button_text: str = "Ihr Angebot entdecken",
     footer_text: str = "",
     multi_page: bool = True,
-    chatbot_knowledge: str = "",
-    chatbot_name: str = "",
-    chatbot_color: str = "#38BDF8",
-    chatbot_radius: str = "50%",
     template_sections: str = "",
 ) -> str:
-    """Übernimmt die ausgewählte Vorlage lokal und füllt sie mit Kundendaten."""
-    from chat import build_customer_chatbot_widget
+    """Übernimmt die ausgewählte Vorlage lokal und füllt sie mit Kundendaten.
+
+    Den Kunden-Chatbot setzt anschließend queue_html_update zentral ein.
+    """
     language = str(st.session_state.app_language)
     page_copy = get_template_preview_copy(language)
     nav_copy = page_copy["nav"]
@@ -1784,23 +1680,6 @@ def build_customized_template_html(
         footer_text.strip()
         or f'{company_name} | {business_email} | {page_copy["imprint"]} | {page_copy["privacy"]}'
     )
-    chatbot_knowledge = escape(
-        chatbot_knowledge.strip()
-        or f"Willkommen bei {company_name}. Wie können wir Ihnen helfen?"
-    )
-    chatbot_name = escape(chatbot_name.strip() or f"{company_name} Assistent")
-    chatbot_position = str(
-        st.session_state.get("customer_chatbot_position", "Unten rechts")
-    )
-    chatbot_css_position = (
-        "position:fixed;left:20px;right:auto;bottom:20px;"
-        if chatbot_position == "Unten links"
-        else "position:fixed;right:20px;left:auto;bottom:20px;"
-    )
-    if not st.session_state.get("customer_chatbot_fixed", True):
-        chatbot_css_position = chatbot_css_position.replace(
-            "position:fixed;", "position:relative;"
-        )
     phone = escape(phone.strip())
     radius = "0" if border_style == "sharp" else "10px"
     text_color = contrast_text_color(background_color)
@@ -1833,7 +1712,7 @@ def build_customized_template_html(
     for index, section in enumerate(template_sections.splitlines()[:3], start=1):
         title, separator, text = section.partition("|")
         section_cards.append(
-            f'<article class="card"><strong>{index:02d}</strong><h3>{escape(title.strip())}</h3><p>{escape(text.strip() if separator else description)}</p></article>'
+            f'<article class="card"><strong>{index:02d}</strong><h3>{escape(title.strip())}</h3><p>{escape(text.strip()) if separator else description}</p></article>'
         )
     if not section_cards:
         section_cards = [
@@ -1842,18 +1721,7 @@ def build_customized_template_html(
             '<article class="card"><strong>03</strong><h3>Kontakt erleichtern</h3><p>Schnell und direkt zu Ihrer persönlichen Anfrage.</p></article>',
         ]
     section_cards_html = "".join(section_cards)
-    footer_html = f'''<footer class="site-footer"><section><strong>{company_name}</strong><p>{footer_text}</p></section><section><strong>{page_copy["contact"]}</strong><p><a href="mailto:{business_email}">{business_email}</a></p></section><section><strong>{page_copy["legal"]}</strong><p><a href="#impressum">{page_copy["imprint"]}</a> · <a href="#datenschutz">{page_copy["privacy"]}</a></p></section><p class="footer-legal">© 2026 {company_name}. {page_copy["rights"]}</p></footer>'''
-    chatbot_widget_html = f'''<style>.customer-chatbot{{{chatbot_css_position}z-index:10000;font-family:Arial,sans-serif}}.customer-chatbot-toggle{{border:0;color:#fff;padding:13px 18px;cursor:pointer;font-weight:700;box-shadow:0 4px 10px rgba(0,0,0,.2)}}.customer-chatbot-window{{position:absolute;right:0;bottom:64px;width:min(350px,calc(100vw - 40px));height:450px;background:#fff;color:#111827;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 5px 15px rgba(0,0,0,.3);overflow:hidden}}.customer-chatbot-window header{{display:flex;justify-content:space-between;align-items:center;padding:14px;color:#fff}}.customer-chatbot-window header button{{border:0;background:transparent;color:#fff;font-size:22px;cursor:pointer}}.customer-chatbot-messages{{height:calc(100% - 110px);overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px}}.customer-chatbot-message{{max-width:85%;margin:0;padding:8px 12px;background:#f3f4f6;border-radius:8px;color:#111827}}.customer-chatbot-message-user{{align-self:flex-end;background:{chatbot_color};color:#fff}}.customer-chatbot-form{{display:flex;gap:6px;padding:10px;border-top:1px solid #e5e7eb}}.customer-chatbot-form input{{min-width:0;flex:1;padding:8px;border:1px solid #d1d5db;border-radius:6px}}.customer-chatbot-form button{{border:0;border-radius:6px;padding:8px 12px;color:#fff;cursor:pointer}}@media(max-width:480px){{.customer-chatbot-window{{height:400px}}}}</style><aside class="customer-chatbot" data-knowledge="{chatbot_knowledge}">
-<button class="customer-chatbot-toggle" type="button" aria-expanded="false" aria-label="{chatbot_name} öffnen" style="background:{chatbot_color};border-radius:{chatbot_radius}">Chat</button>
-<section class="customer-chatbot-window" hidden>
-<header style="background:{chatbot_color}"><strong>{chatbot_name}</strong><button type="button" aria-label="Chat schließen">×</button></header>
-<div class="customer-chatbot-messages" aria-live="polite"><p class="customer-chatbot-message">Hallo! Wie kann ich Ihnen helfen?</p></div>
-<form class="customer-chatbot-form"><input type="text" aria-label="Frage eingeben" placeholder="Frage eingeben..." required><button type="submit" style="background:{chatbot_color}">Senden</button></form>
-</section></aside>
-<script>const chatbot=document.querySelector('.customer-chatbot'),toggle=chatbot.querySelector('.customer-chatbot-toggle'),panel=chatbot.querySelector('.customer-chatbot-window'),closeButton=panel.querySelector('header button'),form=chatbot.querySelector('form'),input=form.querySelector('input'),messages=chatbot.querySelector('.customer-chatbot-messages'),knowledge=chatbot.dataset.knowledge;const setOpen=open=>{{panel.hidden=!open;toggle.setAttribute('aria-expanded',String(open));if(open)input.focus();}};toggle.onclick=()=>setOpen(panel.hidden);closeButton.onclick=()=>setOpen(false);form.onsubmit=event=>{{event.preventDefault();const question=input.value.trim();if(!question)return;const userMessage=document.createElement('p');userMessage.className='customer-chatbot-message customer-chatbot-message-user';userMessage.textContent=question;messages.append(userMessage);input.value='';const answer=document.createElement('p');answer.className='customer-chatbot-message';const questionLower=question.toLowerCase();answer.textContent=questionLower.includes('kontakt')||questionLower.includes('email')?`Sie erreichen uns unter {business_email}.`:knowledge||'Vielen Dank für Ihre Anfrage. Wir melden uns gerne persönlich bei Ihnen.';messages.append(answer);messages.scrollTop=messages.scrollHeight;}};</script>'''
-    chatbot_widget_html = build_customer_chatbot_widget(
-        chatbot_name, chatbot_color, chatbot_knowledge
-    )
+    footer_html = f'''<footer class="site-footer"><section><strong>{company_name}</strong><p>{footer_text}</p></section><section><strong>{page_copy["contact"]}</strong><p><a href="mailto:{business_email}">{business_email}</a></p></section><section><strong>{page_copy["legal"]}</strong><p><a href="#impressum">{page_copy["imprint"]}</a> · <a href="#datenschutz">{page_copy["privacy"]}</a></p></section><p class="footer-legal">© {datetime.now().year} {company_name}. {page_copy["rights"]}</p></footer>'''
     return f"""<!doctype html>
 <html lang="{language}" dir="{direction}">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1865,7 +1733,7 @@ def build_customized_template_html(
 <section class="band"><div class="container" id="leistungen"><span class="eyebrow">{nav_copy["leistungen"]}</span><h2>{services_copy[1]}</h2><div class="cards">{section_cards_html}</div></div></section>
 <section class="container" id="ueber-uns"><span class="eyebrow">{nav_copy["ueber_uns"]}</span><h2>{about_copy[1]}</h2><p>{description}</p></section>
 <section class="band"><div class="container contact" id="kontakt"><div><span class="eyebrow">{nav_copy["kontakt"]}</span><h2>{contact_copy[1]}</h2><p><a href="mailto:{business_email}">{business_email}</a></p>{phone_html}</div><div class="card"><h3>{contact_copy[2][1][0]}</h3><p>{contact_copy[2][1][1]}</p><a class="button" href="mailto:{business_email}">{nav_copy["kontakt"]}</a></div></div></section></main>
-    {footer_html}{chatbot_widget_html}</body></html>"""
+    {footer_html}</body></html>"""
 
 
 def build_customized_template_styles() -> str:
@@ -1875,11 +1743,10 @@ def build_customized_template_styles() -> str:
 
 def build_customized_template_pages(
     company_name: str, business_email: str, background_color: str,
-    accent_color: str, description: str, chatbot_knowledge: str = "",
-    chatbot_name: str = "", chatbot_color: str = "#2563EB",
+    accent_color: str, description: str,
 ) -> dict[str, str]:
     """Erstellt echte statische Angebots- und Kontaktseiten der Kundenwebsite."""
-    from chat import build_customer_chatbot_widget
+    from chat import inject_configured_customer_chatbot
     language = str(st.session_state.app_language)
     copy = get_template_preview_copy(language)
     nav = copy["nav"]
@@ -1905,9 +1772,6 @@ def build_customized_template_pages(
     about = page_html("ueber_uns")
     offers = page_html("angebote")
     contact = page_html("kontakt")
-    chatbot_widget = build_customer_chatbot_widget(
-        chatbot_name, chatbot_color, chatbot_knowledge
-    )
     pages = {
         "leistungen.html": services,
         "angebote.html": offers,
@@ -1916,7 +1780,7 @@ def build_customized_template_pages(
         "kontakt.html": contact,
     }
     pages = {
-        page_name: page_html.replace("</body>", f"{chatbot_widget}</body>")
+        page_name: inject_configured_customer_chatbot(page_html)
         for page_name, page_html in pages.items()
     }
     pages["styles.css"] = build_customized_template_styles()
@@ -1925,7 +1789,7 @@ def build_customized_template_pages(
 
 def ask_ai_for_html(system_instruction: str, user_instruction: str) -> str:
     """Fordert vollständigen HTML-Code von OpenAI an."""
-    if not deduct_tokens(int(st.session_state.user_id)):
+    if not has_generation_access(int(st.session_state.user_id)):
         raise ValueError(
             "Ihre kostenlose 24-Stunden-Testphase ist abgelaufen. Bitte schließen Sie "
             "Premium ab, um weitere Websites mit KI zu erstellen."
@@ -1942,7 +1806,6 @@ def ask_ai_for_html(system_instruction: str, user_instruction: str) -> str:
             ],
         )
     except Exception as error:
-        refund_tokens(int(st.session_state.user_id))
         raise ValueError(
             "Die KI-Erstellung ist derzeit nicht erreichbar. Ihr Guthaben wurde "
             "nicht belastet. Bitte versuchen Sie es in wenigen Minuten erneut."
@@ -1959,29 +1822,27 @@ def generate_website(
     multi_page: bool = False,
 ) -> None:
     """Erstellt einen neuen Website-Entwurf."""
-    from chat import get_configured_chatbot_knowledge
     image_instruction = ""
     company_name = str(st.session_state.get("client_company_name", "")).strip()
     business_email = str(st.session_state.get("client_business_email", "")).strip()
     company_slogan = str(st.session_state.get("client_company_slogan", "")).strip()
     business_phone = str(st.session_state.get("client_business_phone", "")).strip()
-    chatbot_knowledge = get_configured_chatbot_knowledge()
+    web3forms_access_key = str(
+        st.session_state.get("client_web3forms_access_key", "")
+    ).strip()
+
+    if business_email and not EMAIL_PATTERN.fullmatch(business_email):
+        raise ValueError("Bitte geben Sie eine gültige geschäftliche E-Mail-Adresse ein.")
+    if not business_email or not company_name:
+        raise ValueError(
+            "Bitte geben Sie Unternehmensname und geschäftliche E-Mail-Adresse ein."
+        )
     document_context, source_names = retrieve_document_context(
         source_documents,
         f"{company_name}\n{description}",
     )
     st.session_state.document_context = document_context
     st.session_state.document_source_names = source_names
-    web3forms_access_key = str(
-        st.session_state.get("client_web3forms_access_key", "")
-    ).strip()
-
-    if business_email and not EMAIL_PATTERN.fullmatch(business_email):
-        raise ValueError("Bitte gib eine gueltige geschäftliche E-Mail-Adresse ein.")
-    if not business_email or not company_name:
-        raise ValueError(
-            "Bitte geben Sie Unternehmensname und geschäftliche E-Mail-Adresse ein."
-        )
 
     if image_file is not None:
         image_name = save_uploaded_image(image_file, image_placement)
@@ -2086,9 +1947,6 @@ DOKUMENTQUELLEN:
             background_color,
             str(st.session_state.get("template_accent_color", "#22D3EE")),
             description,
-            get_configured_chatbot_knowledge(),
-            str(st.session_state.get("customer_chatbot_name", "")),
-            str(st.session_state.get("customer_chatbot_color", "#2563EB")),
         )
         static_pages.pop("leistungen.html")
         for page_name, page_content in static_pages.items():
@@ -2177,7 +2035,7 @@ def modify_current_website(change_request: str) -> None:
         raise ValueError("Erstelle oder lade zuerst eine Website.")
 
     html = ask_ai_for_html(
-        system_instruction=f"""
+        system_instruction="""
 Du bist ein sorgfältiger Frontend-Entwickler.
 
 Bearbeite ausschließlich die angeforderte Änderung in einer bestehenden Website.
@@ -2480,7 +2338,7 @@ def create_empty_vercel_project(project_name: str) -> str:
 
 
 def upload_vercel_file(file_name: str, content: bytes) -> dict[str, str]:
-    """Laedt eine einzelne Datei hoch und liefert den schlanken Deployment-Verweis."""
+    """Lädt eine einzelne Datei hoch und liefert den schlanken Deployment-Verweis."""
     digest = hashlib.sha1(content).hexdigest()
     try:
         response = requests.post(
@@ -2693,31 +2551,37 @@ def optimize_text_with_transformer(bullet_points: str) -> str:
         "Handwerker-Website attraktiv, seriös und fehlerfrei um. Verwende maximal "
         f"drei Sätze.\n\nText: {bullet_points.strip()}\n\nOptimierter Text:"
     )
-    response = requests.post(
-        HF_TEXT_MODEL_URL,
-        headers={
-            "Authorization": f"Bearer {HF_API_KEY}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "inputs": prompt,
-            "parameters": {
-                "max_new_tokens": 150,
-                "temperature": 0.4,
-                "return_full_text": False,
+    try:
+        response = requests.post(
+            HF_TEXT_MODEL_URL,
+            headers={
+                "Authorization": f"Bearer {HF_API_KEY}",
+                "Content-Type": "application/json",
             },
-        },
-        timeout=30,
-    )
+            json={
+                "inputs": prompt,
+                "parameters": {
+                    "max_new_tokens": 150,
+                    "temperature": 0.4,
+                    "return_full_text": False,
+                },
+            },
+            timeout=30,
+        )
+    except requests.RequestException as error:
+        raise ValueError("Hugging Face ist derzeit nicht erreichbar.") from error
     if response.status_code == 503:
         raise ValueError(
             "Das KI-Modell wird gerade gestartet. Bitte versuchen Sie es in wenigen Sekunden erneut."
         )
+    try:
+        result = response.json()
+    except ValueError:
+        result = {}
     if response.status_code != 200:
-        error_detail = response.json().get("error", "Unbekannter Fehler")
+        error_detail = result.get("error", "Unbekannter Fehler") if isinstance(result, dict) else "Unbekannter Fehler"
         raise ValueError(f"Hugging Face konnte den Text nicht verarbeiten: {error_detail}")
 
-    result = response.json()
     if isinstance(result, list) and result:
         optimized_text = result[0].get("generated_text", "")
     elif isinstance(result, dict):
@@ -2727,162 +2591,6 @@ def optimize_text_with_transformer(bullet_points: str) -> str:
     if not optimized_text.strip():
         raise ValueError("Hugging Face hat keinen optimierten Text zurückgegeben.")
     return optimized_text.strip()
-
-
-def generate_website_recommendation(topic_or_industry: str) -> str:
-    """Erstellt eine Branchenempfehlung für Titel, Leistungen und Angebot."""
-    instruction = (
-        "Du bist ein KI-Website-Generator für den AI Website Builder. Erstelle für "
-        "das angegebene Thema eine professionelle, verkaufsstarke Struktur mit "
-        "fertigen Texten für eine deutsche KMU-Website. Gib exakt dieses Format aus:\n"
-        "EMPFOHLENER TITEL: [starker Slogan]\n"
-        "LEISTUNGEN: [drei konkrete Empfehlungen]\n"
-        "ANGEBOT: [Aktionsangebot für Neukunden]"
-    )
-    try:
-        response = client.chat.completions.create(
-            model=OPENAI_MODEL,
-            temperature=0.3,
-            max_tokens=300,
-            timeout=30,
-            messages=[
-                {"role": "system", "content": instruction},
-                {
-                    "role": "user",
-                    "content": f"Generiere die Empfehlung für: {topic_or_industry.strip()}",
-                },
-            ],
-        )
-    except Exception as error:
-        raise ValueError(f"Die Empfehlungs-Engine konnte nicht erreicht werden: {error}") from error
-
-    recommendation = response.choices[0].message.content or ""
-    if not recommendation.strip():
-        raise ValueError("Die Empfehlungs-Engine hat keine Empfehlung zurückgegeben.")
-    return recommendation.strip()
-
-
-INDUSTRY_CONTENT_PRESETS = {
-    "Kfz-Meisterwerkstatt": {
-        "client_company_name": "Kfz-Meisterbetrieb Schmidt",
-        "client_company_slogan": "Ihre zuverlässige Autowerkstatt für alle Marken",
-        "section_hero_title": "Meisterservice für Ihr Fahrzeug.",
-        "section_hero_subtitle": "Persönlich, präzise und zuverlässig für alle Marken.",
-        "template_hero_heading": "Ihre zuverlässige Autowerkstatt für alle Marken",
-        "template_custom_description": "Vom Reifenwechsel über den Ölwechsel bis zur Motordiagnose: Wir halten Ihr Fahrzeug mit Meisterqualität sicher auf der Straße.",
-        "template_footer_text": "© 2026 Kfz-Meisterbetrieb Schmidt | Impressum und Datenschutz",
-        "template_sections_text": "Reparatur und Diagnose | Meisterhafte Reparaturen und präzise Fehleranalyse für alle Marken.\nReifen und Räder | Sicher unterwegs mit fachgerechtem Reifenwechsel und Einlagerung.\nInspektion und Service | Transparenter Autoservice mit Qualitätsersatzteilen.",
-        "section_services": "Meisterhafte Kfz-Reparaturen, präziser Reifenwechsel, umfassender Autoservice",
-        "section_about_text": "Seit über 15 Jahren reparieren wir Fahrzeuge aller Marken mit Leidenschaft und Meisterqualität.",
-        "offer_page_name": "Ölwechsel-Komplettservice",
-        "offer_page_price": "ab 49 EUR",
-        "offer_page_details": "Inklusive kostenlosem Sicherheits- und Bremsencheck.",
-    },
-    "Friseursalon": {
-        "client_company_name": "Haardesign und Wohlfühlen",
-        "client_company_slogan": "Ihr perfekter Look in entspannter Atmosphäre",
-        "section_hero_title": "Ihr Look. Unser Handwerk.",
-        "section_hero_subtitle": "Individuelles Styling in entspannter Wohlfühlatmosphäre.",
-        "template_hero_heading": "Ihr perfekter Look in entspannter Atmosphäre",
-        "template_custom_description": "Ob Haarschnitt, Balayage oder klassisches Styling: Unser kreatives Team nimmt sich Zeit für Ihre Persönlichkeit und Ihr Haar.",
-        "template_footer_text": "© 2026 Haardesign und Wohlfühlen | Impressum und Datenschutz",
-        "template_sections_text": "Schnitt und Styling | Individuelle Looks für Damen, Herren und Kinder.\nFarbe und Balayage | Brillante Colorationen, präzise auf Ihren Typ abgestimmt.\nPflege und Beratung | Erstklassige Produkte und persönliche Empfehlungen für gesundes Haar.",
-        "section_services": "Moderne Haarschnitte, brillante Colorationen, individuelles Styling für Damen, Herren und Kinder",
-        "section_about_text": "Unser kreatives Team sorgt in Wohlfühlatmosphäre für Ihren perfekten Look und gesundes Haar.",
-        "offer_page_name": "Premium-Balayage-Paket",
-        "offer_page_price": "Beratung gratis",
-        "offer_page_details": "Individuell abgestimmt inklusive hochwertiger Pflege.",
-    },
-    "Dachdeckerfachbetrieb": {
-        "client_company_name": "Bedachungen Bednarz",
-        "client_company_slogan": "Ihr Dach in besten Händen",
-        "section_hero_title": "Schutz und Qualität für Ihr Dach.",
-        "section_hero_subtitle": "Fachgerechte Lösungen für Neubau, Sanierung und Reparatur.",
-        "template_hero_heading": "Ihr Dach in besten Händen",
-        "template_custom_description": "Als Meisterbetrieb bieten wir zuverlässige Arbeiten für Steil- und Flachdächer, Fassaden und Bauklempnerei.",
-        "template_footer_text": "© 2026 Bedachungen Bednarz | Impressum und Datenschutz",
-        "template_sections_text": "Dachsanierung | Langlebige Lösungen für ein sicheres und energieeffizientes Dach.\nNeueindeckung | Hochwertige Materialien und sorgfältige Ausführung für Neubau und Umbau.\nReparatur und Abdichtung | Schnelle Hilfe bei Schäden, Feuchtigkeit und Undichtigkeiten.",
-        "section_services": "Dachsanierung, Neueindeckung, Abdichtung und Reparatur, Dachfenster und Wärmedämmung",
-        "section_about_text": "Wir verbinden solides Handwerk, langlebige Materialien und eine transparente Beratung für Ihr Zuhause.",
-        "offer_page_name": "Kostenloser Dach-Check",
-        "offer_page_price": "unverbindlich",
-        "offer_page_details": "Wir prüfen den Zustand Ihres Dachs und beraten zu passenden Maßnahmen.",
-    },
-    "Physiotherapie-Praxis": {
-        "client_company_name": "Praxis für Physiotherapie und Bewegung",
-        "client_company_slogan": "Zurück zu Schmerzfreiheit und Mobilität",
-        "section_hero_title": "Bewegung zurückgewinnen.",
-        "section_hero_subtitle": "Persönliche Therapie für mehr Gesundheit und Lebensqualität.",
-        "template_hero_heading": "Zurück zu Schmerzfreiheit und Mobilität",
-        "template_custom_description": "Mit maßgeschneiderten Therapiekonzepten begleiten wir Sie nach Verletzungen, Operationen und bei chronischen Beschwerden.",
-        "template_footer_text": "© 2026 Praxis für Physiotherapie und Bewegung | Impressum und Datenschutz",
-        "template_sections_text": "Krankengymnastik | Individuelle Übungen für mehr Kraft, Beweglichkeit und Stabilität.\nManuelle Therapie | Gezielte Behandlung von Beschwerden und Bewegungseinschränkungen.\nLymphdrainage und Beratung | Persönliche Begleitung für Ihre nachhaltige Gesundheit.",
-        "section_services": "Krankengymnastik, manuelle Therapie, Lymphdrainage und individuelle Trainingsberatung",
-        "section_about_text": "Wir begleiten Sie mit fachlicher Kompetenz und einem ganzheitlichen Blick auf Ihre Gesundheit.",
-        "offer_page_name": "Erstberatung",
-        "offer_page_price": "persönlich und individuell",
-        "offer_page_details": "Gemeinsam entwickeln wir den passenden Weg zu mehr Beweglichkeit.",
-    },
-    "Restaurant": {
-        "client_company_name": "Restaurant Genusszeit",
-        "client_company_slogan": "Frisch gekocht. Herzlich serviert.",
-        "section_hero_title": "Genuss, der verbindet.",
-        "section_hero_subtitle": "Saisonale Küche und echte Gastfreundschaft.",
-        "template_hero_heading": "Frisch gekocht. Herzlich serviert.",
-        "template_custom_description": "Wir servieren frisch zubereitete Gerichte, ausgewählte Getränke und eine entspannte Atmosphäre für Ihren Besuch.",
-        "template_footer_text": "© 2026 Restaurant Genusszeit | Impressum und Datenschutz",
-        "template_sections_text": "Speisekarte | Frische Gerichte und saisonale Spezialitäten.\nReservierung | Sichern Sie sich Ihren Tisch für einen genussvollen Abend.\nFeiern und Gruppen | Der passende Rahmen für besondere Anlässe.",
-        "section_services": "Saisonale Küche, Tischreservierung, Gruppen und Feiern",
-        "section_about_text": "Unser Team verbindet gute Zutaten, sorgfältige Zubereitung und persönliche Gastfreundschaft.",
-        "offer_page_name": "Mittagsmenü",
-        "offer_page_price": "ab 12,90 EUR",
-        "offer_page_details": "Täglich frisch zubereitet, inklusive wechselnder Empfehlung des Hauses.",
-    },
-    "Café und Bäckerei": {
-        "client_company_name": "Café Morgenrot",
-        "client_company_slogan": "Kaffee, Kuchen und Zeit zum Genießen",
-        "section_hero_title": "Ihr Lieblingsplatz im Alltag.",
-        "section_hero_subtitle": "Hausgemachte Köstlichkeiten und guter Kaffee.",
-        "template_hero_heading": "Kaffee, Kuchen und Zeit zum Genießen",
-        "template_custom_description": "Bei uns erwarten Sie aromatischer Kaffee, frische Backwaren und hausgemachte Kuchen in entspannter Atmosphäre.",
-        "template_footer_text": "© 2026 Café Morgenrot | Impressum und Datenschutz",
-        "template_sections_text": "Kaffee und Getränke | Sorgfältig zubereitete Kaffeespezialitäten und erfrischende Getränke.\nFrühstück und Backwaren | Frisch gebacken für einen guten Start in den Tag.\nKuchen und Torten | Hausgemachte Klassiker und saisonale Kreationen.",
-        "section_services": "Kaffeespezialitäten, Frühstück, frische Backwaren und hausgemachte Kuchen",
-        "section_about_text": "Wir schaffen einen Ort für gute Gespräche, kleine Auszeiten und ehrlichen Genuss.",
-        "offer_page_name": "Frühstück für zwei",
-        "offer_page_price": "ab 24 EUR",
-        "offer_page_details": "Ausgewählte Backwaren, Aufstriche und zwei Heißgetränke.",
-    },
-    "Onlineshop": {
-        "client_company_name": "Studio Lieblingsstücke",
-        "client_company_slogan": "Besondere Produkte einfach online entdecken",
-        "section_hero_title": "Schönes für Ihren Alltag.",
-        "section_hero_subtitle": "Ausgewählte Produkte, sicher bestellt und schnell geliefert.",
-        "template_hero_heading": "Besondere Produkte einfach online entdecken",
-        "template_custom_description": "Entdecken Sie sorgfältig ausgewählte Produkte mit klaren Informationen, sicheren Zahlungsarten und zuverlässigem Versand.",
-        "template_footer_text": "© 2026 Studio Lieblingsstücke | Impressum und Datenschutz",
-        "template_sections_text": "Unsere Produkte | Ausgewählte Artikel mit klaren Details und Bildern.\nVersand und Zahlung | Transparent, sicher und bequem bestellen.\nKundenservice | Persönliche Hilfe vor und nach Ihrem Einkauf.",
-        "section_services": "Produktauswahl, sicherer Onlinekauf, Versand und Kundenservice",
-        "section_about_text": "Wir wählen Produkte mit Anspruch aus und machen den Online-Einkauf angenehm und transparent.",
-        "offer_page_name": "Willkommensrabatt",
-        "offer_page_price": "10 Prozent",
-        "offer_page_details": "Für Ihre erste Bestellung im Onlineshop.",
-    },
-}
-
-
-OTHER_INDUSTRY_OPTION = "Andere Branche oder Kleingewerbe"
-
-
-INDUSTRY_TEMPLATE_MAP = {
-    "Kfz-Meisterwerkstatt": "Automobil und KFZ-Gewerbe",
-    "Friseursalon": "Formale Agentur oder Kanzlei",
-    "Dachdeckerfachbetrieb": "GmbH und Corporate Unternehmen",
-    "Physiotherapie-Praxis": "Formale Agentur oder Kanzlei",
-    "Restaurant": "Restaurant und Gastronomie",
-    "Café und Bäckerei": "Cafe und Baeckerei",
-    "Onlineshop": "Supermarkt und Einzelhandel",
-}
 
 
 def build_generic_industry_preset(industry: str) -> dict[str, str]:
@@ -2895,7 +2603,7 @@ def build_generic_industry_preset(industry: str) -> dict[str, str]:
         "section_hero_subtitle": "Individuelle Lösungen und persönliche Beratung.",
         "template_hero_heading": "Persönlicher Service, passend für Ihr Anliegen",
         "template_custom_description": f"{business_name} bietet zuverlässige Leistungen, klare Beratung und persönliche Betreuung.",
-        "template_footer_text": f"© 2026 {business_name} | Impressum und Datenschutz",
+        "template_footer_text": f"© {CURRENT_YEAR} {business_name} | Impressum und Datenschutz",
         "template_sections_text": "Unsere Leistungen | Passende Lösungen für Ihr Anliegen.\nPersönliche Beratung | Wir nehmen uns Zeit für Ihre Fragen.\nKontakt | Sprechen Sie direkt mit unserem Team.",
         "section_services": "Individuelle Leistungen, persönliche Beratung und zuverlässiger Service",
         "section_about_text": "Wir stehen für Qualität, Verlässlichkeit und einen persönlichen Ansprechpartner.",
@@ -2920,34 +2628,22 @@ def apply_industry_content_preset() -> None:
         st.session_state.update(preset)
         apply_app_language()
         mcp_chatbot_profile = get_industry_chatbot_profile_with_mcp(industry)
-        chatbot_defaults = {
-            "Kfz-Meisterwerkstatt": ("Werkstatt-Assistent", "Mo-Fr: 08:00-18:00 Uhr", "Telefonisch oder per E-Mail während der Öffnungszeiten", "Für Pannen außerhalb der Öffnungszeiten wenden Sie sich bitte an einen Pannendienst."),
-            "Friseursalon": ("Salon-Assistent", "Di-Fr: 09:00-18:00 Uhr, Sa: 09:00-14:00 Uhr", "Termine telefonisch oder per E-Mail vereinbaren", "Für kurzfristige Termine kontaktieren Sie den Salon direkt."),
-            "Dachdeckerfachbetrieb": ("Dachservice-Assistent", "Mo-Fr: 07:00-17:00 Uhr", "Telefonisch oder per E-Mail", "Bei akuten Sturmschäden kontaktieren Sie uns telefonisch."),
-            "Physiotherapie-Praxis": ("Praxis-Assistent", "Mo-Fr: 08:00-18:00 Uhr", "Termine telefonisch oder per E-Mail", "Bei akuten Beschwerden wenden Sie sich bitte an den ärztlichen Notdienst."),
-            "Restaurant": ("Genusszeit-Assistent", "Di-So: 12:00-22:00 Uhr", "Reservierungen telefonisch oder per E-Mail", "Für kurzfristige Reservierungen rufen Sie uns bitte direkt an."),
-            "Café und Bäckerei": ("Café-Assistent", "Mo-Sa: 07:00-18:00 Uhr, So: 08:00-16:00 Uhr", "Vorbestellungen telefonisch oder per E-Mail", "Für tagesaktuelle Bestellungen kontaktieren Sie uns direkt."),
-            "Onlineshop": ("Shop-Assistent", "Mo-Fr: 09:00-17:00 Uhr", "Kundenservice per E-Mail", "Bei dringenden Bestellfragen schreiben Sie uns bitte mit Bestellnummer."),
-        }
-        chatbot_name, chatbot_hours, chatbot_contact, chatbot_emergency = chatbot_defaults.get(
-            industry,
-            ("Kundenservice-Assistent", "Öffnungszeiten nach Vereinbarung", "Kontakt per E-Mail", "Für dringende Anliegen kontaktieren Sie uns direkt."),
-        )
+        fallback_profile = CHATBOT_INDUSTRY_PROFILES.get(industry, GENERIC_CHATBOT_PROFILES["de"])
         st.session_state.customer_chatbot_name = (
-            mcp_chatbot_profile.get("name") or chatbot_name
+            mcp_chatbot_profile.get("name") or fallback_profile["name"]
         )
         st.session_state.client_chatbot_hours = (
-            mcp_chatbot_profile.get("hours") or chatbot_hours
+            mcp_chatbot_profile.get("hours") or fallback_profile["hours"]
         )
         st.session_state.client_chatbot_contact = (
-            mcp_chatbot_profile.get("contact") or chatbot_contact
+            mcp_chatbot_profile.get("contact") or fallback_profile["contact"]
         )
         st.session_state.client_chatbot_services = (
             mcp_chatbot_profile.get("services")
             or str(preset.get("section_services", ""))
         )
         st.session_state.client_chatbot_emergency = (
-            mcp_chatbot_profile.get("emergency") or chatbot_emergency
+            mcp_chatbot_profile.get("emergency") or fallback_profile["emergency"]
         )
         chatbot_theme = get_chatbot_design_theme(
             custom_industry if industry == OTHER_INDUSTRY_OPTION else industry

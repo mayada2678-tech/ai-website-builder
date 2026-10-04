@@ -54,13 +54,16 @@ class InwxClient:
         self._request("account.login", {"user": self.username, "pass": self.password})
 
     def _request(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
-        response = self.session.post(
-            self.endpoint,
-            json={"method": method, "params": params},
-            timeout=45,
-        )
-        response.raise_for_status()
-        payload = response.json()
+        try:
+            response = self.session.post(
+                self.endpoint,
+                json={"method": method, "params": params},
+                timeout=45,
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except (requests.RequestException, ValueError) as error:
+            raise ProvisioningError(f"INWX {method} is unavailable: {error}") from error
         code = int(payload.get("code", 0))
         if code != 1000:
             message = str(payload.get("msg", "Unknown INWX error"))
@@ -123,12 +126,15 @@ def add_domain_to_vercel(domain: str, project_id: str) -> dict[str, Any]:
     token = os.environ.get("VERCEL_TOKEN", "").strip()
     if not token or not project_id.strip():
         raise ProvisioningError("Vercel token or project ID is missing.")
-    response = requests.post(
-        f"https://api.vercel.com/v10/projects/{project_id.strip()}/domains",
-        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-        json={"name": normalize_domain(domain)},
-        timeout=45,
-    )
+    try:
+        response = requests.post(
+            f"https://api.vercel.com/v10/projects/{project_id.strip()}/domains",
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            json={"name": normalize_domain(domain)},
+            timeout=45,
+        )
+    except requests.RequestException as error:
+        raise ProvisioningError(f"Vercel domain assignment is unavailable: {error}") from error
     if response.status_code == 409:
         return {"name": normalize_domain(domain), "already_assigned": True}
     if response.status_code not in (200, 201):

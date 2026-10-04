@@ -42,7 +42,6 @@ from logic import (
     delete_saved_website,
     EMAIL_PATTERN,
     generate_website,
-    generate_website_recommendation,
     get_creation_form_copy,
     get_project_name_from_url,
     get_support_requests,
@@ -92,6 +91,7 @@ from logic import (
 from chat import (
     CHATBOT_FIGURE_ICONS,
     get_chatbot_design_theme,
+    get_chatbot_toggle_radius,
     get_configured_chatbot_knowledge,
 )
 
@@ -151,6 +151,31 @@ CLICKABLE_TEMPLATE_EDITOR = partial(
                 if (text !== undefined) element.textContent = text;
                 return element;
             };
+            const appendCustomerChatbot = () => {
+                if (!data.showCustomerChatbot) return;
+                const chatbot = create('aside', 'template-chatbot');
+                const chatbotPanel = create('section', 'template-chatbot-panel');
+                const chatbotAnswer = create('p', '', data.chatbotKnowledge || copy.welcome);
+                const chatbotForm = create('form', 'template-chatbot-form');
+                const chatbotInput = create('input', '');
+                chatbotInput.placeholder = copy.question;
+                chatbotInput.setAttribute('aria-label', copy.question);
+                const chatbotSend = create('button', '', copy.send);
+                chatbotSend.type = 'submit';
+                chatbotForm.append(chatbotInput, chatbotSend);
+                chatbotForm.onsubmit = event => { event.preventDefault(); const question = chatbotInput.value.trim(); if (!question) return; chatbotAnswer.textContent = `${copy.thanks}: „${question}“. ${data.chatbotKnowledge || copy.reply}`; chatbotInput.value = ''; };
+                chatbotPanel.append(create('h2', '', data.chatbotName || `${data.companyName} ${copy.assistant}`), chatbotAnswer, chatbotForm);
+                const chatbotToggle = create('button', 'template-chatbot-toggle', data.chatbotFigure || '🤖');
+                chatbotToggle.type = 'button';
+                chatbotToggle.setAttribute('aria-label', copy.openChat);
+                chatbotToggle.title = copy.openChat;
+                chatbotToggle.style.fontSize = '28px';
+                chatbotToggle.style.background = data.chatbotColor || data.accentColor;
+                chatbotToggle.style.borderRadius = data.chatbotRadius || '50%';
+                chatbotToggle.onclick = () => chatbotPanel.classList.toggle('is-open');
+                chatbot.append(chatbotPanel, chatbotToggle);
+                shell.append(chatbot);
+            };
             const shell = create('section', 'template-shell');
             shell.style.setProperty('--background', data.backgroundColor);
             shell.style.setProperty('--accent', data.accentColor);
@@ -187,30 +212,7 @@ CLICKABLE_TEMPLATE_EDITOR = partial(
                 });
                 page.append(cards);
                 shell.append(header, page, create('p', 'template-hint', copy.pageHint));
-                if (data.showCustomerChatbot) {
-                    const chatbot = create('aside', 'template-chatbot');
-                    const chatbotPanel = create('section', 'template-chatbot-panel');
-                    const chatbotAnswer = create('p', '', data.chatbotKnowledge || copy.welcome);
-                    const chatbotForm = create('form', 'template-chatbot-form');
-                    const chatbotInput = create('input', '');
-                    chatbotInput.placeholder = copy.question;
-                    chatbotInput.setAttribute('aria-label', copy.question);
-                    const chatbotSend = create('button', '', copy.send);
-                    chatbotSend.type = 'submit';
-                    chatbotForm.append(chatbotInput, chatbotSend);
-                    chatbotForm.onsubmit = event => { event.preventDefault(); const question = chatbotInput.value.trim(); if (!question) return; chatbotAnswer.textContent = `${copy.thanks}: „${question}“. ${data.chatbotKnowledge || copy.reply}`; chatbotInput.value = ''; };
-                    chatbotPanel.append(create('h2', '', data.chatbotName || `${data.companyName} ${copy.assistant}`), chatbotAnswer, chatbotForm);
-                    const chatbotToggle = create('button', 'template-chatbot-toggle', data.chatbotFigure || '🤖');
-                    chatbotToggle.type = 'button';
-                    chatbotToggle.setAttribute('aria-label', copy.openChat);
-                    chatbotToggle.title = copy.openChat;
-                    chatbotToggle.style.fontSize = '28px';
-                    chatbotToggle.style.background = data.chatbotColor || data.accentColor;
-                    chatbotToggle.style.borderRadius = data.chatbotRadius || '50%';
-                    chatbotToggle.onclick = () => chatbotPanel.classList.toggle('is-open');
-                    chatbot.append(chatbotPanel, chatbotToggle);
-                    shell.append(chatbot);
-                }
+                appendCustomerChatbot();
                 root.append(shell);
                 return;
             }
@@ -243,30 +245,7 @@ CLICKABLE_TEMPLATE_EDITOR = partial(
             const legalNote = create('p', 'template-footer-legal', `© ${new Date().getFullYear()} ${data.companyName}. ${copy.rights}`);
             footer.append(brand, contact, legal, legalNote);
             shell.append(header, hero, templateSections, footer, create('p', 'template-hint', copy.designHint));
-            if (data.showCustomerChatbot) {
-                const chatbot = create('aside', 'template-chatbot');
-                const chatbotPanel = create('section', 'template-chatbot-panel');
-                const chatbotAnswer = create('p', '', data.chatbotKnowledge || copy.welcome);
-                const chatbotForm = create('form', 'template-chatbot-form');
-                const chatbotInput = create('input', '');
-                chatbotInput.placeholder = copy.question;
-                chatbotInput.setAttribute('aria-label', copy.question);
-                const chatbotSend = create('button', '', copy.send);
-                chatbotSend.type = 'submit';
-                chatbotForm.append(chatbotInput, chatbotSend);
-                chatbotForm.onsubmit = event => { event.preventDefault(); const question = chatbotInput.value.trim(); if (!question) return; chatbotAnswer.textContent = `${copy.thanks}: „${question}“. ${data.chatbotKnowledge || copy.reply}`; chatbotInput.value = ''; };
-                chatbotPanel.append(create('h2', '', data.chatbotName || `${data.companyName} ${copy.assistant}`), chatbotAnswer, chatbotForm);
-                const chatbotToggle = create('button', 'template-chatbot-toggle', data.chatbotFigure || '🤖');
-                chatbotToggle.type = 'button';
-                chatbotToggle.setAttribute('aria-label', copy.openChat);
-                chatbotToggle.title = copy.openChat;
-                chatbotToggle.style.fontSize = '28px';
-                chatbotToggle.style.background = data.chatbotColor || data.accentColor;
-                chatbotToggle.style.borderRadius = data.chatbotRadius || '50%';
-                chatbotToggle.onclick = () => chatbotPanel.classList.toggle('is-open');
-                chatbot.append(chatbotPanel, chatbotToggle);
-                shell.append(chatbot);
-            }
+            appendCustomerChatbot();
             root.append(shell);
         }
         """,
@@ -389,34 +368,10 @@ def apply_global_styles() -> None:
             border-right: 0;
         }
     }
-    .st-key-help_chat_launcher {
-        position: fixed;
-        right: 1.5rem;
-        bottom: 1.5rem;
-        z-index: 1000000;
-    }
-    .st-key-help_chat_launcher > button {
-        min-width: 3.2rem;
-        min-height: 3.2rem;
-        border-radius: 50%;
-        border-color: #22d3ee;
-        box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.55);
-        animation: chatbot-pulse 2.2s ease-out infinite;
-    }
     [data-testid="stPopoverBody"] {
         width: min(22rem, calc(100vw - 2rem)) !important;
         max-width: calc(100vw - 2rem) !important;
         max-height: min(22rem, calc(100vh - 6rem)) !important;
-    }
-    @keyframes chatbot-pulse {
-        0% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.5); }
-        70% { box-shadow: 0 0 0 10px rgba(34, 211, 238, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0); }
-    }
-    @media (prefers-reduced-motion: reduce) {
-        .st-key-help_chat_launcher > button {
-            animation: none;
-        }
     }
     </style>
     """,
@@ -775,7 +730,6 @@ def render_client_contact_ui() -> None:
             key="customer_chatbot_fixed",
             help=labels[29],
         )
-    chatbot_knowledge = get_configured_chatbot_knowledge()
     has_business_knowledge = any(
         str(st.session_state.get(key, "")).strip()
         for key in (
@@ -829,18 +783,7 @@ def render_template_preview(
     border_color = "rgba(17,24,39,.18)" if light_background else "rgba(255,255,255,.16)"
     accent_text_color = contrast_text_color(accent_color)
     company_name = escape(str(st.session_state.get("client_company_name", "")).strip() or template_name)
-    slogan = escape(
-        str(st.session_state.get("template_hero_heading", "")).strip()
-        or str(st.session_state.get("client_company_slogan", "")).strip()
-        or "Eine Vorlage mit klarer Struktur und Raum für Ihre Inhalte."
-    )
-    description = escape(str(st.session_state.get("template_custom_description", "")).strip() or "Sie ersetzen Unternehmensdaten, Texte und Bilder direkt in dieser Vorlage. Die Gestaltung, Abstände und Inhaltsbereiche bleiben professionell geordnet.")
     business_email = escape(str(st.session_state.get("client_business_email", "")).strip() or "Ihre Kontakt-E-Mail")
-    phone = escape(str(st.session_state.get("client_business_phone", "")).strip() or "Telefonnummer ergänzen")
-    button_text = escape(
-        str(st.session_state.get("template_button_text", "")).strip()
-        or str(get_template_preview_copy(language)["defaults"][2])
-    )
     image_file = st.session_state.get("initial_image")
     image_data_url = ""
     if image_file is not None:
@@ -902,7 +845,7 @@ def render_template_preview(
             "chatbotName": str(st.session_state.get("customer_chatbot_name", "")).strip(),
             "chatbotColor": str(st.session_state.get("customer_chatbot_color", "#2563EB")),
             "chatbotFigure": CHATBOT_FIGURE_ICONS.get(str(st.session_state.get("customer_chatbot_figure", "")), CHATBOT_FIGURE_ICONS[get_chatbot_design_theme()["figure"]]),
-            "chatbotRadius": {"Rund (Kreis)": "50%", "Eckig mit Rundung": "8px", "Quadratisch": "0"}.get(str(st.session_state.get("customer_chatbot_shape", "Rund (Kreis)")), "50%"),
+            "chatbotRadius": get_chatbot_toggle_radius(),
             "showCustomerChatbot": component_key == "full_draft_template_preview",
             "multiPage": st.session_state.get("page_structure") == "Mehrseitige Website",
             "businessEmail": str(st.session_state.get("client_business_email", "")).strip()
@@ -941,7 +884,7 @@ def show_full_draft_preview() -> None:
 
 
 def render_template_and_design_ui() -> str:
-    """Rendert die Branchenvorlagen fuer einen gefuehrten Website-Entwurf."""
+    """Rendert die Branchenvorlagen für einen geführten Website-Entwurf."""
     language = str(st.session_state.app_language)
     template_ui_labels = {
         "de": ["Button-Text in der Vorlage", "z. B. Termin vereinbaren", "Überschrift der Vorlage", "z. B. Ihr Partner für Qualität und Vertrauen", "Beschreibung in der Vorlage", "Beschreiben Sie Angebot, Zielgruppe und Ihre besonderen Stärken.", "Vorlagenabschnitte", "Ein Abschnitt pro Zeile. Optional: Überschrift | Beschreibung.", "Footer-Text", "z. B. Muster GmbH | Impressum | Datenschutz", "Hintergrund-Vorlage"],
@@ -1571,7 +1514,7 @@ def render_mcp_content_tools_ui() -> None:
 
 
 def render_domain_and_deployment_ui() -> None:
-    """Rendert die Premium-geschuetzte Konfiguration fuer die Vercel-Veröffentlichung."""
+    """Rendert die Premium-geschützte Konfiguration für die Vercel-Veröffentlichung."""
     labels = publish_copy()
     language = str(st.session_state.app_language)
     domain_copy_by_language = {
@@ -2082,38 +2025,6 @@ def render_customer_service_ui(user_id: int, user_email: str) -> None:
                 st.code(steps, language=None)
 
 
-def render_website_recommendation_ui() -> None:
-    """Rendert die automatische Empfehlung für eine Website-Branche."""
-    st.caption("Geben Sie ein Schlagwort ein und erhalten Sie einen Titel, Leistungen und ein Angebot.")
-    topic = st.text_input(
-        "Thema oder Branche, zum Beispiel Kfz-Werkstatt, Friseur oder Dachdecker",
-        key="website_recommendation_topic",
-    )
-    if st.button(
-        "Automatische Empfehlung generieren",
-        icon=":material/auto_awesome:",
-        type="primary",
-        key="website_recommendation_submit",
-    ):
-        if not topic.strip():
-            st.warning("Bitte geben Sie zuerst ein Thema oder eine Branche ein.")
-        else:
-            with st.spinner(f"Empfehlung für {topic.strip()} wird erstellt ..."):
-                try:
-                    st.session_state.current_website_recommendation = (
-                        generate_website_recommendation(topic)
-                    )
-                except ValueError as error:
-                    st.error(str(error))
-
-    recommendation = str(
-        st.session_state.get("current_website_recommendation", "")
-    ).strip()
-    if recommendation:
-        st.markdown("#### Automatisch generierte Website-Vorlage")
-        st.info(recommendation)
-
-
 def render_industry_content_preset_ui() -> None:
     """Rendert die formularbasierte Branchenauswahl für Website-Inhalte."""
     language = str(st.session_state.app_language)
@@ -2318,6 +2229,7 @@ def render_sidebar(user_info: dict) -> None:
                 str(history_site_name or ""),
                 create_preview_html(st.session_state.generated_html),
                 st.session_state.live_url,
+                str(st.session_state.analytics_site_id),
             )
             st.success(workspace_labels["draft_saved"])
             st.rerun()
@@ -2564,11 +2476,7 @@ def render_main_tabs() -> None:
                             str(st.session_state.get("template_button_text", "")),
                             str(st.session_state.get("template_footer_text", "")),
                             page_structure == "Mehrseitige Website",
-                            get_configured_chatbot_knowledge(),
-                            str(st.session_state.get("customer_chatbot_name", "")),
-                            str(st.session_state.get("customer_chatbot_color", "#2563EB")),
-                            {"Rund (Kreis)": "50%", "Eckig mit Rundung": "8px", "Quadratisch": "0"}.get(str(st.session_state.get("customer_chatbot_shape", "Rund (Kreis)")), "50%"),
-                            str(st.session_state.get("template_sections_text", "")),
+                            template_sections=str(st.session_state.get("template_sections_text", "")),
                         )
                         queue_html_update(html, reset_site_pages=True)
                         st.session_state.site_pages["styles.css"] = (
@@ -2582,9 +2490,6 @@ def render_main_tabs() -> None:
                                     background_color,
                                     str(st.session_state.template_accent_color),
                                     description,
-                                    get_configured_chatbot_knowledge(),
-                                    str(st.session_state.get("customer_chatbot_name", "")),
-                                    str(st.session_state.get("customer_chatbot_color", "#2563EB")),
                                 )
                             )
                         st.success("Die Vorlage wurde mit Ihren Kundendaten übernommen und kann jetzt direkt bearbeitet werden.")

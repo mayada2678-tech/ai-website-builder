@@ -17,6 +17,15 @@ SUPPORTED_EVENTS = {
 }
 
 
+def as_dict(stripe_object: object) -> dict:
+    """Wandelt Stripe-Objekte in normale dicts um (ab stripe 15 sind sie keine dicts mehr)."""
+    if stripe_object is None:
+        return {}
+    if hasattr(stripe_object, "to_dict"):
+        return stripe_object.to_dict()
+    return dict(stripe_object)
+
+
 class handler(BaseHTTPRequestHandler):
     def _json_response(self, status: int, payload: dict[str, object]) -> None:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -46,13 +55,13 @@ class handler(BaseHTTPRequestHandler):
             self._json_response(200, {"received": True, "ignored": True})
             return
 
-        event_session = event["data"]["object"]
+        event_session = as_dict(event["data"]["object"])
         if event_session.get("payment_status") != "paid":
             self._json_response(200, {"received": True, "waiting_for_payment": True})
             return
 
         try:
-            checkout_session = stripe.checkout.Session.retrieve(event_session["id"])
+            checkout_session = as_dict(stripe.checkout.Session.retrieve(event_session["id"]))
             metadata = dict(checkout_session.get("metadata") or {})
             if metadata.get("provisioning_status") in {"processing", "complete"}:
                 self._json_response(200, {"received": True, "duplicate": True})

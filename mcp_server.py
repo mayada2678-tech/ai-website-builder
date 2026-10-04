@@ -78,6 +78,21 @@ CHATBOT_INDUSTRY_PROFILES = {
     },
 }
 
+CHATBOT_PROFILE_FIELDS = ("name", "hours", "contact", "services", "emergency")
+# Allgemeine Chatbot-Profile für Branchen ohne eigenes Profil, je Sprache.
+GENERIC_CHATBOT_PROFILES = {
+    language: dict(zip(CHATBOT_PROFILE_FIELDS, values))
+    for language, values in {
+        "de": ("Kundenservice-Assistent", "Öffnungszeiten nach Vereinbarung", "Kontakt per E-Mail", "Individuelle Leistungen und persönliche Beratung", "Für dringende Anliegen kontaktieren Sie uns direkt."),
+        "en": ("Customer service assistant", "Opening hours by appointment", "Contact by email", "Tailored services and personal advice", "For urgent enquiries, please contact us directly."),
+        "ar": ("مساعد خدمة العملاء", "ساعات العمل حسب الموعد", "التواصل عبر البريد الإلكتروني", "خدمات مخصصة واستشارة شخصية", "للاستفسارات العاجلة، يرجى التواصل معنا مباشرة."),
+        "ku": ("یاریدەدەری خزمەتگوزاری کڕیار", "کاتەکانی کار بە پێی ڕێککەوتن", "پەیوەندی بە ئیمەیڵ", "خزمەتگوزاری گونجاو و ڕاوێژکاری تایبەت", "بۆ داواکارییە پەلەکان ڕاستەوخۆ پەیوەندیمان پێوە بکە."),
+        "es": ("Asistente de atención al cliente", "Horario con cita previa", "Contacto por correo electrónico", "Servicios personalizados y asesoramiento personal", "Para consultas urgentes, contáctenos directamente."),
+        "it": ("Assistente del servizio clienti", "Orari su appuntamento", "Contatto via e-mail", "Servizi personalizzati e consulenza personale", "Per richieste urgenti, contattaci direttamente."),
+        "hi": ("ग्राहक सेवा सहायक", "कार्य समय अपॉइंटमेंट के अनुसार", "ईमेल द्वारा संपर्क", "अनुकूलित सेवाएं और व्यक्तिगत सलाह", "तत्काल पूछताछ के लिए सीधे हमसे संपर्क करें।"),
+    }.items()
+}
+
 LANGUAGE_NAMES = {
     "de": "German",
     "en": "English",
@@ -197,17 +212,7 @@ def get_industry_chatbot_profile(industry: str, language: str = "de") -> dict[st
     profile = CHATBOT_INDUSTRY_PROFILES.get(industry.strip())
     if profile is not None and language == "de":
         return dict(profile)
-    localized_profiles = {
-        "de": ("Kundenservice-Assistent", "Öffnungszeiten nach Vereinbarung", "Kontakt per E-Mail", "Individuelle Leistungen und persönliche Beratung", "Für dringende Anliegen kontaktieren Sie uns direkt."),
-        "en": ("Customer service assistant", "Opening hours by appointment", "Contact by email", "Tailored services and personal advice", "For urgent enquiries, please contact us directly."),
-        "ar": ("مساعد خدمة العملاء", "ساعات العمل حسب الموعد", "التواصل عبر البريد الإلكتروني", "خدمات مخصصة واستشارة شخصية", "للاستفسارات العاجلة، يرجى التواصل معنا مباشرة."),
-        "ku": ("یاریدەدەری خزمەتگوزاری کڕیار", "کاتەکانی کار بە پێی ڕێککەوتن", "پەیوەندی بە ئیمەیڵ", "خزمەتگوزاری گونجاو و ڕاوێژکاری تایبەت", "بۆ داواکارییە پەلەکان ڕاستەوخۆ پەیوەندیمان پێوە بکە."),
-        "es": ("Asistente de atención al cliente", "Horario con cita previa", "Contacto por correo electrónico", "Servicios personalizados y asesoramiento personal", "Para consultas urgentes, contáctenos directamente."),
-        "it": ("Assistente del servizio clienti", "Orari su appuntamento", "Contatto via e-mail", "Servizi personalizzati e consulenza personale", "Per richieste urgenti, contattaci direttamente."),
-        "hi": ("ग्राहक सेवा सहायक", "कार्य समय अपॉइंटमेंट के अनुसार", "ईमेल द्वारा संपर्क", "अनुकूलित सेवाएं और व्यक्तिगत सलाह", "तत्काल पूछताछ के लिए सीधे हमसे संपर्क करें।"),
-    }
-    values = localized_profiles.get(language, localized_profiles["en"])
-    return dict(zip(("name", "hours", "contact", "services", "emergency"), values))
+    return dict(GENERIC_CHATBOT_PROFILES.get(language, GENERIC_CHATBOT_PROFILES["en"]))
 
 
 @mcp.tool()
@@ -385,9 +390,8 @@ def check_domain_availability(
         "es": ["Introduzca un dominio válido, como example.com.", "La comprobación del dominio no está disponible en este momento.", "No se encontró ningún registro RDAP para {domain}.", "Registre el dominio y conéctelo después mediante los registros DNS mostrados por Vercel.", "{domain} ya está registrado.", "Si el dominio le pertenece, abra la configuración DNS del proveedor. De lo contrario, pruebe otro nombre.", "No se pudo determinar el estado del registro de forma fiable.", "Compruebe también el dominio directamente con un registrador.", "Coste habitual: .de unos 5-20 EUR/año y .com unos 10-25 EUR/año. Los precios promocionales y de renovación varían según el proveedor."],
         "it": ["Inserite un dominio valido, ad esempio example.com.", "Il controllo del dominio non è al momento disponibile.", "Nessun record RDAP trovato per {domain}.", "Registrate il dominio e collegatelo poi con i record DNS mostrati da Vercel.", "{domain} è già registrato.", "Se il dominio vi appartiene, aprite le impostazioni DNS del provider. Altrimenti provate un altro nome.", "Non è stato possibile determinare in modo affidabile lo stato della registrazione.", "Controllate il dominio anche direttamente presso un registrar.", "Costo tipico: .de circa 5-20 EUR/anno e .com circa 10-25 EUR/anno. Promozioni e rinnovi variano secondo il provider."],
         "hi": ["example.com जैसा मान्य डोमेन दर्ज करें।", "डोमेन जांच अभी उपलब्ध नहीं है।", "{domain} के लिए कोई RDAP रिकॉर्ड नहीं मिला।", "डोमेन को किसी रजिस्ट्रार के पास पंजीकृत करें और फिर Vercel द्वारा दिखाए गए DNS रिकॉर्ड से जोड़ें।", "{domain} पहले से पंजीकृत है।", "यदि डोमेन आपका है, तो प्रदाता की DNS सेटिंग खोलें। अन्यथा दूसरा नाम आजमाएं।", "पंजीकरण स्थिति विश्वसनीय रूप से निर्धारित नहीं की जा सकी।", "डोमेन को सीधे किसी रजिस्ट्रार के पास भी जांचें।", "सामान्य लागत: .de लगभग 5-20 EUR/वर्ष और .com लगभग 10-25 EUR/वर्ष। प्रचार और नवीनीकरण मूल्य प्रदाता के अनुसार बदलते हैं।"],
-    }.get(language)
-    if copy is None:
-        copy = []
+    }
+    copy = copy.get(language, copy["en"])
     normalized_domain = domain_name.strip().lower().rstrip(".")
     if normalized_domain.startswith(("https://", "http://")):
         normalized_domain = normalized_domain.split("://", maxsplit=1)[1].split("/", maxsplit=1)[0]
