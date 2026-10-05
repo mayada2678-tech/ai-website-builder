@@ -154,7 +154,7 @@ class TestVercelEnvironment:
             raise requests.ConnectionError("offline")
 
         monkeypatch.setattr(chat.requests, "get", offline)
-        assert "nicht erreichen" in chat.configure_vercel_chatbot_environment("prj")
+        assert "nicht erreichbar" in chat.configure_vercel_chatbot_environment("prj")
         monkeypatch.setattr(chat.requests, "get", lambda *a, **k: FakeResponse(200, {"envs": []}))
         monkeypatch.setattr(chat.requests, "post", lambda *a, **k: FakeResponse(400, {"error": {"message": "ungültig"}}))
         assert "(HTTP 400): ungültig" in chat.configure_vercel_chatbot_environment("prj")

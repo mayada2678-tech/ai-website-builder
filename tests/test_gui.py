@@ -256,7 +256,7 @@ class TestPublishing:
         app = create_draft(make_app(user_id))
         app.button(key="publish_from_domain_center").click().run()
         assert not app.exception
-        assert any("nicht zu Vercel hochgeladen" in error.value for error in app.error)
+        assert any("konnte nicht hochgeladen werden" in error.value for error in app.error)
 
     def test_load_published_website_in_manage_tab(self, user_id, monkeypatch):
         from conftest import SIMPLE_HTML, FakeResponse
@@ -563,3 +563,32 @@ def test_external_domain_help_complete_in_every_language():
     for title, text in gui.EXTERNAL_DOMAIN_HELP.values():
         assert title and "76.76.21.21" in text and "cname.vercel-dns.com" in text and "TXT" in text
 
+
+
+@pytest.mark.parametrize("language", ["de", "en"])
+def test_customers_never_see_hosting_provider_name(user_id, language, monkeypatch):
+    """Sichtbare Texte nennen 'Vercel' nicht (Ausnahmen: Datenschutzerklärung, DNS-Wert)."""
+    from conftest import FakeResponse
+
+    monkeypatch.setattr(logic.requests, "get", lambda *a, **k: FakeResponse(200, {"data": []}))
+    app = make_app(user_id, language)
+    if language == "de":
+        app = create_draft(app)
+    texts = []
+
+    def collect(node):
+        for attribute in ("label", "value", "body", "placeholder", "help"):
+            value = getattr(node, attribute, None)
+            if isinstance(value, str):
+                texts.append(value)
+        if isinstance(getattr(node, "children", None), dict):
+            for child in node.children.values():
+                collect(child)
+
+    for option in ("Vercel-Projektadresse", "Eigene Domain verbinden", "Bereits gekaufte Domain verbinden"):
+        if has_widget(app.radio, "domain_type"):
+            app.radio(key="domain_type").set_value(option).run()
+        collect(app._tree)
+    internal_keys = {"Vercel-Projektadresse"}  # interner Optionsschlüssel; angezeigt wird ein übersetzter Text
+    visible = [text for text in texts if "vercel" in text.lower() and text not in internal_keys and "cname.vercel-dns.com" not in text and "OpenAI" not in text]
+    assert visible == [], visible[:3]

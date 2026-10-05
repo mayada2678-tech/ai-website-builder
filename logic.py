@@ -397,7 +397,7 @@ AUTHENTICATION_COPY = {
         "workflow": "KI-gestützter Website-Workflow",
         "plan": "**Planen** Sie Struktur, Inhalte und Markenauftritt.",
         "review": "**Prüfen** Sie Ihr Ergebnis in einer Live-Vorschau.",
-        "publish": "**Veröffentlichen** Sie fertige Entwürfe direkt auf Vercel.",
+        "publish": "**Veröffentlichen** Sie fertige Entwürfe mit einem Klick.",
         "workspace": "Ihr Arbeitsbereich",
         "workspace_hint": "Melden Sie sich an oder erstellen Sie ein neues Konto.",
         "privacy": "Ihre Entwürfe, Einstellungen und Bearbeitungen bleiben Ihrem Konto zugeordnet.",
@@ -406,7 +406,7 @@ AUTHENTICATION_COPY = {
         "workflow": "AI-powered website workflow",
         "plan": "**Plan** your structure, content, and brand presence.",
         "review": "**Review** your result in a live preview.",
-        "publish": "**Publish** finished drafts directly to Vercel.",
+        "publish": "**Publish** finished drafts with one click.",
         "workspace": "Your workspace",
         "workspace_hint": "Log in or create a new account.",
         "privacy": "Your drafts, settings, and edits remain associated with your account.",
@@ -415,7 +415,7 @@ AUTHENTICATION_COPY = {
         "workflow": "مسار عمل لإنشاء المواقع بالذكاء الاصطناعي",
         "plan": "**خطّط** لبنية موقعك ومحتواه وهوية علامتك التجارية.",
         "review": "**راجع** النتيجة من خلال المعاينة المباشرة.",
-        "publish": "**انشر** المسودات المكتملة مباشرة على Vercel.",
+        "publish": "**انشر** المسودات المكتملة بنقرة واحدة.",
         "workspace": "مساحة عملك",
         "workspace_hint": "سجّل الدخول أو أنشئ حساباً جديداً.",
         "privacy": "تبقى مسوداتك وإعداداتك وتعديلاتك مرتبطة بحسابك.",
@@ -424,7 +424,7 @@ AUTHENTICATION_COPY = {
         "workflow": "ڕێڕەوی دروستکردنی وێبگە بە زیرەکی دەستکرد",
         "plan": "**پلان دابنێ** بۆ پێکهاتە، ناوەڕۆک و ناسنامەی براندەکەت.",
         "review": "**ئەنجامەکە پشکنە** لە پێشبینینی ڕاستەوخۆدا.",
-        "publish": "**ڕەشنووسە تەواوەکان بڵاو بکەرەوە** ڕاستەوخۆ لە Vercel.",
+        "publish": "**ڕەشنووسە تەواوەکان بڵاو بکەرەوە** بە یەک کلیک.",
         "workspace": "شوێنی کارەکەت",
         "workspace_hint": "بچۆ ژوورەوە یان هەژمارێکی نوێ دروست بکە.",
         "privacy": "ڕەشنووس و ڕێکخستن و دەستکارییەکانت بە هەژمارەکەتەوە بەستراو دەمێننەوە.",
@@ -950,7 +950,7 @@ def create_stripe_checkout_session(
     Rückkehr von Stripe (neue Sitzung) genau dieses Projekt veröffentlichen kann.
     """
     if one_time_domain and not (domain and vercel_project_id):
-        raise ValueError("Für den Domainkauf fehlen Domain oder Vercel-Projekt.")
+        raise ValueError("Für den Domainkauf fehlen Domain oder Website-Projekt.")
     if not STRIPE_SECRET_KEY or not STRIPE_SUCCESS_URL or not (one_time_domain or STRIPE_PRICE_ID):
         raise ValueError("Stripe ist noch nicht eingerichtet.")
 
@@ -1160,7 +1160,7 @@ def vercel_request(method: str, path: str, payload: dict | None = None) -> reque
             timeout=30,
         )
     except requests.RequestException as error:
-        raise ValueError(f"Vercel konnte nicht erreicht werden: {error}") from error
+        raise ValueError(f"Der Hosting-Dienst ist nicht erreichbar: {error}") from error
 
 
 def add_domain_to_project(project_id: str, domain: str) -> None:
@@ -1176,7 +1176,7 @@ def add_domain_to_project(project_id: str, domain: str) -> None:
         message = ""
     raise ValueError(
         f"Die Domain {domain} konnte nicht mit der Website verbunden werden"
-        + (f": {message}" if message else f" (Vercel HTTP {response.status_code}).")
+        + (f": {message}" if message else f" (HTTP {response.status_code}).")
     )
 
 
@@ -1253,7 +1253,7 @@ def connect_external_domain(user_id: int, domain: str) -> dict[str, object]:
     publish_website()
     project_id = str(st.session_state.vercel_project_id)
     if not project_id:
-        raise ValueError("Vercel hat keine Projekt-ID für die Website geliefert.")
+        raise ValueError("Die Veröffentlichung hat keine Projektkennung geliefert.")
     add_domain_to_project(project_id, normalized)
     add_domain_to_project(project_id, f"www.{normalized}")
     dns_status = get_domain_dns_status(project_id, normalized)
@@ -1285,7 +1285,7 @@ def publish_to_owned_domain(user_id: int, domain: str) -> None:
     if order is None or order["status"] != "complete":
         raise ValueError("Diese Domain ist noch nicht eingerichtet.")
     if not order["project_name"]:
-        raise ValueError("Für diese Domain ist kein Vercel-Projekt hinterlegt.")
+        raise ValueError("Für diese Domain ist kein Website-Projekt hinterlegt.")
     st.session_state.project_name = order["project_name"]
     publish_website()
     st.session_state.live_url = f"https://{domain}"
@@ -2615,7 +2615,7 @@ def load_published_website(live_url: str) -> None:
 
     if is_vercel_login_page(response):
         raise ValueError(
-            "Die Website ist durch Vercel geschützt oder verlangt eine Anmeldung."
+            "Die Website ist geschützt oder verlangt eine Anmeldung."
         )
 
     if response.status_code != 200:
@@ -2663,7 +2663,7 @@ def get_public_url(deployment: dict) -> str:
     if deployment_url:
         return f"https://{deployment_url}"
 
-    raise ValueError("Vercel hat keine öffentliche Deployment-URL geliefert.")
+    raise ValueError("Die Veröffentlichung hat keine öffentliche Adresse geliefert.")
 
 
 def check_custom_domain_with_mcp(domain_name: str) -> dict[str, str | bool]:
@@ -2718,20 +2718,20 @@ def wait_for_vercel_deployment(deployment_id: str, timeout_seconds: int = 90) ->
                 timeout=20,
             )
         except requests.RequestException as error:
-            raise ValueError(f"Vercel-Status konnte nicht geprüft werden: {error}") from error
+            raise ValueError(f"Der Veröffentlichungsstatus konnte nicht geprüft werden: {error}") from error
 
         if response.status_code != 200:
-            raise ValueError(f"Vercel-Statusprüfung fehlgeschlagen: HTTP {response.status_code}.")
+            raise ValueError(f"Statusprüfung fehlgeschlagen: HTTP {response.status_code}.")
 
         deployment = response.json()
         state = str(deployment.get("readyState", "")).upper()
         if state == "READY":
             return deployment
         if state in {"ERROR", "CANCELED"}:
-            raise ValueError("Vercel konnte die Website nicht veröffentlichen.")
+            raise ValueError("Die Website konnte nicht veröffentlicht werden.")
         time.sleep(2)
 
-    raise ValueError("Vercel benötigt länger als erwartet. Bitte öffnen Sie den Live-Link in wenigen Minuten.")
+    raise ValueError("Die Veröffentlichung dauert länger als erwartet. Bitte öffnen Sie den Live-Link in wenigen Minuten.")
 
 
 def delete_published_website() -> None:
@@ -2748,10 +2748,10 @@ def delete_published_website() -> None:
             timeout=60,
         )
     except requests.RequestException as error:
-        raise ValueError(f"Vercel konnte nicht erreicht werden: {error}") from error
+        raise ValueError(f"Der Hosting-Dienst ist nicht erreichbar: {error}") from error
 
     if response.status_code not in (200, 202, 204):
-        raise ValueError(f"Vercel HTTP {response.status_code}: {response.text}")
+        raise ValueError(f"Hosting-Fehler HTTP {response.status_code}: {response.text}")
 
     st.session_state.live_url = ""
     st.session_state.deployment_url = ""
@@ -2763,7 +2763,7 @@ def delete_previous_vercel_deployment(deployment_reference: str) -> None:
     """Löscht ein älteres Deployment anhand seiner Vercel-URL oder Deployment-ID."""
     reference = deployment_reference.strip()
     if not reference:
-        raise ValueError("Geben Sie die Vercel-URL oder Deployment-ID der alten Website ein.")
+        raise ValueError("Geben Sie die Adresse der alten Website ein.")
 
     parsed_url = urlparse(reference if "://" in reference else f"https://{reference}")
     deployment_lookup = parsed_url.netloc or reference
@@ -2775,14 +2775,14 @@ def delete_previous_vercel_deployment(deployment_reference: str) -> None:
             timeout=30,
         )
     except requests.RequestException as error:
-        raise ValueError(f"Vercel konnte nicht erreicht werden: {error}") from error
+        raise ValueError(f"Der Hosting-Dienst ist nicht erreichbar: {error}") from error
 
     if lookup_response.status_code != 200:
-        raise ValueError("Die alte Vercel-Veröffentlichung wurde nicht gefunden oder gehört nicht zu diesem Konto.")
+        raise ValueError("Die alte Veröffentlichung wurde nicht gefunden oder gehört nicht zu diesem Konto.")
 
     deployment_id = str(lookup_response.json().get("id", "")).strip()
     if not deployment_id:
-        raise ValueError("Vercel hat keine Deployment-ID für diese Veröffentlichung geliefert.")
+        raise ValueError("Für diese Veröffentlichung wurde keine Kennung geliefert.")
 
     try:
         delete_response = requests.delete(
@@ -2791,10 +2791,10 @@ def delete_previous_vercel_deployment(deployment_reference: str) -> None:
             timeout=60,
         )
     except requests.RequestException as error:
-        raise ValueError(f"Vercel konnte nicht erreicht werden: {error}") from error
+        raise ValueError(f"Der Hosting-Dienst ist nicht erreichbar: {error}") from error
 
     if delete_response.status_code not in (200, 202, 204):
-        raise ValueError(f"Vercel HTTP {delete_response.status_code}: {delete_response.text}")
+        raise ValueError(f"Hosting-Fehler HTTP {delete_response.status_code}: {delete_response.text}")
 
 
 def configure_public_vercel_project(project_id: str) -> str:
@@ -2814,7 +2814,7 @@ def configure_public_vercel_project(project_id: str) -> str:
 
     if response.status_code != 200:
         return (
-            "Die Website wurde veröffentlicht, aber die Vercel-Zugriffseinstellung konnte "
+            "Die Website wurde veröffentlicht, aber die Zugriffseinstellung konnte "
             f"nicht automatisch geändert werden (HTTP {response.status_code})."
         )
     return ""
@@ -2836,7 +2836,7 @@ def upload_vercel_file(file_name: str, content: bytes) -> dict[str, str]:
             timeout=90,
         )
     except requests.RequestException as error:
-        raise ValueError(f"Die Datei {file_name} konnte nicht zu Vercel hochgeladen werden: {error}") from error
+        raise ValueError(f"Die Datei {file_name} konnte nicht hochgeladen werden: {error}") from error
 
     if response.status_code not in (200, 201):
         try:
@@ -2844,7 +2844,7 @@ def upload_vercel_file(file_name: str, content: bytes) -> dict[str, str]:
         except ValueError:
             details = response.text
         raise ValueError(
-            f"Vercel-Dateiupload für {file_name} fehlgeschlagen "
+            f"Datei-Upload für {file_name} fehlgeschlagen "
             f"(HTTP {response.status_code}): {details}"
         )
     return {"file": file_name, "sha": digest}
@@ -2924,7 +2924,7 @@ def publish_website() -> None:
             timeout=90,
         )
     except requests.RequestException as error:
-        raise ValueError(f"Vercel konnte nicht erreicht werden: {error}") from error
+        raise ValueError(f"Der Hosting-Dienst ist nicht erreichbar: {error}") from error
 
     if response.status_code not in (200, 201):
         try:
@@ -2932,20 +2932,20 @@ def publish_website() -> None:
         except ValueError:
             details = response.text
 
-        raise ValueError(f"Vercel HTTP {response.status_code}: {details}")
+        raise ValueError(f"Hosting-Fehler HTTP {response.status_code}: {details}")
 
     try:
         deployment = response.json()
     except ValueError as error:
         raise ValueError(
-            "Vercel hat keine gültige JSON-Antwort zurückgegeben."
+            "Der Hosting-Dienst hat keine gültige Antwort zurückgegeben."
         ) from error
 
     deployment_id = deployment.get("id")
     deployment_url = deployment.get("url")
 
     if not deployment_id or not deployment_url:
-        raise ValueError(f"Unvollständige Vercel-Antwort: {deployment}")
+        raise ValueError(f"Unvollständige Antwort des Hosting-Dienstes: {deployment}")
 
     project_id = str(deployment.get("projectId", "")).strip()
     st.session_state.vercel_project_id = project_id
@@ -2969,7 +2969,7 @@ def publish_website() -> None:
                 deployment_id = str(redeployment.get("id", "")).strip()
                 deployment_url = str(redeployment.get("url", "")).strip()
                 if not deployment_id or not deployment_url:
-                    raise ValueError("Vercel hat keine vollständigen Daten für das Chatbot-Deployment geliefert.")
+                    raise ValueError("Für die Chatbot-Veröffentlichung wurden keine vollständigen Daten geliefert.")
             except (requests.RequestException, ValueError) as error:
                 deployment_warnings.append(
                     "Die Website wurde veröffentlicht, aber das zusätzliche Chatbot-Deployment "

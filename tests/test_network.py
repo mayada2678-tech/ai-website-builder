@@ -148,7 +148,7 @@ class TestVercelHelpers:
     @pytest.mark.parametrize(
         ("get", "message"),
         [
-            (lambda *a, **k: FakeResponse(200, {"readyState": "ERROR"}), "nicht veröffentlichen"),
+            (lambda *a, **k: FakeResponse(200, {"readyState": "ERROR"}), "nicht veröffentlicht werden"),
             (lambda *a, **k: FakeResponse(403, {}), "HTTP 403"),
             (network_error, "nicht geprüft"),
         ],
@@ -173,7 +173,7 @@ class TestVercelHelpers:
         monkeypatch.setattr(logic.requests, "delete", lambda url, **k: deleted.append(url) or FakeResponse(200))
         logic.delete_previous_vercel_deployment("https://alt.vercel.app/pfad")
         assert looked_up[0].endswith("/alt.vercel.app") and deleted[0].endswith("/dpl_9")
-        with pytest.raises(ValueError, match="Vercel-URL"):
+        with pytest.raises(ValueError, match="Adresse der alten Website"):
             logic.delete_previous_vercel_deployment(" ")
 
     def test_project_setup_and_upload(self, monkeypatch):
@@ -247,7 +247,7 @@ class TestPublishWebsite:
     def test_vercel_rejection_raises_user_message(self, monkeypatch, session):
         session.generated_html = SIMPLE_HTML
         monkeypatch.setattr(logic.requests, "post", lambda url, **k: FakeResponse(200, {}) if url.endswith("/v2/files") else FakeResponse(403, {"error": "forbidden"}))
-        with pytest.raises(ValueError, match="Vercel HTTP 403"):
+        with pytest.raises(ValueError, match="Hosting-Fehler HTTP 403"):
             logic.publish_website()
 
     def test_requires_html(self, session):
@@ -347,7 +347,7 @@ class TestDomainPurchaseForPremium:
         assert sent["subscription_data[metadata][domain]"] == "firma.de"
 
     def test_one_time_purchase_needs_domain_and_project(self, stripe_configured):
-        with pytest.raises(ValueError, match="Domain oder Vercel-Projekt"):
+        with pytest.raises(ValueError, match="Domain oder Website-Projekt"):
             logic.create_stripe_checkout_session(1, "a@b.de", one_time_domain=True)
 
 

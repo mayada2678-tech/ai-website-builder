@@ -414,7 +414,7 @@ def configure_vercel_chatbot_environment(project_id: str) -> str:
         environment_variables.raise_for_status()
         existing_variables = environment_variables.json().get("envs", [])
     except requests.RequestException as error:
-        return f"Die Server-Konfiguration konnte Vercel nicht erreichen: {error}"
+        return f"Die Server-Konfiguration ist nicht erreichbar: {error}"
 
     existing_by_name = {
         str(item.get("key", "")): str(item.get("id", ""))
@@ -446,7 +446,7 @@ def configure_vercel_chatbot_environment(project_id: str) -> str:
                     timeout=30,
                 )
         except requests.RequestException as error:
-            warnings.append(f"{variable_name} konnte nicht an Vercel übertragen werden: {error}")
+            warnings.append(f"{variable_name} konnte nicht übertragen werden: {error}")
             continue
         if response.status_code not in (200, 201):
             try:
@@ -454,7 +454,7 @@ def configure_vercel_chatbot_environment(project_id: str) -> str:
             except ValueError:
                 details = ""
             warnings.append(
-                f"Vercel konnte {variable_name} nicht speichern (HTTP {response.status_code})"
+                f"Der Hosting-Dienst konnte {variable_name} nicht speichern (HTTP {response.status_code})"
                 + (f": {details}" if details else ".")
             )
     return "\n\n".join(warnings)
