@@ -373,3 +373,79 @@ class TestPrimaryButtonTarget:
         updated, replaced = logic.set_primary_button_target(html, "#angebote")
         assert replaced and '<a class="button" href="#angebote">' in updated
         assert '<a href="#leistungen">' in updated
+
+
+class TestLivePreview:
+    def test_pages_are_self_contained_and_ordered(self, session):
+        assets = {"logo-bild.png": {"base64": "UE5H", "mime_type": "image/png"}}
+        index = '<html><head><link rel="stylesheet" href="styles.css"></head><body><img src="logo-bild.png" alt="logo-bild.png"></body></html>'
+        pages = logic.build_live_preview_pages(index, {"kontakt.html": index, "zusatz.html": index, "leistungen.html": index, "styles.css": "body{color:red}"}, assets)
+        assert list(pages) == ["index.html", "leistungen.html", "kontakt.html", "zusatz.html"]
+        for html in pages.values():
+            assert "<style>body{color:red}</style>" in html and 'href="styles.css"' not in html
+            assert 'src="data:image/png;base64,UE5H"' in html
+            assert 'alt="logo-bild.png"' not in html or html.count("data:image/png") == 2
+
+    def test_inline_assets_only_replaces_references(self):
+        html = '<p>Datei logo.png</p><img src="logo.png"><div style="background:url(logo.png)">'
+        result = logic.inline_assets(html, {"logo.png": {"base64": "QQ==", "mime_type": "image/png"}})
+        assert "<p>Datei logo.png</p>" in result
+        assert result.count("data:image/png;base64,QQ==") == 2
+
+    def test_template_preview_has_no_side_effects(self, session):
+        session.update(industry_content_preset="Restaurant", page_structure="Mehrseitige Website", initial_image=FakeUpload("hero.png", b"bild", "image/png"))
+        logic.apply_industry_content_preset()
+        pages = logic.build_template_preview_pages()
+        assert set(pages) == {"index.html", "leistungen.html", "angebote.html", "projekte.html", "ueber-uns.html", "kontakt.html"}
+        assert 'src="data:image/png;base64,YmlsZA=="' in pages["index.html"]
+        assert pages["index.html"].count('id="customer-chatbot"') == 1
+        assert session.assets == {} and session.generated_html == "" and session.site_pages == {}
+
+    def test_template_preview_uses_placeholders_without_customer_data(self, session):
+        pages = logic.build_template_preview_pages()
+        assert "Ihre Kontakt-E-Mail" in pages["index.html"]
+        assert 'class="hero-visual"' in pages["index.html"]
+
+    def test_draft_preview_matches_published_content(self, session):
+        logic.queue_html_update(SIMPLE_HTML.replace("alt.png", "logo.png"))
+        session.assets = {"logo.png": {"base64": "QQ==", "mime_type": "image/png"}}
+        session.site_pages["styles.css"] = "h1{color:blue}"
+        pages = logic.build_draft_preview_pages()
+        assert list(pages) == ["index.html"]
+        assert pages["index.html"].count('id="customer-chatbot"') == 1
+        assert "data:image/png;base64,QQ==" in pages["index.html"]
+
+    def test_template_quality_details(self):
+        html = TestTemplates().build(company_name="Kfz Meister Schmidt", accent_color="#881337")
+        assert '<span>KM</span>' in html and "BILDBEREICH" not in html
+        assert "--accent-text: #FFFFFF" in html
+        css = logic.build_customized_template_styles()
+        assert "customer-chatbot" not in css and "var(--accent-text" in css
+
+    def test_preview_component_script_is_valid(self, js):
+        import gui
+
+        js(gui.LIVE_SITE_PREVIEW.keywords["js"].replace("export default function(", "function renderPreview(", 1))
+        for labels in gui.PREVIEW_COPY.values():
+            assert set(labels) == set(gui.PREVIEW_COPY["de"])
+
+
+class TestPreviewNavigationScript:
+    """Regression: das in Vorschauseiten eingefügte Skript muss gültig bleiben (Backslashes!)."""
+
+    def test_injected_helper_is_valid_and_keeps_regex_escapes(self):
+        from py_mini_racer import MiniRacer
+
+        import gui
+
+        engine = MiniRacer()
+        engine.eval(gui.LIVE_SITE_PREVIEW.keywords["js"].replace("export default function(", "function renderPreview(", 1))
+        source = engine.eval("previewPageHelper.toString()")
+        assert r"/^\.?\//" in source
+        engine.eval(f"new Function({__import__('json').dumps('(' + source + ')')})")
+        script = engine.eval("helperScript('t', ['index.html', 'kontakt.html'])")
+        assert script.startswith("<script>(function previewPageHelper") and script.endswith("</script>")
+
+    def test_subpages_share_template_styles(self, session):
+        pages = logic.build_customized_template_pages("Firma", "a@b.de", "#FFFFFF", "#881337", "", "Restaurant und Gastronomie")
+        assert "header{background:#17120d" in pages["kontakt.html"]

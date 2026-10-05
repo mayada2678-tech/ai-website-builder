@@ -2,11 +2,9 @@
 Vorschau, Kundenservice, Datenschutz und Veröffentlichung.
 """
 
-import base64
 import re
 import uuid
 from functools import partial
-from html import escape
 
 import streamlit as st
 from domain_provisioning import (
@@ -27,10 +25,11 @@ from logic import (
     build_offer_page_section,
     build_website_zip,
     confirm_stripe_checkout,
-    contrast_text_color,
     create_analytics_optimized_version,
     create_deployment_project_name,
     create_empty_vercel_project,
+    build_draft_preview_pages,
+    build_template_preview_pages,
     create_preview_html,
     create_professional_standard_draft,
     create_stripe_checkout_session,
@@ -47,7 +46,6 @@ from logic import (
     INDUSTRY_CONTENT_PRESETS,
     INWX_PASSWORD,
     INWX_USERNAME,
-    is_light_color,
     load_published_website,
     load_uploaded_html_template,
     load_website,
@@ -87,9 +85,6 @@ from logic import (
 
 from chat import (
     CHATBOT_FIGURE_ICONS,
-    get_chatbot_design_theme,
-    get_chatbot_toggle_radius,
-    get_configured_chatbot_knowledge,
 )
 
 
@@ -107,157 +102,215 @@ def render_flash_message() -> None:
 
 # Streamlit verlangt die Registrierung in jedem Skriptlauf. Die Definition wird
 # daher hier nur vorbereitet und erst beim Rendern registriert.
-CLICKABLE_TEMPLATE_EDITOR = partial(
+LIVE_SITE_PREVIEW = partial(
     st.components.v2.component,
-        "clickable_template_editor",
-        html='<section id="template-editor"></section>',
-        css="""
-        #template-editor { font-family: Georgia, serif; }
-        .template-shell { position: relative; overflow: visible; border: 1px solid var(--border); border-radius: var(--radius); background: var(--background); color: var(--text); }
-        .template-header { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 18px 28px; border-bottom: 1px solid var(--border); font-family: ui-sans-serif, sans-serif; }
-        .template-nav { display: flex; justify-content: flex-end; gap: 16px; flex-wrap: wrap; font-size: 12px; }
-        .template-nav button { border: 0; padding: 0; background: transparent; color: inherit; cursor: pointer; font: inherit; }
-        .template-nav button:hover, .template-nav button:focus-visible { color: var(--accent); }
-        .template-hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(220px, .9fr); gap: 34px; padding: 48px 28px 42px; align-items: center; }
-        .template-eyebrow { color: var(--accent); font: 700 11px ui-sans-serif, sans-serif; text-transform: uppercase; }
-        .template-heading { margin: 12px 0 0; font-size: 34px; line-height: 1.1; }
-        .template-description { max-width: 500px; margin: 18px 0 24px; color: var(--muted); font: 15px/1.65 ui-sans-serif, sans-serif; }
-        .template-button { border: 0; display: inline-block; background: var(--accent); color: var(--accent-text); padding: 11px 16px; border-radius: var(--radius); cursor: pointer; font: 700 13px ui-sans-serif, sans-serif; }
-        .template-image { width: 100%; min-height: 220px; max-height: 320px; object-fit: cover; border-radius: var(--radius); }
-        .template-placeholder { min-height: 220px; border: 1px dashed var(--accent); border-radius: var(--radius); display: grid; place-items: center; padding: 18px; color: var(--accent); text-align: center; font: 700 12px ui-sans-serif, sans-serif; }
-        .template-hint { margin: 0; padding: 12px 28px; background: var(--surface); color: var(--muted); font: 12px ui-sans-serif, sans-serif; }
-        .template-page { padding: 58px 28px; }
-        .template-page h1 { margin: 12px 0; font-size: 38px; line-height: 1.1; }
-        .template-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 34px; }
-        .template-card { min-height: 210px; padding: 22px; border-top: 3px solid var(--accent); background: var(--surface); font-family: ui-sans-serif, sans-serif; }
-        .template-card p { color: var(--muted); }
-        .template-footer { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 28px; padding: 34px 28px 20px; border-top: 1px solid var(--border); font-family: ui-sans-serif, sans-serif; }
-        .template-footer h2 { margin: 0; font-size: 15px; } .template-footer p, .template-footer a { color: var(--muted); font-size: 13px; line-height: 1.6; text-decoration: none; }
-        .template-footer a:hover { color: var(--accent); } .template-footer-legal { grid-column: 1 / -1; margin: 0; padding-top: 16px; border-top: 1px solid var(--border); }
-        .template-chatbot { position: fixed; right: 18px; bottom: 18px; z-index: 2147483647; font-family: ui-sans-serif, sans-serif; }
-        .template-chatbot-toggle { width: 56px; height: 56px; border: 0; border-radius: 50%; background: var(--accent); color: var(--accent-text); cursor: pointer; font: 700 13px ui-sans-serif, sans-serif; box-shadow: 0 10px 28px rgba(15, 23, 42, .24); }
-        .template-chatbot-panel { display: none; width: min(300px, calc(100vw - 44px)); margin: 0 0 10px auto; padding: 18px; background: var(--background); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 16px 38px rgba(15, 23, 42, .22); }
-        .template-chatbot-panel.is-open { display: block; }
-        .template-chatbot-panel h2 { margin: 0; font-size: 16px; }
-        .template-chatbot-panel p { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
-        .template-chatbot-form { display: flex; gap: 6px; margin-top: 14px; }
-        .template-chatbot-form input { min-width: 0; flex: 1; padding: 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--background); color: var(--text); }
-        .template-chatbot-form button { border: 0; padding: 8px 10px; border-radius: 4px; background: var(--accent); color: var(--accent-text); cursor: pointer; }
-        @media (max-width: 700px) { .template-header { align-items: flex-start; flex-direction: column; } .template-nav { justify-content: flex-start; } .template-hero, .template-cards, .template-footer { grid-template-columns: 1fr; } }
-        """,
-        js="""
-        export default function(component) {
-            const { data, parentElement, setStateValue } = component;
-            const root = parentElement.querySelector('#template-editor');
-            if (!root || !data) return;
-            const copy = data.copy;
-            root.lang = data.language;
-            root.dir = data.direction;
-            root.replaceChildren();
-            const create = (tag, className, text) => {
-                const element = document.createElement(tag);
-                element.className = className;
-                if (text !== undefined) element.textContent = text;
-                return element;
-            };
-            const appendCustomerChatbot = () => {
-                if (!data.showCustomerChatbot) return;
-                const chatbot = create('aside', 'template-chatbot');
-                const chatbotPanel = create('section', 'template-chatbot-panel');
-                const chatbotAnswer = create('p', '', data.chatbotKnowledge || copy.welcome);
-                const chatbotForm = create('form', 'template-chatbot-form');
-                const chatbotInput = create('input', '');
-                chatbotInput.placeholder = copy.question;
-                chatbotInput.setAttribute('aria-label', copy.question);
-                const chatbotSend = create('button', '', copy.send);
-                chatbotSend.type = 'submit';
-                chatbotForm.append(chatbotInput, chatbotSend);
-                chatbotForm.onsubmit = event => { event.preventDefault(); const question = chatbotInput.value.trim(); if (!question) return; chatbotAnswer.textContent = `${copy.thanks}: „${question}“. ${data.chatbotKnowledge || copy.reply}`; chatbotInput.value = ''; };
-                chatbotPanel.append(create('h2', '', data.chatbotName || `${data.companyName} ${copy.assistant}`), chatbotAnswer, chatbotForm);
-                const chatbotToggle = create('button', 'template-chatbot-toggle', data.chatbotFigure || '🤖');
-                chatbotToggle.type = 'button';
-                chatbotToggle.setAttribute('aria-label', copy.openChat);
-                chatbotToggle.title = copy.openChat;
-                chatbotToggle.style.fontSize = '28px';
-                chatbotToggle.style.background = data.chatbotColor || data.accentColor;
-                chatbotToggle.style.borderRadius = data.chatbotRadius || '50%';
-                chatbotToggle.onclick = () => chatbotPanel.classList.toggle('is-open');
-                chatbot.append(chatbotPanel, chatbotToggle);
-                shell.append(chatbot);
-            };
-            const shell = create('section', 'template-shell');
-            shell.style.setProperty('--background', data.backgroundColor);
-            shell.style.setProperty('--accent', data.accentColor);
-            shell.style.setProperty('--text', data.textColor);
-            shell.style.setProperty('--muted', data.mutedTextColor);
-            shell.style.setProperty('--border', data.borderColor);
-            shell.style.setProperty('--surface', data.surfaceColor);
-            shell.style.setProperty('--accent-text', data.accentTextColor);
-            shell.style.setProperty('--radius', data.radius);
-            const header = create('header', 'template-header');
-            const company = create('strong', '', data.companyName);
-            const nav = create('nav', 'template-nav');
-            if (data.multiPage) {
-                Object.entries(copy.nav).forEach(([page, label]) => {
-                    const link = create('button', '', label);
-                    link.type = 'button';
-                    link.onclick = () => setStateValue('navigated', page);
-                    nav.append(link);
-                });
-            }
-            header.append(company, nav);
-            if (data.page !== 'start') {
-                const page = create('main', 'template-page');
-                const pageContent = copy.pages[data.page];
-                page.append(create('p', 'template-eyebrow', pageContent[0]));
-                page.append(create('h1', '', pageContent[1]));
-                page.append(create('p', 'template-description', data.description));
-                const cards = create('section', 'template-cards');
-                pageContent[2].forEach(([title, text], index) => {
-                    const card = create('article', 'template-card');
-                    const fallback = data.page === 'kontakt' && index === 0 ? data.businessEmail : data.description;
-                    card.append(create('p', 'template-eyebrow', String(index + 1).padStart(2, '0')), create('h2', '', title), create('p', '', text || fallback));
-                    cards.append(card);
-                });
-                page.append(cards);
-                shell.append(header, page, create('p', 'template-hint', copy.pageHint));
-                appendCustomerChatbot();
-                root.append(shell);
+    "live_site_preview",
+    html='<section class="site-preview" aria-label="Live-Vorschau"></section>',
+    css="""
+    .site-preview { --chrome: #0b1220; --chrome-line: rgba(148, 163, 184, .18); --chrome-text: #e2e8f0; --chrome-muted: #94a3b8; --accent: #22d3ee;
+        overflow: hidden; border: 1px solid var(--chrome-line); border-radius: 12px; background: var(--chrome);
+        box-shadow: 0 24px 60px rgba(0, 0, 0, .35); font: 13px/1.4 ui-sans-serif, -apple-system, "Segoe UI", sans-serif; color: var(--chrome-text); }
+    .site-preview__bar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 10px 14px; border-bottom: 1px solid var(--chrome-line); }
+    .site-preview__dots { display: flex; gap: 6px; } .site-preview__dots span { width: 11px; height: 11px; border-radius: 50%; background: #334155; }
+    .site-preview__dots span:nth-child(1) { background: #f87171; } .site-preview__dots span:nth-child(2) { background: #fbbf24; } .site-preview__dots span:nth-child(3) { background: #34d399; }
+    .site-preview__address { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 7px 12px; border-radius: 8px; background: rgba(148, 163, 184, .1); color: var(--chrome-muted); }
+    .site-preview__address strong { color: var(--chrome-text); font-weight: 600; }
+    .site-preview__address span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .site-preview__lock { flex: none; width: 12px; height: 12px; color: #34d399; }
+    .site-preview__actions { display: flex; align-items: center; gap: 10px; }
+    .site-preview__devices { display: flex; padding: 3px; border-radius: 8px; background: rgba(148, 163, 184, .1); }
+    .site-preview button { border: 0; background: transparent; color: var(--chrome-muted); font: inherit; cursor: pointer; }
+    .site-preview__devices button { display: grid; place-items: center; width: 34px; height: 28px; border-radius: 6px; }
+    .site-preview__devices button svg { width: 16px; height: 16px; }
+    .site-preview__devices button[aria-pressed="true"] { background: var(--chrome-text); color: var(--chrome); }
+    .site-preview__open { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid var(--chrome-line) !important; border-radius: 8px; color: var(--chrome-text) !important; }
+    .site-preview__open svg { width: 14px; height: 14px; }
+    .site-preview button:hover { color: var(--chrome-text); }
+    .site-preview button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .site-preview__tabs { display: flex; gap: 4px; overflow-x: auto; padding: 0 12px; border-bottom: 1px solid var(--chrome-line); scrollbar-width: thin; }
+    .site-preview__tabs:empty { display: none; }
+    .site-preview__tabs button { flex: none; padding: 10px 12px; border-bottom: 2px solid transparent !important; white-space: nowrap; }
+    .site-preview__tabs button[aria-selected="true"] { color: var(--chrome-text); border-bottom-color: var(--accent) !important; font-weight: 600; }
+    .site-preview__stage { position: relative; display: flex; justify-content: center; overflow: hidden; padding: 18px; background:
+        radial-gradient(circle at 1px 1px, rgba(148, 163, 184, .14) 1px, transparent 0) 0 0 / 18px 18px, #0f172a; }
+    .site-preview__device { flex: none; overflow: hidden; border-radius: 8px; background: #fff; box-shadow: 0 12px 34px rgba(0, 0, 0, .45); transform-origin: top center; }
+    .site-preview__device.is-phone { border: 10px solid #020617; border-radius: 28px; }
+    .site-preview__device.is-tablet { border: 12px solid #020617; border-radius: 20px; }
+    .site-preview iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
+    .site-preview__status { display: flex; justify-content: space-between; gap: 12px; padding: 8px 14px; border-top: 1px solid var(--chrome-line); color: var(--chrome-muted); font-size: 12px; }
+    .site-preview__notice { color: #fbbf24; }
+    @media (max-width: 640px) { .site-preview__bar { grid-template-columns: minmax(0, 1fr) auto; } .site-preview__dots, .site-preview__open span { display: none; } }
+    """,
+    js="""
+    const ICONS = {
+        desktop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>',
+        tablet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M11 18h2"/></svg>',
+        mobile: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>',
+        open: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
+        lock: '<svg class="site-preview__lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
+    };
+    const DEVICES = { desktop: 1280, tablet: 820, mobile: 390 };
+
+    // Wird in jede Vorschauseite eingefügt: interne Links wechseln die Seite,
+    // externe öffnen in neuem Tab, Formulare mit Ziel-Adresse werden nicht gesendet.
+    function previewPageHelper(token, pageList) {
+        const pages = new Set(pageList);
+        const post = (message) => parent.postMessage(Object.assign({ token }, message), '*');
+        const pageOf = (href) => {
+            const clean = href.replace(/^\\.?\\//, '').split(/[?#]/)[0];
+            if (!clean) return 'index.html';
+            if (pages.has(clean)) return clean;
+            if (pages.has(clean + '.html')) return clean + '.html';
+            return null;
+        };
+        document.addEventListener('click', (event) => {
+            const link = event.target.closest && event.target.closest('a[href]');
+            if (!link) return;
+            const href = link.getAttribute('href') || '';
+            if (href.startsWith('#')) {
+                event.preventDefault();
+                const id = decodeURIComponent(href.slice(1));
+                const target = id && document.getElementById(id);
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                else scrollTo({ top: 0, behavior: 'smooth' });
                 return;
             }
-            const hero = create('div', 'template-hero');
-            const heroCopy = create('div', '');
-            const fields = [['heading', 'h3', 'template-heading'], ['description', 'p', 'template-description'], ['buttonText', 'button', 'template-button']];
-            fields.forEach(([key, tag, className]) => {
-                const field = create(tag, className, data[key]);
-                if (key === 'buttonText') field.type = 'button';
-                if (key === 'buttonText') field.onclick = () => setStateValue('navigated', 'angebote');
-                heroCopy.append(field);
+            if (/^(mailto:|tel:|https?:|\\/\\/)/i.test(href)) {
+                event.preventDefault();
+                post({ type: 'external', href: link.href });
+                return;
+            }
+            const page = pageOf(href);
+            if (page) {
+                event.preventDefault();
+                post({ type: 'navigate', page });
+            }
+        }, true);
+        document.addEventListener('submit', (event) => {
+            const action = (event.target.getAttribute('action') || '').trim();
+            if (action) {
+                event.preventDefault();
+                post({ type: 'form' });
+            }
+        }, true);
+    }
+
+    // Quelltext der Funktion wird unverändert eingefügt (keine Escape-Verluste).
+    const helperScript = (token, pages) =>
+        '<script>(' + previewPageHelper.toString() + ')(' + JSON.stringify(token) + ',' + JSON.stringify(pages) + ');<' + '/script>';
+
+    const withHelper = (html, token, pages) => {
+        const script = helperScript(token, pages);
+        return /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (head) => head + script) : script + html;
+    };
+
+    export default function(component) {
+        const { data, parentElement } = component;
+        const root = parentElement.querySelector('.site-preview');
+        if (!root || !data) return;
+        const pageNames = Object.keys(data.pages || {});
+        const state = root.__state || (root.__state = { device: 'desktop', page: 'index.html', token: Math.random().toString(36).slice(2) });
+        if (!pageNames.includes(state.page)) state.page = pageNames[0] || 'index.html';
+        const labels = data.labels;
+
+        root.replaceChildren();
+        root.dir = 'ltr';
+        const element = (tag, className, html) => { const node = document.createElement(tag); if (className) node.className = className; if (html !== undefined) node.innerHTML = html; return node; };
+
+        const bar = element('div', 'site-preview__bar');
+        bar.append(element('div', 'site-preview__dots', '<span></span><span></span><span></span>'));
+        const address = element('div', 'site-preview__address', ICONS.lock);
+        const addressText = element('span');
+        address.append(addressText);
+        bar.append(address);
+        const actions = element('div', 'site-preview__actions');
+        const devices = element('div', 'site-preview__devices');
+        devices.setAttribute('role', 'group');
+        devices.setAttribute('aria-label', labels.devices);
+        Object.keys(DEVICES).forEach((device) => {
+            const button = element('button', '', ICONS[device]);
+            button.type = 'button';
+            button.title = labels[device];
+            button.setAttribute('aria-label', labels[device]);
+            button.setAttribute('aria-pressed', String(state.device === device));
+            button.onclick = () => { state.device = device; render(); devices.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === button))); };
+            devices.append(button);
+        });
+        const openButton = element('button', 'site-preview__open', `${ICONS.open}<span>${labels.open}</span>`);
+        openButton.type = 'button';
+        openButton.onclick = () => {
+            const html = data.pages[state.page] || '';
+            const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+            window.open(url, '_blank', 'noopener');
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
+        };
+        actions.append(devices, openButton);
+        bar.append(actions);
+
+        const tabs = element('div', 'site-preview__tabs');
+        tabs.setAttribute('role', 'tablist');
+        if (pageNames.length > 1) {
+            pageNames.forEach((page) => {
+                const tab = element('button');
+                tab.type = 'button';
+                tab.textContent = (data.pageLabels || {})[page] || page;
+                tab.setAttribute('role', 'tab');
+                tab.onclick = () => { state.page = page; loadPage(); };
+                tab.dataset.page = page;
+                tabs.append(tab);
             });
-            const image = data.imageDataUrl ? create('img', 'template-image') : create('div', 'template-placeholder', copy.imagePlaceholder);
-            if (data.imageDataUrl) { image.src = data.imageDataUrl; image.alt = data.companyName; }
-            hero.append(heroCopy, image);
-            const templateSections = create('section', 'template-cards');
-            data.templateSections.forEach((section, index) => {
-                const card = create('article', 'template-card');
-                card.append(create('p', 'template-eyebrow', String(index + 1).padStart(2, '0')), create('h2', '', section.title), create('p', '', section.text));
-                templateSections.append(card);
-            });
-            const footer = create('footer', 'template-footer');
-            const brand = create('section', '');
-            brand.append(create('h2', '', data.companyName), create('p', '', data.footerText));
-            const contact = create('section', '');
-            contact.append(create('h2', '', copy.contact), create('a', '', data.businessEmail));
-            contact.lastChild.href = `mailto:${data.businessEmail}`;
-            const legal = create('section', '');
-            legal.append(create('h2', '', copy.legal), create('a', '', copy.imprint), create('p', '', copy.privacy));
-            const legalNote = create('p', 'template-footer-legal', `© ${new Date().getFullYear()} ${data.companyName}. ${copy.rights}`);
-            footer.append(brand, contact, legal, legalNote);
-            shell.append(header, hero, templateSections, footer, create('p', 'template-hint', copy.designHint));
-            appendCustomerChatbot();
-            root.append(shell);
         }
-        """,
+
+        const stage = element('div', 'site-preview__stage');
+        const device = element('div', 'site-preview__device');
+        const frame = document.createElement('iframe');
+        frame.title = labels.frameTitle;
+        // Abgeschottet: kein Zugriff auf den Builder, keine echten Formularziele.
+        frame.setAttribute('sandbox', 'allow-scripts allow-forms allow-popups allow-modals');
+        device.append(frame);
+        stage.append(device);
+        const status = element('div', 'site-preview__status');
+        const statusText = element('span', '', labels.hint);
+        const notice = element('span', 'site-preview__notice');
+        status.append(statusText, notice);
+        root.append(bar, tabs, stage, status);
+
+        const height = Number(data.height) || 720;
+        function render() {
+            const width = DEVICES[state.device];
+            const available = Math.max(280, stage.clientWidth - 36);
+            const scale = Math.min(1, available / width);
+            device.className = 'site-preview__device' + (state.device === 'mobile' ? ' is-phone' : state.device === 'tablet' ? ' is-tablet' : '');
+            const frameHeight = state.device === 'desktop' ? height / scale : Math.min(height / scale, state.device === 'mobile' ? 780 : 1100);
+            device.style.width = `${width}px`;
+            device.style.height = `${frameHeight}px`;
+            device.style.transform = `scale(${scale})`;
+            stage.style.height = `${frameHeight * scale + 36}px`;
+            notice.textContent = scale < 1 ? `${Math.round(scale * 100)} %` : '';
+        }
+        function loadPage() {
+            const html = data.pages[state.page] || `<p style="font-family:sans-serif;padding:24px">${labels.empty}</p>`;
+            frame.srcdoc = withHelper(html, state.token, pageNames);
+            addressText.innerHTML = `<strong>${data.host}</strong>/${state.page === 'index.html' ? '' : state.page}`;
+            tabs.querySelectorAll('button').forEach((tab) => tab.setAttribute('aria-selected', String(tab.dataset.page === state.page)));
+            notice.textContent = '';
+            render();
+        }
+
+        if (root.__onMessage) window.removeEventListener('message', root.__onMessage);
+        root.__onMessage = (event) => {
+            if (event.source !== frame.contentWindow || !event.data || event.data.token !== state.token) return;
+            if (event.data.type === 'navigate' && data.pages[event.data.page]) { state.page = event.data.page; loadPage(); }
+            if (event.data.type === 'external' && typeof event.data.href === 'string') window.open(event.data.href, '_blank', 'noopener');
+            if (event.data.type === 'form') { notice.textContent = labels.formBlocked; }
+        };
+        window.addEventListener('message', root.__onMessage);
+        if (root.__resize) root.__resize.disconnect();
+        root.__resize = new ResizeObserver(() => render());
+        root.__resize.observe(stage);
+        loadPage();
+    }
+    """,
 )
 
 
@@ -772,124 +825,50 @@ def render_language_selector() -> tuple[dict[str, str], str]:
     return SUPPORTED_LANGUAGES[target_language], target_language
 
 
-def render_template_preview(
-        template_name: str,
-    sections: str,
-        background_color: str,
-        accent_color: str,
-        border_style: str,
-    component_key: str = "clickable_template_editor",
-) -> None:
-    """Zeigt die Vorlage mit allen aktuell eingegebenen Kundendaten."""
+PREVIEW_COPY = {
+    "de": {"devices": "Gerät", "desktop": "Desktop", "tablet": "Tablet", "mobile": "Smartphone", "open": "In neuem Tab", "frameTitle": "Live-Vorschau der Website", "hint": "Echte Website mit Chatbot. Links und Unterseiten sind klickbar.", "formBlocked": "Formulare werden in der Vorschau nicht gesendet.", "empty": "Noch kein Entwurf vorhanden."},
+    "en": {"devices": "Device", "desktop": "Desktop", "tablet": "Tablet", "mobile": "Smartphone", "open": "Open in new tab", "frameTitle": "Live website preview", "hint": "The real website with chatbot. Links and pages are clickable.", "formBlocked": "Forms are not sent in the preview.", "empty": "No draft yet."},
+    "ar": {"devices": "الجهاز", "desktop": "سطح المكتب", "tablet": "جهاز لوحي", "mobile": "هاتف ذكي", "open": "فتح في علامة تبويب جديدة", "frameTitle": "المعاينة المباشرة للموقع", "hint": "الموقع الحقيقي مع روبوت المحادثة. الروابط والصفحات قابلة للنقر.", "formBlocked": "لا يتم إرسال النماذج في المعاينة.", "empty": "لا توجد مسودة بعد."},
+    "ku": {"devices": "ئامێر", "desktop": "کۆمپیوتەر", "tablet": "تابلێت", "mobile": "مۆبایل", "open": "لە تابێکی نوێ بیکەرەوە", "frameTitle": "پێشبینینی ڕاستەوخۆی وێبگە", "hint": "وێبگەی ڕاستەقینە لەگەڵ چاتبۆت. بەستەر و پەڕەکان کلیک دەکرێن.", "formBlocked": "فۆڕمەکان لە پێشبینیندا نانێردرێن.", "empty": "هێشتا ڕەشنووس نییە."},
+    "es": {"devices": "Dispositivo", "desktop": "Escritorio", "tablet": "Tableta", "mobile": "Móvil", "open": "Abrir en pestaña nueva", "frameTitle": "Vista previa del sitio", "hint": "El sitio real con chatbot. Enlaces y páginas son clicables.", "formBlocked": "Los formularios no se envían en la vista previa.", "empty": "Todavía no hay borrador."},
+    "it": {"devices": "Dispositivo", "desktop": "Desktop", "tablet": "Tablet", "mobile": "Smartphone", "open": "Apri in nuova scheda", "frameTitle": "Anteprima del sito", "hint": "Il sito reale con chatbot. Link e pagine sono cliccabili.", "formBlocked": "I moduli non vengono inviati nell'anteprima.", "empty": "Nessuna bozza disponibile."},
+    "hi": {"devices": "डिवाइस", "desktop": "डेस्कटॉप", "tablet": "टैबलेट", "mobile": "स्मार्टफ़ोन", "open": "नए टैब में खोलें", "frameTitle": "वेबसाइट का लाइव पूर्वावलोकन", "hint": "चैटबॉट सहित वास्तविक वेबसाइट। लिंक और पृष्ठ क्लिक करने योग्य हैं।", "formBlocked": "पूर्वावलोकन में फ़ॉर्म नहीं भेजे जाते।", "empty": "अभी कोई प्रारूप नहीं है।"},
+}
+
+PREVIEW_PAGE_KEYS = {
+    "index.html": "start",
+    "leistungen.html": "leistungen",
+    "angebote.html": "angebote",
+    "projekte.html": "projekte",
+    "ueber-uns.html": "ueber_uns",
+    "kontakt.html": "kontakt",
+}
+
+
+def render_live_site_preview(pages: dict[str, str], key: str, height: int = 720) -> None:
+    """Zeigt die echte Website in einem Browser-Rahmen mit Geräte- und Seitenumschaltung."""
     language = str(st.session_state.app_language)
-    preview_copy = get_template_preview_copy(language)
-    defaults = preview_copy["defaults"]
-    radius = "0px" if border_style == "sharp" else "14px"
-    light_background = is_light_color(background_color)
-    text_color = "#111827" if light_background else "#f8fafc"
-    muted_text_color = "#374151" if light_background else "#cbd5e1"
-    surface_color = "rgba(17,24,39,.06)" if light_background else "rgba(255,255,255,.05)"
-    border_color = "rgba(17,24,39,.18)" if light_background else "rgba(255,255,255,.16)"
-    accent_text_color = contrast_text_color(accent_color)
-    company_name = escape(str(st.session_state.get("client_company_name", "")).strip() or template_name)
-    business_email = escape(str(st.session_state.get("client_business_email", "")).strip() or "Ihre Kontakt-E-Mail")
-    image_file = st.session_state.get("initial_image")
-    image_data_url = ""
-    if image_file is not None:
-        image_type = image_file.type or "image/png"
-        image_data_url = (
-            f"data:{image_type};base64,"
-            f"{base64.b64encode(image_file.getvalue()).decode('ascii')}"
-        )
-
-    def save_clickable_template_changes() -> None:
-        """Übernimmt eine im Klickeditor abgeschlossene Textänderung."""
-        component_state = st.session_state.get(component_key)
-        changes = getattr(component_state, "saved", None)
-        if not isinstance(changes, dict):
-            return
-        fields = {
-            "heading": "template_hero_heading",
-            "description": "template_custom_description",
-            "buttonText": "template_button_text",
-        }
-        for source, target in fields.items():
-            if source in changes:
-                st.session_state[target] = str(changes[source]).strip()
-
-    def show_template_page() -> None:
-        """Übernimmt den Navigationsklick aus der interaktiven Vorlagenvorschau."""
-        component_state = st.session_state.get(component_key)
-        page = getattr(component_state, "navigated", None)
-        if page in {"start", "leistungen", "angebote", "projekte", "ueber_uns", "kontakt"}:
-            st.session_state.template_preview_page = page
-
-    CLICKABLE_TEMPLATE_EDITOR()(
-        key=component_key,
+    navigation = get_template_preview_copy(language)["nav"]
+    project = safe_project_name(
+        str(st.session_state.get("client_company_name", "")).strip()
+        or str(st.session_state.get("project_name", ""))
+    )
+    LIVE_SITE_PREVIEW()(
+        key=key,
         data={
-            "language": language,
-            "direction": "rtl" if language in {"ar", "ku"} else "ltr",
-            "copy": preview_copy,
-            "companyName": str(st.session_state.get("client_company_name", "")).strip() or template_name,
-            "heading": str(st.session_state.get("template_hero_heading", "")).strip()
-            or str(st.session_state.get("client_company_slogan", "")).strip()
-            or defaults[0],
-            "description": str(st.session_state.get("template_custom_description", "")).strip()
-            or defaults[1],
-            "buttonText": str(st.session_state.get("template_button_text", "")).strip()
-            or defaults[2],
-            "templateSections": [
-                {
-                    "title": item.partition("|")[0].strip(),
-                    "text": item.partition("|")[2].strip()
-                    or str(st.session_state.get("template_custom_description", "")).strip()
-                    or defaults[4],
-                }
-                for item in str(st.session_state.get("template_sections_text", sections)).replace(",", "\n").splitlines()
-                if item.strip()
-            ],
-            "footerText": str(st.session_state.get("template_footer_text", "")).strip()
-            or f"{company_name} | {business_email} | Impressum | Datenschutz",
-            "chatbotKnowledge": get_configured_chatbot_knowledge(),
-            "chatbotName": str(st.session_state.get("customer_chatbot_name", "")).strip(),
-            "chatbotColor": str(st.session_state.get("customer_chatbot_color", "#2563EB")),
-            "chatbotFigure": CHATBOT_FIGURE_ICONS.get(str(st.session_state.get("customer_chatbot_figure", "")), CHATBOT_FIGURE_ICONS[get_chatbot_design_theme()["figure"]]),
-            "chatbotRadius": get_chatbot_toggle_radius(),
-            "showCustomerChatbot": component_key == "full_draft_template_preview",
-            "multiPage": st.session_state.get("page_structure") == "Mehrseitige Website",
-            "businessEmail": str(st.session_state.get("client_business_email", "")).strip()
-            or defaults[3],
-            "page": str(st.session_state.get("template_preview_page", "start")),
-            "imageDataUrl": image_data_url,
-            "backgroundColor": background_color,
-            "accentColor": accent_color,
-            "textColor": text_color,
-            "mutedTextColor": muted_text_color,
-            "surfaceColor": surface_color,
-            "borderColor": border_color,
-            "accentTextColor": accent_text_color,
-            "radius": radius,
+            "pages": pages,
+            "pageLabels": {name: navigation.get(page_key, name) for name, page_key in PREVIEW_PAGE_KEYS.items()},
+            "labels": PREVIEW_COPY.get(language, PREVIEW_COPY["en"]),
+            "host": f"{project}.vercel.app",
+            "height": height,
         },
-        on_saved_change=save_clickable_template_changes,
-        on_navigated_change=show_template_page,
     )
 
 
 @st.dialog("Live-Vorschau des Entwurfs", width="large")
 def show_full_draft_preview() -> None:
     """Öffnet die vollständige, testbare Kundenvorschau vor der Veröffentlichung."""
-    template_name = str(st.session_state.get("template_name", "Professionelle Vorlage"))
-    template = TEMPLATES.get(template_name, {})
-    background_name = str(st.session_state.get("template_background_preset", "Weiß"))
-    render_template_preview(
-        template_name,
-        str(st.session_state.get("template_sections_text", template.get("sections", ""))),
-        BACKGROUND_PRESET_COLORS.get(background_name, "#FFFFFF"),
-        str(st.session_state.get("template_accent_color", "#38BDF8")),
-        str(st.session_state.get("template_border_style", "rounded")),
-        component_key="full_draft_template_preview",
-    )
-    st.caption("Prüfen Sie Inhalte, Navigation, Kontaktangaben und Chatbot. Änderungen werden als Entwurf übernommen.")
+    render_live_site_preview(build_draft_preview_pages(), key="full_draft_preview", height=640)
 
 
 def render_template_and_design_ui() -> str:
@@ -965,10 +944,6 @@ def render_template_and_design_ui() -> str:
         )
         st.info(template_description)
 
-    if st.session_state.get("template_preview_template") != selected_template_name:
-        st.session_state.template_preview_template = selected_template_name
-        st.session_state.template_preview_page = "start"
-
     with design_column:
         background_presets = st.segmented_control(
             labels[10],
@@ -1035,13 +1010,8 @@ def render_template_and_design_ui() -> str:
         key="template_footer_text",
     )
 
-    render_template_preview(
-        template_display_name,
-        section_defaults.get(language, current_template["sections"]),
-        background_color,
-        accent_color,
-        border_style,
-    )
+    st.markdown(f"**{t('live_preview')}**")
+    render_live_site_preview(build_template_preview_pages(), key="template_live_preview")
 
     radius_class = "rounded-none" if border_style == "sharp" else "rounded-2xl"
     description = str(st.session_state.get("template_custom_description", "")).strip()
@@ -2575,6 +2545,8 @@ def render_generated_website_editor() -> None:
                             status.update(label="Entwurf konnte nicht erstellt werden.", state="error")
                             st.error(str(error))
             st.divider()
+        st.header(t("live_preview"))
+        render_live_site_preview(build_draft_preview_pages(), key="draft_live_preview")
         st.header(t("edit_website"))
 
         editor_language = str(st.session_state.app_language)

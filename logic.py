@@ -342,7 +342,6 @@ DEFAULT_STATE = {
     "published_html": "",
     "assets": {},
     "site_pages": {},
-    "template_preview_page": "start",
     "live_url": "",
     "deployment_url": "",
     "deployment_id": "",
@@ -1217,64 +1216,163 @@ def queue_html_update(html: str, reset_site_pages: bool = False) -> None:
     st.session_state.html_editor = index_html
 
 
-def create_professional_standard_draft() -> None:
-    """Erstellt aus den vorhandenen Kundendaten einen hochwertigen Standardentwurf."""
-    company_name = str(st.session_state.get("client_company_name", "")).strip()
-    business_email = str(st.session_state.get("client_business_email", "")).strip()
-    if not company_name or not EMAIL_PATTERN.fullmatch(business_email):
-        raise ValueError(
-            "Bitte geben Sie zuerst einen Firmennamen und eine gültige geschäftliche E-Mail-Adresse ein."
-        )
-
+def get_template_settings() -> dict[str, object]:
+    """Sammelt alle Vorlagen-Einstellungen aus dem Formular mit sicheren Standardwerten."""
     industry = str(st.session_state.get("industry_content_preset", ""))
-    template_name = str(
-        st.session_state.get("template_name")
-        or INDUSTRY_TEMPLATE_MAP.get(industry)
-        or "GmbH und Corporate Unternehmen"
-    )
-    background_name = str(
-        st.session_state.get("template_background_preset", "Weiß")
-    )
-    background_color = BACKGROUND_PRESET_COLORS.get(background_name, "#FFFFFF")
     accent_color = str(st.session_state.get("template_accent_color", "#2563EB"))
     if not re.fullmatch(r"#[0-9a-fA-F]{6}", accent_color):
         accent_color = "#2563EB"
-    border_style = str(st.session_state.get("template_border_style", "rounded"))
-    description = (
-        str(st.session_state.get("template_custom_description", "")).strip()
-        or str(st.session_state.get("creation_description", "")).strip()
-        or str(st.session_state.get("section_about_text", "")).strip()
-    )
-    multi_page = st.session_state.get("page_structure") == "Mehrseitige Website"
-    html = build_customized_template_html(
-        template_name,
-        background_color,
-        accent_color,
-        border_style,
-        company_name,
-        business_email,
-        str(st.session_state.get("template_hero_heading", "")).strip()
+    background_name = str(st.session_state.get("template_background_preset", "Weiß"))
+    return {
+        "template_name": str(
+            st.session_state.get("template_name")
+            or INDUSTRY_TEMPLATE_MAP.get(industry)
+            or "GmbH und Corporate Unternehmen"
+        ),
+        "background_color": BACKGROUND_PRESET_COLORS.get(background_name, "#FFFFFF"),
+        "accent_color": accent_color,
+        "border_style": str(st.session_state.get("template_border_style", "rounded")),
+        "company_name": str(st.session_state.get("client_company_name", "")).strip(),
+        "business_email": str(st.session_state.get("client_business_email", "")).strip(),
+        "slogan": str(st.session_state.get("template_hero_heading", "")).strip()
         or str(st.session_state.get("client_company_slogan", "")).strip(),
-        str(st.session_state.get("client_business_phone", "")).strip(),
-        description,
-        st.session_state.get("initial_image"),
-        str(st.session_state.get("template_button_text", "")).strip(),
-        str(st.session_state.get("template_footer_text", "")).strip(),
-        multi_page,
-        template_sections=str(st.session_state.get("template_sections_text", "")),
-    )
+        "phone": str(st.session_state.get("client_business_phone", "")).strip(),
+        "description": str(st.session_state.get("template_custom_description", "")).strip()
+        or str(st.session_state.get("creation_description", "")).strip()
+        or str(st.session_state.get("section_about_text", "")).strip(),
+        "button_text": str(st.session_state.get("template_button_text", "")).strip(),
+        "footer_text": str(st.session_state.get("template_footer_text", "")).strip(),
+        "multi_page": st.session_state.get("page_structure") == "Mehrseitige Website",
+        "template_sections": str(st.session_state.get("template_sections_text", "")),
+    }
+
+
+def create_professional_standard_draft() -> None:
+    """Erstellt aus den vorhandenen Kundendaten einen hochwertigen Standardentwurf."""
+    settings = get_template_settings()
+    if not settings["company_name"] or not EMAIL_PATTERN.fullmatch(str(settings["business_email"])):
+        raise ValueError(
+            "Bitte geben Sie zuerst einen Firmennamen und eine gültige geschäftliche E-Mail-Adresse ein."
+        )
+    html = build_customized_template_html(**settings, image_file=st.session_state.get("initial_image"))
     queue_html_update(html, reset_site_pages=True)
     st.session_state.site_pages["styles.css"] = build_customized_template_styles()
-    if multi_page:
+    if settings["multi_page"]:
         st.session_state.site_pages.update(
             build_customized_template_pages(
-                company_name,
-                business_email,
-                background_color,
-                accent_color,
-                description,
+                str(settings["company_name"]),
+                str(settings["business_email"]),
+                str(settings["background_color"]),
+                str(settings["accent_color"]),
+                str(settings["description"]),
+                str(settings["template_name"]),
             )
         )
+
+
+# Gestalterische Besonderheiten je Vorlage (Startseite und Unterseiten).
+TEMPLATE_STYLES = {
+    "Automobil und KFZ-Gewerbe": "header{border-bottom:4px solid var(--accent)}.hero{grid-template-columns:1fr 1fr}.card{border-radius:0}",
+    "GmbH und Corporate Unternehmen": "header{border-bottom:1px solid var(--accent)}.hero{grid-template-columns:1.25fr .75fr}.card{border-top-width:1px}",
+    "Cafe und Baeckerei": "header{background:color-mix(in srgb,var(--accent) 12%,var(--background))}.hero{grid-template-columns:.9fr 1.1fr}.card{border-radius:18px}",
+    "Restaurant und Gastronomie": "header{background:#17120d;color:#f8e7bd}.hero{grid-template-columns:.85fr 1.15fr}.card{border-color:#d4a74a;border-radius:2px}",
+    "Formale Agentur oder Kanzlei": "header{border-bottom:1px solid var(--text)}.hero{grid-template-columns:1.35fr .65fr}.card{border-left:3px solid var(--accent);border-top:0;border-radius:0}",
+    "Schule und Bildung": "header{background:color-mix(in srgb,var(--accent) 10%,var(--background))}.cards{gap:24px}.card{border-radius:14px}",
+    "Bibliothek": "header{border-bottom:1px solid var(--accent)}.hero{grid-template-columns:1.2fr .8fr}.card{border-radius:4px}",
+    "Supermarkt und Einzelhandel": "header{background:var(--accent);color:var(--accent-text)}.hero{grid-template-columns:1fr 1fr}.card{border-top-width:5px;border-radius:0}",
+}
+
+
+PREVIEW_PAGE_ORDER = (
+    "index.html",
+    "leistungen.html",
+    "angebote.html",
+    "projekte.html",
+    "ueber-uns.html",
+    "kontakt.html",
+)
+
+
+def inline_assets(html: str, assets: dict[str, dict[str, str]]) -> str:
+    """Ersetzt Verweise auf hochgeladene Bilder durch eingebettete Data-URLs."""
+    for file_name, asset in assets.items():
+        data_url = f"data:{asset['mime_type']};base64,{asset['base64']}"
+        html = re.sub(
+            r"""(?<=["'(=])""" + re.escape(file_name) + r"""(?=["')\s>])""",
+            lambda _match: data_url,
+            html,
+        )
+    return html
+
+
+def build_live_preview_pages(
+    index_html: str, site_pages: dict[str, str], assets: dict[str, dict[str, str]]
+) -> dict[str, str]:
+    """Baut eigenständige Vorschauseiten: Stylesheet und Bilder eingebettet, Startseite zuerst."""
+    pages = {name: content for name, content in site_pages.items() if name.endswith(".html")}
+    pages["index.html"] = index_html
+    stylesheet = site_pages.get("styles.css", "")
+    ordered = sorted(
+        pages,
+        key=lambda name: (
+            PREVIEW_PAGE_ORDER.index(name) if name in PREVIEW_PAGE_ORDER else len(PREVIEW_PAGE_ORDER),
+            name,
+        ),
+    )
+    preview_pages = {}
+    for name in ordered:
+        html = pages[name]
+        if stylesheet:
+            html = re.sub(
+                r"""(?i)<link\b[^>]*\bhref=["'](?:\./)?styles\.css["'][^>]*>""",
+                lambda _match: f"<style>{stylesheet}</style>",
+                html,
+            )
+        preview_pages[name] = inline_assets(html, assets)
+    return preview_pages
+
+
+def build_template_preview_pages() -> dict[str, str]:
+    """Erzeugt die echte Vorlage als Vorschau, ohne den Entwurf oder Bilder zu speichern."""
+    from chat import inject_configured_customer_chatbot
+
+    settings = get_template_settings()
+    copy = get_template_preview_copy(str(st.session_state.app_language))
+    settings["company_name"] = settings["company_name"] or str(settings["template_name"])
+    settings["business_email"] = settings["business_email"] or str(copy["defaults"][3])
+    image_file = st.session_state.get("initial_image")
+    image_src = ""
+    if image_file is not None:
+        image_type = getattr(image_file, "type", "") or "image/png"
+        image_src = f"data:{image_type};base64,{base64.b64encode(image_file.getvalue()).decode('ascii')}"
+    index_html = inject_configured_customer_chatbot(
+        build_customized_template_html(**settings, image_file=None, image_src=image_src)
+    )
+    site_pages = {"styles.css": build_customized_template_styles()}
+    if settings["multi_page"]:
+        site_pages.update(
+            build_customized_template_pages(
+                str(settings["company_name"]),
+                str(settings["business_email"]),
+                str(settings["background_color"]),
+                str(settings["accent_color"]),
+                str(settings["description"]),
+                str(settings["template_name"]),
+            )
+        )
+    return build_live_preview_pages(index_html, site_pages, {})
+
+
+def build_draft_preview_pages() -> dict[str, str]:
+    """Erzeugt die Vorschau des aktuellen Entwurfs genau so, wie er veröffentlicht wird."""
+    from chat import inject_configured_customer_chatbot
+
+    index_html = inject_configured_customer_chatbot(str(st.session_state.generated_html))
+    site_pages = {
+        name: inject_configured_customer_chatbot(content) if name.endswith(".html") else content
+        for name, content in dict(st.session_state.site_pages).items()
+    }
+    return build_live_preview_pages(index_html, site_pages, dict(st.session_state.assets))
 
 
 def get_supabase_analytics_client() -> SupabaseAnalyticsClient:
@@ -1552,11 +1650,7 @@ def create_preview_html(html: str, include_customer_chatbot: bool = False) -> st
     if not include_customer_chatbot:
         preview_html = remove_customer_chatbot(preview_html)
 
-    for file_name, asset in st.session_state.assets.items():
-        data_url = f"data:{asset['mime_type']};base64,{asset['base64']}"
-        preview_html = preview_html.replace(file_name, data_url)
-
-    return preview_html
+    return inline_assets(preview_html, dict(st.session_state.assets))
 
 
 def replace_first_image_source(html: str, image_name: str, alt_text: str) -> str:
@@ -1662,10 +1756,12 @@ def build_customized_template_html(
     footer_text: str = "",
     multi_page: bool = True,
     template_sections: str = "",
+    image_src: str = "",
 ) -> str:
     """Übernimmt die ausgewählte Vorlage lokal und füllt sie mit Kundendaten.
 
     Den Kunden-Chatbot setzt anschließend queue_html_update zentral ein.
+    image_src ersetzt das Bild ohne Asset-Speicherung (für die Vorschau).
     """
     language = str(st.session_state.app_language)
     page_copy = get_template_preview_copy(language)
@@ -1685,7 +1781,8 @@ def build_customized_template_html(
     template_display_name = localized_template_names.get(language, {}).get(
         template_name, template_name if language == "de" else nav_copy["leistungen"]
     )
-    company_name = escape(company_name.strip())
+    raw_company_name = company_name.strip()
+    company_name = escape(raw_company_name)
     business_email = escape(business_email.strip())
     slogan = escape(slogan.strip() or str(page_copy["defaults"][0]))
     description = escape(description.strip() or str(page_copy["defaults"][1]))
@@ -1698,21 +1795,16 @@ def build_customized_template_html(
     radius = "0" if border_style == "sharp" else "10px"
     text_color = contrast_text_color(background_color)
     muted_color = "#334155" if is_light_color(background_color) else "#cbd5e1"
-    template_styles = {
-        "Automobil und KFZ-Gewerbe": "header{border-bottom:4px solid var(--accent)}.hero{grid-template-columns:1fr 1fr}.card{border-radius:0}",
-        "GmbH und Corporate Unternehmen": "header{border-bottom:1px solid var(--accent)}.hero{grid-template-columns:1.25fr .75fr}.card{border-top-width:1px}",
-        "Cafe und Baeckerei": "header{background:color-mix(in srgb,var(--accent) 12%,var(--background))}.hero{grid-template-columns:.9fr 1.1fr}.card{border-radius:18px}",
-        "Restaurant und Gastronomie": "header{background:#17120d;color:#f8e7bd}.hero{grid-template-columns:.85fr 1.15fr}.card{border-color:#d4a74a;border-radius:2px}",
-        "Formale Agentur oder Kanzlei": "header{border-bottom:1px solid var(--text)}.hero{grid-template-columns:1.35fr .65fr}.card{border-left:3px solid var(--accent);border-top:0;border-radius:0}",
-        "Schule und Bildung": "header{background:color-mix(in srgb,var(--accent) 10%,var(--background))}.cards{gap:24px}.card{border-radius:14px}",
-        "Bibliothek": "header{border-bottom:1px solid var(--accent)}.hero{grid-template-columns:1.2fr .8fr}.card{border-radius:4px}",
-        "Supermarkt und Einzelhandel": "header{background:var(--accent);color:#111827}.hero{grid-template-columns:1fr 1fr}.card{border-top-width:5px;border-radius:0}",
-    }
-    template_style = template_styles.get(template_name, "")
-    image_html = f'<div class="image-placeholder">{page_copy["imagePlaceholder"]}</div>'
+    template_style = TEMPLATE_STYLES.get(template_name, "")
+    monogram = "".join(word[0] for word in raw_company_name.split()[:2] if word[:1].isalnum()).upper() or "•"
+    image_html = (
+        f'<div class="hero-visual" role="img" aria-label="{company_name}">'
+        f"<span>{escape(monogram)}</span><small>{company_name}</small></div>"
+    )
     if image_file is not None:
-        image_name = save_uploaded_image(image_file, "vorlagen-hero")
-        image_html = f'<img class="hero-image" src="{image_name}" alt="{company_name}">'
+        image_src = save_uploaded_image(image_file, "vorlagen-hero")
+    if image_src:
+        image_html = f'<img class="hero-image" src="{escape(image_src)}" alt="{company_name}">'
     phone_html = f'<p>{phone}</p>' if phone else ""
     navigation = (
         f'<a href="leistungen.html">{nav_copy["leistungen"]}</a><a href="angebote.html">{nav_copy["angebote"]}</a>'
@@ -1741,7 +1833,7 @@ def build_customized_template_html(
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{company_name}</title>
 <link rel="stylesheet" href="styles.css">
-<style>:root {{ --background: {background_color}; --accent: {accent_color}; --text: {text_color}; --muted: {muted_color}; --radius: {radius}; }} {template_style}</style></head>
+<style>:root {{ --background: {background_color}; --accent: {accent_color}; --accent-text: {contrast_text_color(accent_color)}; --text: {text_color}; --muted: {muted_color}; --radius: {radius}; }} {template_style}</style></head>
 <body><header><strong>{company_name}</strong><nav>{navigation}</nav></header>
 <main><section class="container hero" id="hero"><div><span class="eyebrow">{escape(template_display_name)}</span><h1>{slogan}</h1><p>{description}</p><a class="button" href="{button_target}">{button_text}</a></div>{image_html}</section>
 <section class="band"><div class="container" id="leistungen"><span class="eyebrow">{nav_copy["leistungen"]}</span><h2>{services_copy[1]}</h2><div class="cards">{section_cards_html}</div></div></section>
@@ -1752,12 +1844,39 @@ def build_customized_template_html(
 
 def build_customized_template_styles() -> str:
     """Liefert das gemeinsame Design für alle statischen Vorlagen-Seiten."""
-    return """* { box-sizing: border-box; } body { margin: 0; background: var(--background); color: var(--text); font: 16px/1.55 Arial, sans-serif; } header { padding: 20px max(5vw, 24px); border-bottom: 1px solid color-mix(in srgb, var(--text) 18%, transparent); } header, nav { display: flex; gap: 18px; flex-wrap: wrap; justify-content: space-between; align-items: center; } nav a, .button, .site-footer a { color: inherit; text-decoration: none; } main, .container { max-width: 1120px; margin: auto; padding: 70px 24px; } .hero, .contact { display: grid; grid-template-columns: 1.1fr .9fr; gap: 40px; align-items: center; } .eyebrow { color: var(--accent); font-size: 13px; font-weight: 700; text-transform: uppercase; } h1 { font-family: Georgia, serif; font-size: clamp(2.4rem, 5vw, 4.4rem); line-height: 1.05; margin: 14px 0; } p { color: var(--muted); } .button { display: inline-block; margin-top: 18px; padding: 13px 19px; border-radius: var(--radius); background: var(--accent); color: #111827; font-weight: 700; } .hero-image, .image-placeholder { width: 100%; min-height: 310px; object-fit: cover; border-radius: var(--radius); border: 1px dashed var(--accent); display: grid; place-items: center; color: var(--accent); padding: 20px; } .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 45px; } .card { border-top: 3px solid var(--accent); background: color-mix(in srgb, var(--text) 6%, transparent); padding: 24px; margin-top: 32px; } .band { background: color-mix(in srgb, var(--text) 6%, transparent); } .site-footer { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 28px; padding: 34px max(5vw, 24px) 20px; border-top: 1px solid color-mix(in srgb, var(--text) 18%, transparent); } .site-footer strong { display: block; } .site-footer p { margin: 8px 0 0; font-size: 13px; } .footer-legal { grid-column: 1 / -1; padding-top: 16px; border-top: 1px solid color-mix(in srgb, var(--text) 18%, transparent); } .customer-chatbot { position: fixed; right: 24px; bottom: 24px; z-index: 10; } .customer-chatbot button { width: 52px; height: 52px; border: 0; border-radius: 50%; background: var(--accent); color: #111827; cursor: pointer; font-weight: 700; font-size: 20px; } .customer-chatbot section { width: min(300px, calc(100vw - 48px)); margin-bottom: 10px; padding: 18px; border: 1px solid color-mix(in srgb, var(--text) 18%, transparent); border-radius: var(--radius); background: var(--background); box-shadow: 0 16px 38px rgba(15, 23, 42, .22); } @media (max-width: 700px) { header, .hero, .contact { display: block; } nav { margin-top: 12px; } .hero-image, .image-placeholder { margin-top: 26px; min-height: 220px; } .cards, .site-footer { grid-template-columns: 1fr; } }"""
+    return """* { box-sizing: border-box; } html { scroll-behavior: smooth; } body { margin: 0; background: var(--background); color: var(--text); font: 16px/1.6 Arial, sans-serif; -webkit-font-smoothing: antialiased; } \
+header { position: sticky; top: 0; z-index: 5; padding: 18px max(5vw, 24px); background: var(--background); border-bottom: 1px solid color-mix(in srgb, var(--text) 14%, transparent); } \
+header, nav { display: flex; gap: 22px; flex-wrap: wrap; justify-content: space-between; align-items: center; } header strong { font-size: 18px; letter-spacing: -.01em; } \
+nav a, .button, .site-footer a { color: inherit; text-decoration: none; } nav a { font-size: 15px; opacity: .85; transition: opacity .15s ease, color .15s ease; } nav a:hover, nav a:focus-visible { opacity: 1; color: var(--accent); } \
+.container { max-width: 1120px; margin: auto; padding: 72px 24px; } .hero { padding-top: 56px; } \
+.hero, .contact { display: grid; grid-template-columns: 1.1fr .9fr; gap: 48px; align-items: center; } \
+.eyebrow { color: var(--accent); font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; } \
+h1 { font-family: Georgia, serif; font-size: clamp(2.4rem, 5vw, 4.2rem); line-height: 1.05; letter-spacing: -.02em; margin: 14px 0 18px; } h2 { font-family: Georgia, serif; font-size: clamp(1.7rem, 3vw, 2.4rem); line-height: 1.15; margin: 10px 0 0; } \
+p { color: var(--muted); } \
+.button { display: inline-block; margin-top: 18px; padding: 14px 22px; border-radius: var(--radius); background: var(--accent); color: var(--accent-text, #fff); font-weight: 700; box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 28%, transparent); transition: transform .15s ease, box-shadow .15s ease; } \
+.button:hover { transform: translateY(-2px); box-shadow: 0 14px 30px color-mix(in srgb, var(--accent) 36%, transparent); } \
+a:focus-visible, .button:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; } \
+.hero-image, .hero-visual { width: 100%; min-height: 340px; border-radius: var(--radius); } .hero-image { object-fit: cover; box-shadow: 0 24px 50px rgba(15, 23, 42, .18); } \
+.hero-visual { position: relative; overflow: hidden; display: grid; place-content: center; justify-items: center; gap: 10px; padding: 28px; color: var(--accent-text, #fff); background: linear-gradient(140deg, var(--accent), color-mix(in srgb, var(--accent) 58%, #0b1220)); box-shadow: 0 24px 50px color-mix(in srgb, var(--accent) 30%, transparent); } \
+.hero-visual::before, .hero-visual::after { content: ""; position: absolute; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--accent-text, #fff) 22%, transparent); } \
+.hero-visual::before { width: 420px; height: 420px; right: -160px; top: -160px; } .hero-visual::after { width: 260px; height: 260px; left: -90px; bottom: -110px; } \
+.hero-visual span { position: relative; font: 700 clamp(4rem, 9vw, 6.5rem)/1 Georgia, serif; letter-spacing: .02em; } .hero-visual small { position: relative; font-size: 14px; letter-spacing: .14em; text-transform: uppercase; opacity: .85; } \
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 40px; } \
+.card { border-top: 3px solid var(--accent); border-radius: calc(var(--radius) / 2); background: color-mix(in srgb, var(--text) 5%, transparent); padding: 26px; margin-top: 24px; transition: transform .2s ease, box-shadow .2s ease; } \
+.card:hover { transform: translateY(-3px); box-shadow: 0 16px 34px rgba(15, 23, 42, .1); } .card strong { color: var(--accent); font-size: 13px; } .card h3 { margin: 10px 0 6px; font-size: 19px; } \
+.band { background: color-mix(in srgb, var(--text) 5%, transparent); } \
+.site-footer { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 28px; padding: 40px max(5vw, 24px) 24px; border-top: 1px solid color-mix(in srgb, var(--text) 14%, transparent); } \
+.site-footer strong { display: block; } .site-footer p { margin: 8px 0 0; font-size: 14px; } .site-footer a:hover { color: var(--accent); } \
+.footer-legal { grid-column: 1 / -1; padding-top: 16px; border-top: 1px solid color-mix(in srgb, var(--text) 14%, transparent); } \
+main.container > p { max-width: 720px; font-size: 18px; } \
+@media (max-width: 760px) { header { padding: 14px 20px; } nav { flex-wrap: nowrap; gap: 18px; width: 100%; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; } nav a { flex: none; } \
+.container { padding: 52px 20px; } .hero { padding-top: 36px; } .hero, .contact { display: block; } .hero-image, .hero-visual { margin-top: 30px; min-height: 240px; } \
+.cards, .site-footer { grid-template-columns: 1fr; } }"""
 
 
 def build_customized_template_pages(
     company_name: str, business_email: str, background_color: str,
-    accent_color: str, description: str,
+    accent_color: str, description: str, template_name: str = "",
 ) -> dict[str, str]:
     """Erstellt echte statische Angebots- und Kontaktseiten der Kundenwebsite."""
     from chat import inject_configured_customer_chatbot
@@ -1770,16 +1889,22 @@ def build_customized_template_pages(
     description = escape(description.strip() or str(copy["defaults"][1]))
     text_color = contrast_text_color(background_color)
     muted_color = "#334155" if is_light_color(background_color) else "#cbd5e1"
-    head = f"""<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{company_name}</title><link rel="stylesheet" href="styles.css"><style>:root{{--background:{background_color};--accent:{accent_color};--text:{text_color};--muted:{muted_color};--radius:10px;}}</style></head>"""
+    head = f"""<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{company_name}</title><link rel="stylesheet" href="styles.css"><style>:root{{--background:{background_color};--accent:{accent_color};--accent-text:{contrast_text_color(accent_color)};--text:{text_color};--muted:{muted_color};--radius:10px;}} {TEMPLATE_STYLES.get(template_name, "")}</style></head>"""
     navigation = f'<nav><a href="index.html">{nav["start"]}</a><a href="leistungen.html">{nav["leistungen"]}</a><a href="angebote.html">{nav["angebote"]}</a><a href="projekte.html">{nav["projekte"]}</a><a href="ueber-uns.html">{nav["ueber_uns"]}</a><a href="kontakt.html">{nav["kontakt"]}</a></nav>'
 
     def page_html(page_key: str) -> str:
-        _title, heading, cards = copy["pages"][page_key]
+        title, heading, cards = copy["pages"][page_key]
         cards_html = "".join(
-            f'<section class="card"><h2>{card_title}</h2><p>{card_text or description}</p></section>'
-            for card_title, card_text in cards
+            f'<article class="card"><strong>{index:02d}</strong><h3>{card_title}</h3><p>{card_text or description}</p></article>'
+            for index, (card_title, card_text) in enumerate(cards, start=1)
         )
-        return f'''<!doctype html><html lang="{language}" dir="{direction}">{head}<body><header><strong>{company_name}</strong>{navigation}</header><main><h1>{heading}</h1><p>{description}</p>{cards_html}<a class="button" href="kontakt.html">{nav["kontakt"]}</a></main><footer>{company_name} · <a href="mailto:{business_email}">{business_email}</a></footer></body></html>'''
+        footer = (
+            f'<footer class="site-footer"><section><strong>{company_name}</strong><p>{description}</p></section>'
+            f'<section><strong>{copy["contact"]}</strong><p><a href="mailto:{business_email}">{business_email}</a></p></section>'
+            f'<section><strong>{copy["legal"]}</strong><p>{copy["imprint"]} · {copy["privacy"]}</p></section>'
+            f'<p class="footer-legal">© {datetime.now().year} {company_name}. {copy["rights"]}</p></footer>'
+        )
+        return f'''<!doctype html><html lang="{language}" dir="{direction}">{head}<body><header><strong>{company_name}</strong>{navigation}</header><main class="container"><span class="eyebrow">{title}</span><h1>{heading}</h1><p>{description}</p><div class="cards">{cards_html}</div><a class="button" href="kontakt.html">{nav["kontakt"]}</a></main>{footer}</body></html>'''
 
     services = page_html("leistungen")
     projects = page_html("projekte")
@@ -2670,8 +2795,4 @@ def apply_industry_content_preset() -> None:
         template_name = INDUSTRY_TEMPLATE_MAP.get(industry)
         if template_name:
             st.session_state.template_name = template_name
-        st.session_state.template_preview_page = "start"
-        st.session_state.template_preview_template = st.session_state.get(
-            "template_name", ""
-        )
         st.session_state.industry_preset_applied = custom_industry or industry
