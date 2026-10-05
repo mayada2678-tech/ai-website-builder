@@ -351,18 +351,37 @@ class TestMoreFlows:
         assert_no_errors(app)
 
     def test_custom_domain_check_and_checkout(self, user_id, monkeypatch):
+        """Der Entwurf wird vor der Zahlung veröffentlicht; die Bestellung nennt genau dieses Projekt."""
         import gui
         from conftest import FakeResponse
 
-        configure(monkeypatch, INWX_USERNAME="user", INWX_PASSWORD="pass", STRIPE_SECRET_KEY="sk", STRIPE_PRICE_ID="price", STRIPE_SUCCESS_URL="https://app.example/")
+        configure(monkeypatch, INWX_USERNAME="user", INWX_PASSWORD="pass", STRIPE_SECRET_KEY="sk", STRIPE_PRICE_ID="price", STRIPE_SUCCESS_URL="https://app.example/", HF_API_KEY="")
         monkeypatch.setattr(gui, "check_domain_with_registrar", lambda domain: {"domain": "firma.de", "available": True, "status": "free"})
+        steps = []
 
-        def post(url, **_kwargs):
-            if "vercel.com/v10/projects" in url:
-                return FakeResponse(201, {"id": "prj_1"})
-            return FakeResponse(200, {"url": "https://checkout.stripe.com/domain"})
+        def post(url, headers=None, json=None, data=None, timeout=None, auth=None):
+            if url.endswith("/v2/files"):
+                return FakeResponse(200, {})
+            if "deployments" in url:
+                steps.append(("deploy", json["name"]))
+                return FakeResponse(200, {"id": "dpl_1", "url": "firma.vercel.app", "projectId": "prj_1"})
+            if url.endswith("/env"):
+                return FakeResponse(201, {})
+            if "stripe.com" in url:
+                steps.append(("checkout", dict(data)))
+                return FakeResponse(200, {"url": "https://checkout.stripe.com/domain"})
+            raise AssertionError(url)
+
+        def get(url, **_kwargs):
+            if url.endswith("/env"):
+                return FakeResponse(200, {"envs": []})
+            return FakeResponse(200, {"readyState": "READY", "url": "firma.vercel.app"})
 
         monkeypatch.setattr(logic.requests, "post", post)
+        monkeypatch.setattr(logic.requests, "get", get)
+        monkeypatch.setattr(logic.requests, "patch", lambda *a, **k: FakeResponse(200, {}))
+        monkeypatch.setattr("chat.requests.get", get)
+        monkeypatch.setattr("chat.requests.post", post)
         app = create_draft(make_app(user_id))
         app.radio(key="domain_type").set_value("Eigene Domain verbinden").run()
         app.text_input(key="custom_domain").input("www.firma.de").run()
@@ -370,7 +389,15 @@ class TestMoreFlows:
         assert_no_errors(app)
         app.button(key="buy_and_publish_custom_domain").click().run()
         assert_no_errors(app)
-        assert app.session_state["vercel_project_id"] == "prj_1"
+
+        assert [step for step, _ in steps] == ["deploy", "checkout"]
+        project_name = steps[0][1]
+        checkout = steps[1][1]
+        assert checkout["metadata[vercel_project_id]"] == "prj_1"
+        assert checkout["metadata[project_name]"] == project_name
+        saved = logic.load_website(user_id, int(checkout["metadata[website_id]"]))
+        assert saved is not None and "Genusszeit" in saved[1]
+        assert app.session_state["deployment_id"] == "dpl_1"
         assert app.session_state["stripe_checkout_url"] == "https://checkout.stripe.com/domain"
 
     def test_unavailable_registrar_shows_error(self, user_id, monkeypatch):
@@ -435,3 +462,26 @@ class TestDomainOffer:
     def test_new_customer_sees_subscription_offer(self, user_id, monkeypatch):
         app = self.open_domain_section(user_id, monkeypatch)
         assert "Premium-Abo (Domain inklusive)" in app.button(key="buy_and_publish_custom_domain").label
+
+
+def test_no_second_deployment_after_domain_purchase(user_id, monkeypatch):
+    from conftest import SIMPLE_HTML, FakeResponse
+
+    website_id = logic.save_website(user_id, "firma.de", SIMPLE_HTML, "firma.de", "site")
+    configure(monkeypatch, STRIPE_SECRET_KEY="sk_test")
+    metadata = {"domain": "firma.de", "vercel_project_id": "prj_1", "project_name": "firma-x1", "website_id": str(website_id), "provisioning_status": "processing"}
+    monkeypatch.setattr(logic.requests, "get", lambda *a, **k: FakeResponse(200, {"payment_status": "paid", "client_reference_id": str(user_id), "metadata": metadata}))
+    monkeypatch.setattr(logic.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(logic, "wait_for_domain_provisioning", lambda session_id: {"status": "pending", "domain": ""})
+    app = AppTest.from_file(str(PROJECT_ROOT / "app.py"), default_timeout=120)
+    app.secrets["openai_api_key"] = "x"
+    app.secrets["vercel_token"] = "y"
+    app.query_params["checkout_session_id"] = "cs_1"
+    app.query_params["publish"] = "1"
+    app.session_state["user_id"] = user_id
+    app.session_state["user_email"] = "kunde@example.com"
+    app.run()
+    # Ein Veröffentlichungsversuch würde am gesperrten Netzwerk scheitern und einen Fehler zeigen.
+    assert not app.exception and not app.error
+    assert app.session_state["publish_after_checkout"] is False
+    assert app.session_state["project_name"] == "firma-x1"

@@ -184,11 +184,6 @@ class TestVercelHelpers:
         monkeypatch.setattr(logic.requests, "patch", network_error)
         assert "nicht automatisch" in logic.configure_public_vercel_project("prj")
 
-        monkeypatch.setattr(logic.requests, "post", lambda *a, **k: FakeResponse(201, {"id": "prj_1"}))
-        assert logic.create_empty_vercel_project("Firma GmbH") == "prj_1"
-        monkeypatch.setattr(logic.requests, "post", lambda *a, **k: FakeResponse(201, {}))
-        with pytest.raises(ValueError, match="Projekt-ID"):
-            logic.create_empty_vercel_project("x")
 
         monkeypatch.setattr(logic.requests, "post", lambda *a, **k: FakeResponse(200, {}))
         assert logic.upload_vercel_file("index.html", b"abc") == {"file": "index.html", "sha": "a9993e364706816aba3e25717850c26c9cd0d89d"}

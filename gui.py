@@ -27,7 +27,6 @@ from logic import (
     confirm_stripe_checkout,
     create_analytics_optimized_version,
     create_deployment_project_name,
-    create_empty_vercel_project,
     build_draft_preview_pages,
     build_template_preview_pages,
     create_preview_html,
@@ -604,7 +603,9 @@ def render_authentication_gate() -> dict:
     return_to_publish = st.query_params.get("publish") == "1"
 
     if confirm_stripe_checkout(current_user_id):
-        st.session_state.publish_after_checkout = return_to_publish
+        st.session_state.publish_after_checkout = return_to_publish and not st.session_state.get(
+            "paid_domain_checkout_session_id"
+        )
         show_after_rerun("Zahlung bestätigt. Die Veröffentlichung ist jetzt freigeschaltet.")
         st.rerun()
 
@@ -1726,9 +1727,14 @@ def render_domain_and_deployment_ui() -> None:
         ):
             with st.status(automated_domain_copy[2], expanded=True) as status:
                 try:
+                    # Erst den gewählten Entwurf veröffentlichen: Nach der Zahlung verbindet
+                    # der Webhook die Domain mit genau diesem Projekt, die Website ist sofort da.
                     st.session_state.project_name = create_deployment_project_name()
-                    project_id = create_empty_vercel_project(st.session_state.project_name)
-                    st.session_state.vercel_project_id = project_id
+                    st.session_state.vercel_project_id = ""
+                    publish_website()
+                    project_id = str(st.session_state.vercel_project_id)
+                    if not project_id:
+                        raise ValueError("Vercel hat keine Projekt-ID für die Website geliefert.")
                     # Stripe öffnet die App danach in einer neuen Sitzung: Entwurf sichern.
                     website_id = save_website(
                         int(st.session_state.user_id),

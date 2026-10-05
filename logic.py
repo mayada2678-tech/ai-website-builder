@@ -2517,31 +2517,6 @@ def configure_public_vercel_project(project_id: str) -> str:
     return ""
 
 
-def create_empty_vercel_project(project_name: str) -> str:
-    """Erstellt ein Vercel-Projekt ohne Website-Dateien für den Domain-Checkout."""
-    try:
-        response = requests.post(
-            "https://api.vercel.com/v10/projects",
-            headers={
-                "Authorization": f"Bearer {VERCEL_TOKEN}",
-                "Content-Type": "application/json",
-            },
-            json={"name": safe_project_name(project_name)},
-            timeout=30,
-        )
-    except requests.RequestException as error:
-        raise ValueError(f"Das Vercel-Projekt konnte nicht vorbereitet werden: {error}") from error
-    if response.status_code not in {200, 201}:
-        raise ValueError(
-            "Das Vercel-Projekt konnte nicht vorbereitet werden "
-            f"(Vercel HTTP {response.status_code})."
-        )
-    project_id = str(response.json().get("id", "")).strip()
-    if not project_id:
-        raise ValueError("Vercel hat keine Projekt-ID zurückgegeben.")
-    return project_id
-
-
 def upload_vercel_file(file_name: str, content: bytes) -> dict[str, str]:
     """Lädt eine einzelne Datei hoch und liefert den schlanken Deployment-Verweis."""
     digest = hashlib.sha1(content).hexdigest()
