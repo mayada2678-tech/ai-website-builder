@@ -399,6 +399,12 @@ class TestMoreFlows:
         assert saved is not None and "Genusszeit" in saved[1]
         assert app.session_state["deployment_id"] == "dpl_1"
         assert app.session_state["stripe_checkout_url"] == "https://checkout.stripe.com/domain"
+        # Kein zweiter Kauf derselben Domain: nach dem Neuladen ist der Button weg,
+        # die vorbereitete Zahlung bleibt, und es wird nichts erneut veröffentlicht.
+        app.run()
+        assert not has_widget(app.button, "buy_and_publish_custom_domain")
+        assert any("bitte schließen sie jetzt die zahlung ab" in message.value.lower() for message in app.success)
+        assert [step for step, _ in steps] == ["deploy", "checkout"]
 
     def test_unavailable_registrar_shows_error(self, user_id, monkeypatch):
         import gui

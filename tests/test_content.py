@@ -53,7 +53,7 @@ class TestHtmlHelpers:
 
 
 class TestProjectNames:
-    @pytest.mark.parametrize(("name", "expected"), [("Firma GmbH & Co", "firma-gmbh---co"), ("---", "ai-website-builder"), ("x" * 150, "x" * 100)])
+    @pytest.mark.parametrize(("name", "expected"), [("Firma GmbH & Co", "firma-gmbh-co"), ("Haardesign und Wohlfühlen", "haardesign-und-wohlfuehlen"), ("Café Straße", "cafe-strasse"), ("---", "ai-website-builder"), ("x" * 150, "x" * 100)])
     def test_safe_project_name(self, name, expected):
         assert logic.safe_project_name(name) == expected
 
@@ -61,7 +61,7 @@ class TestProjectNames:
         session.client_company_name = "Café Müller"
         first, second = logic.create_deployment_project_name(), logic.create_deployment_project_name()
         assert first != second
-        assert first.startswith("caf--m-ller-") and len(first) <= 97
+        assert first.startswith("cafe-mueller-") and len(first) <= 97
 
     @pytest.mark.parametrize(("url", "expected"), [("https://meine-seite.vercel.app/x", "meine-seite"), ("firma.de", "firma"), ("", "ai-website-builder")])
     def test_project_name_from_url(self, url, expected):

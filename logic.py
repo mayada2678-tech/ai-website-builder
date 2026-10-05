@@ -14,6 +14,7 @@ import re
 import secrets
 import sqlite3
 import time
+import unicodedata
 import uuid
 import zipfile
 from copy import deepcopy
@@ -617,6 +618,9 @@ def initialize_database() -> None:
             connection.execute(
                 "ALTER TABLE websites ADD COLUMN analytics_site_id TEXT"
             )
+        if "site_files" not in website_columns:
+            # Vollständige Website als JSON: alle Seiten, styles.css und Bilder.
+            connection.execute("ALTER TABLE websites ADD COLUMN site_files TEXT")
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS support_requests (
@@ -694,15 +698,25 @@ def authenticate_user(email: str, password: str) -> tuple[int, str] | None:
 
 
 def save_website(
-    user_id: int, site_name: str, html: str, domain: str, analytics_site_id: str
+    user_id: int,
+    site_name: str,
+    html: str,
+    domain: str,
+    analytics_site_id: str,
+    site_pages: dict[str, str] | None = None,
+    assets: dict[str, dict[str, str]] | None = None,
 ) -> int:
-    """Speichert einen Entwurf in der Historie des angemeldeten Nutzers und liefert seine ID."""
+    """Speichert einen Entwurf vollständig (alle Seiten, Stylesheet, Bilder) und liefert seine ID."""
+    site_files = json.dumps(
+        {"site_pages": dict(site_pages or {}), "assets": dict(assets or {})},
+        ensure_ascii=False,
+    )
     with sqlite3.connect(DATABASE_PATH) as connection:
         cursor = connection.execute(
             """
             INSERT INTO websites (
-                user_id, site_name, html_content, domain, analytics_site_id
-            ) VALUES (?, ?, ?, ?, ?)
+                user_id, site_name, html_content, domain, analytics_site_id, site_files
+            ) VALUES (?, ?, ?, ?, ?, ?)
             """,
             (
                 user_id,
@@ -710,9 +724,53 @@ def save_website(
                 html,
                 domain,
                 analytics_site_id,
+                site_files,
             ),
         )
         return int(cursor.lastrowid)
+
+
+def load_website_files(user_id: int, website_id: int) -> tuple[dict[str, str], dict[str, dict[str, str]]]:
+    """Lädt die gespeicherten Seiten und Bilder eines eigenen Entwurfs (leer bei alten Entwürfen)."""
+    with sqlite3.connect(DATABASE_PATH) as connection:
+        row = connection.execute(
+            "SELECT site_files FROM websites WHERE id = ? AND user_id = ?",
+            (website_id, user_id),
+        ).fetchone()
+    try:
+        files = json.loads(row[0]) if row and row[0] else {}
+    except (TypeError, ValueError):
+        files = {}
+    site_pages = files.get("site_pages") if isinstance(files.get("site_pages"), dict) else {}
+    assets = files.get("assets") if isinstance(files.get("assets"), dict) else {}
+    return site_pages, assets
+
+
+def apply_saved_website(user_id: int, website_id: int) -> bool:
+    """Stellt einen gespeicherten Entwurf vollständig im Editor wieder her."""
+    saved = load_website(user_id, website_id)
+    if saved is None:
+        return False
+    _site_name, html, _domain, analytics_site_id = saved
+    site_pages, assets = load_website_files(user_id, website_id)
+    index_html = site_pages.get("index.html") or html
+    site_pages = dict(site_pages) or {"index.html": index_html}
+    site_pages["index.html"] = index_html
+    # Ältere Entwürfe enthalten nur die Startseite: Vorlagen-Stylesheet ergänzen.
+    references_stylesheet = any(
+        re.search(r"""(?i)<link\b[^>]*href=["'](?:\./)?styles\.css["']""", page)
+        for name, page in site_pages.items()
+        if name.endswith(".html")
+    )
+    if references_stylesheet and "styles.css" not in site_pages:
+        site_pages["styles.css"] = build_customized_template_styles()
+    st.session_state.site_pages = site_pages
+    st.session_state.assets = assets
+    st.session_state.pending_html = index_html
+    st.session_state.generated_html = index_html
+    if analytics_site_id:
+        st.session_state.analytics_site_id = analytics_site_id
+    return True
 
 
 def get_websites(user_id: int) -> list[tuple[int, str, str]]:
@@ -987,15 +1045,7 @@ def restore_checkout_draft(user_id: int, metadata: dict) -> None:
         website_id = int(str(metadata.get("website_id", "")))
     except ValueError:
         return
-    saved = load_website(user_id, website_id)
-    if saved is None:
-        return
-    _site_name, html, _domain, analytics_site_id = saved
-    st.session_state.pending_html = html
-    st.session_state.generated_html = html
-    st.session_state.site_pages = {"index.html": html}
-    if analytics_site_id:
-        st.session_state.analytics_site_id = analytics_site_id
+    apply_saved_website(user_id, website_id)
 
 
 def wait_for_domain_provisioning(session_id: str, timeout_seconds: int = 45) -> dict:
@@ -1655,9 +1705,13 @@ def build_website_zip() -> bytes:
 
 
 def safe_project_name(name: str) -> str:
-    """Erstellt einen gültigen Vercel-Projektnamen."""
-    safe_name = re.sub(r"[^a-z0-9-]", "-", name.lower()).strip("-")
-    return safe_name[:100] or "ai-website-builder"
+    """Erstellt einen gültigen Vercel-Projektnamen (Umlaute und Akzente lesbar umgeschrieben)."""
+    name = name.lower()
+    for umlaut, replacement in {"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"}.items():
+        name = name.replace(umlaut, replacement)
+    name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
+    safe_name = re.sub(r"[^a-z0-9]+", "-", name).strip("-")
+    return safe_name[:100].rstrip("-") or "ai-website-builder"
 
 
 def create_deployment_project_name() -> str:

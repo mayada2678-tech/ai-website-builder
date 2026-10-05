@@ -140,3 +140,33 @@ class TestDatabaseSetup:
             assert connection.execute("SELECT created_at FROM users").fetchone()[0]
             columns = {row[1] for row in connection.execute("PRAGMA table_info(websites)")}
         assert "analytics_site_id" in columns
+
+
+class TestCompleteDrafts:
+    """Entwürfe müssen mit Design (styles.css), Unterseiten und Bildern geladen werden."""
+
+    def test_full_site_round_trip(self, user_id, session):
+        pages = {"index.html": "<html><head><link rel=\"stylesheet\" href=\"styles.css\"></head><body>Start</body></html>", "kontakt.html": "<html><body>Kontakt</body></html>", "styles.css": "body{color:red}"}
+        assets = {"logo.png": {"base64": "QQ==", "mime_type": "image/png"}}
+        website_id = logic.save_website(user_id, "Café", pages["index.html"], "", "site-9", site_pages=pages, assets=assets)
+        session.update(site_pages={}, assets={}, generated_html="")
+        assert logic.apply_saved_website(user_id, website_id)
+        assert session.site_pages == pages and session.assets == assets
+        assert session.generated_html == session.pending_html == pages["index.html"]
+        assert session.analytics_site_id == "site-9"
+
+    def test_old_draft_gets_template_stylesheet(self, user_id, session, database):
+        import sqlite3
+
+        html = "<html><head><link rel=\"stylesheet\" href=\"styles.css\"></head><body>Alt</body></html>"
+        with sqlite3.connect(database) as connection:
+            cursor = connection.execute("INSERT INTO websites (user_id, site_name, html_content, domain) VALUES (?, 'alt', ?, '')", (user_id, html))
+            website_id = cursor.lastrowid
+        assert logic.apply_saved_website(user_id, website_id)
+        assert session.site_pages["styles.css"] == logic.build_customized_template_styles()
+        preview = logic.build_draft_preview_pages()["index.html"]
+        assert "<style>* { box-sizing: border-box; }" in preview
+
+    def test_foreign_or_missing_draft_is_not_loaded(self, user_id, session):
+        assert logic.apply_saved_website(user_id, 9999) is False
+        assert session.generated_html == ""

@@ -19,6 +19,7 @@ from logic import (
     apply_app_language,
     apply_background_preset,
     apply_industry_content_preset,
+    apply_saved_website,
     authenticate_user,
     AUTHENTICATION_COPY,
     BACKGROUND_PRESET_COLORS,
@@ -1550,13 +1551,13 @@ def render_domain_and_deployment_ui() -> None:
     }
     automated_domain_copy = automated_domain_copy.get(language, automated_domain_copy["en"])
     domain_offer_copy = {
-        "de": ("{domain} kaufen & veröffentlichen ({price})", "Sie haben Premium: Sie zahlen nur die Domain, einmalig {price} für 1 Jahr. Kein weiteres Abo.", "Mit dem Premium-Abo (Domain inklusive) veröffentlichen"),
-        "en": ("Buy {domain} & publish ({price})", "You have Premium: you only pay for the domain, once, {price} for 1 year. No additional subscription.", "Publish with the Premium subscription (domain included)"),
-        "ar": ("شراء {domain} والنشر ({price})", "لديك Premium: تدفع ثمن النطاق فقط، مرة واحدة {price} لمدة سنة. بدون اشتراك إضافي.", "النشر مع اشتراك Premium (النطاق مشمول)"),
-        "ku": ("کڕینی {domain} و بڵاوکردنەوە ({price})", "تۆ Premiumت هەیە: تەنها پارەی دۆمەین دەدەیت، یەکجار {price} بۆ ساڵێک. بێ بەشداریکردنی زیادە.", "بڵاوکردنەوە لەگەڵ بەشداریکردنی Premium (دۆمەین لەخۆدەگرێت)"),
-        "es": ("Comprar {domain} y publicar ({price})", "Tiene Premium: solo paga el dominio, una vez {price} por 1 año. Sin suscripción adicional.", "Publicar con la suscripción Premium (dominio incluido)"),
-        "it": ("Acquista {domain} e pubblica ({price})", "Hai Premium: paghi solo il dominio, una volta {price} per 1 anno. Nessun abbonamento aggiuntivo.", "Pubblica con l'abbonamento Premium (dominio incluso)"),
-        "hi": ("{domain} खरीदें और प्रकाशित करें ({price})", "आपके पास Premium है: केवल डोमेन का भुगतान, एक बार {price}, 1 वर्ष के लिए। कोई अतिरिक्त सदस्यता नहीं।", "Premium सदस्यता के साथ प्रकाशित करें (डोमेन शामिल)"),
+        "de": ("{domain} kaufen & veröffentlichen ({price})", "Sie haben Premium: Sie zahlen nur die Domain, einmalig {price} für 1 Jahr. Kein weiteres Abo.", "Mit dem Premium-Abo (Domain inklusive) veröffentlichen", "Website ist veröffentlicht. Bitte schließen Sie jetzt die Zahlung ab."),
+        "en": ("Buy {domain} & publish ({price})", "You have Premium: you only pay for the domain, once, {price} for 1 year. No additional subscription.", "Publish with the Premium subscription (domain included)", "Your website is published. Please complete the payment now."),
+        "ar": ("شراء {domain} والنشر ({price})", "لديك Premium: تدفع ثمن النطاق فقط، مرة واحدة {price} لمدة سنة. بدون اشتراك إضافي.", "النشر مع اشتراك Premium (النطاق مشمول)", "تم نشر موقعك. يرجى إكمال الدفع الآن."),
+        "ku": ("کڕینی {domain} و بڵاوکردنەوە ({price})", "تۆ Premiumت هەیە: تەنها پارەی دۆمەین دەدەیت، یەکجار {price} بۆ ساڵێک. بێ بەشداریکردنی زیادە.", "بڵاوکردنەوە لەگەڵ بەشداریکردنی Premium (دۆمەین لەخۆدەگرێت)", "وێبگەکەت بڵاوکرایەوە. تکایە ئێستا پارەدانەکە تەواو بکە."),
+        "es": ("Comprar {domain} y publicar ({price})", "Tiene Premium: solo paga el dominio, una vez {price} por 1 año. Sin suscripción adicional.", "Publicar con la suscripción Premium (dominio incluido)", "Su sitio está publicado. Complete ahora el pago."),
+        "it": ("Acquista {domain} e pubblica ({price})", "Hai Premium: paghi solo il dominio, una volta {price} per 1 anno. Nessun abbonamento aggiuntivo.", "Pubblica con l'abbonamento Premium (dominio incluso)", "Il sito è pubblicato. Completa ora il pagamento."),
+        "hi": ("{domain} खरीदें और प्रकाशित करें ({price})", "आपके पास Premium है: केवल डोमेन का भुगतान, एक बार {price}, 1 वर्ष के लिए। कोई अतिरिक्त सदस्यता नहीं।", "Premium सदस्यता के साथ प्रकाशित करें (डोमेन शामिल)", "आपकी वेबसाइट प्रकाशित हो गई है। कृपया अब भुगतान पूरा करें।"),
     }
     domain_offer_copy = domain_offer_copy.get(language, domain_offer_copy["en"])
     is_premium = bool(get_user_status(int(st.session_state.user_id))["subscribed"])
@@ -1717,7 +1718,13 @@ def render_domain_and_deployment_ui() -> None:
             buy_label = domain_offer_copy[0].format(domain=checked_domain_name or "Domain", price=domain_price_label)
         else:
             buy_label = domain_offer_copy[2]
-        if st.button(
+        checkout_prepared = bool(
+            st.session_state.get("stripe_checkout_url")
+            and st.session_state.get("prepared_checkout_domain") == normalized_custom_domain
+        )
+        if checkout_prepared:
+            st.success(domain_offer_copy[3])
+        elif st.button(
             buy_label,
             icon=":material/shopping_cart_checkout:",
             type="primary",
@@ -1742,6 +1749,8 @@ def render_domain_and_deployment_ui() -> None:
                         create_preview_html(st.session_state.generated_html),
                         str(domain_check["domain"]),
                         str(st.session_state.analytics_site_id),
+                        site_pages={**dict(st.session_state.site_pages), "index.html": st.session_state.generated_html},
+                        assets=dict(st.session_state.assets),
                     )
                     st.session_state.stripe_checkout_url = create_stripe_checkout_session(
                         int(st.session_state.user_id),
@@ -1752,12 +1761,15 @@ def render_domain_and_deployment_ui() -> None:
                         website_id=website_id,
                         one_time_domain=is_premium,
                     )
-                    status.update(label=automated_domain_copy[3], state="complete")
+                    st.session_state.prepared_checkout_domain = str(domain_check["domain"])
+                    status.update(label=domain_offer_copy[3], state="complete")
                 except (ValueError, ProvisioningError) as error:
                     status.update(label=action_labels[11], state="error")
                     st.error(str(error))
         custom_checkout_url = str(st.session_state.get("stripe_checkout_url", ""))
-        if domain_available and custom_checkout_url:
+        if domain_available and custom_checkout_url and (
+            st.session_state.get("prepared_checkout_domain") == normalized_custom_domain
+        ):
             st.link_button(
                 automated_domain_copy[3],
                 custom_checkout_url,
@@ -2238,6 +2250,8 @@ def render_sidebar(user_info: dict) -> None:
                 create_preview_html(st.session_state.generated_html),
                 st.session_state.live_url,
                 str(st.session_state.analytics_site_id),
+                site_pages={**dict(st.session_state.site_pages), "index.html": st.session_state.generated_html},
+                assets=dict(st.session_state.assets),
             )
             show_after_rerun(workspace_labels["draft_saved"])
             st.rerun()
@@ -2258,9 +2272,8 @@ def render_sidebar(user_info: dict) -> None:
                 ):
                     saved_website = load_website(st.session_state.user_id, website_id)
                     if saved_website is not None:
-                        loaded_name, loaded_html, loaded_domain, analytics_site_id = saved_website
-                        st.session_state.assets = {}
-                        st.session_state.pending_html = loaded_html
+                        loaded_name, _loaded_html, loaded_domain, analytics_site_id = saved_website
+                        apply_saved_website(st.session_state.user_id, website_id)
                         st.session_state.live_url = loaded_domain
                         st.session_state.deployment_url = loaded_domain
                         st.session_state.deployment_id = ""
