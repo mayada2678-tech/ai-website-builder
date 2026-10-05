@@ -74,14 +74,27 @@ class InwxClient:
     def check(self, domain: str) -> dict[str, Any]:
         normalized = normalize_domain(domain)
         result = self._request("domain.check", {"domain": normalized})
-        status = str(result.get("status", "")).lower()
-        available = status in {"free", "available"} or result.get("available") is True
+        # INWX liefert die Ergebnisse als Liste unter "domain" (je Eintrag u. a. avail, status).
+        entries = result.get("domain")
+        if isinstance(entries, list):
+            entry = next(
+                (item for item in entries if isinstance(item, dict) and str(item.get("domain", "")).lower() == normalized),
+                entries[0] if entries and isinstance(entries[0], dict) else {},
+            )
+        else:
+            entry = result
+        status = str(entry.get("status", "")).lower()
+        available = (
+            str(entry.get("avail", "")) == "1"
+            or entry.get("available") is True
+            or status in {"free", "available"}
+        )
         return {
             "domain": normalized,
             "available": available,
             "status": status or ("available" if available else "unavailable"),
-            "price": result.get("price"),
-            "currency": result.get("currency"),
+            "price": entry.get("price"),
+            "currency": entry.get("currency") or result.get("currency"),
             "environment": self.environment,
         }
 

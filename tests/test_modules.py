@@ -140,7 +140,8 @@ class TestDomainProvisioning:
         monkeypatch.setenv("INWX_PASSWORD", "pass")
         monkeypatch.setenv("INWX_ENVIRONMENT", "ote")
         calls = []
-        replies = {"domain.check": {"status": "free", "price": 9.9, "currency": "EUR"}}
+        # Format laut INWX-Doku: Liste unter "domain", avail = 1 bedeutet frei.
+        replies = {"domain.check": {"domain": [{"domain": "firma.de", "avail": 1, "status": "free", "price": 9.9}]}}
 
         def post(self, url, json, timeout):
             calls.append(json["method"])
@@ -160,8 +161,22 @@ class TestDomainProvisioning:
 
     def test_check(self, inwx):
         result = domain_provisioning.check_domain_with_registrar("www.firma.de")
-        assert result == {"domain": "firma.de", "available": True, "status": "free", "price": 9.9, "currency": "EUR", "environment": "ote"}
+        assert result == {"domain": "firma.de", "available": True, "status": "free", "price": 9.9, "currency": None, "environment": "ote"}
         assert inwx.calls == ["account.login", "domain.check"]
+
+    @pytest.mark.parametrize(
+        ("reply", "available"),
+        [
+            ({"domain": [{"domain": "andere.de", "avail": 1}, {"domain": "firma.de", "avail": 0, "status": "taken"}]}, False),
+            ({"domain": [{"domain": "firma.de", "avail": "1"}]}, True),
+            ({"domain": []}, False),
+            ({"status": "free"}, True),
+            ({}, False),
+        ],
+    )
+    def test_check_reads_matching_entry(self, inwx, reply, available):
+        inwx.replies["domain.check"] = reply
+        assert domain_provisioning.check_domain_with_registrar("firma.de")["available"] is available
 
     def test_api_and_network_errors(self, inwx, monkeypatch):
         monkeypatch.setattr(requests.Session, "post", lambda self, url, json, timeout: FakeResponse(200, {"code": 2400, "msg": "Fehler"}))
@@ -186,7 +201,7 @@ class TestDomainProvisioning:
         assert inwx.calls == ["account.login", "domain.check", "domain.create", "nameserver.createRecord", "nameserver.createRecord"]
 
     def test_unavailable_domain_is_not_bought(self, inwx):
-        inwx.replies["domain.check"] = {"status": "taken"}
+        inwx.replies["domain.check"] = {"domain": [{"domain": "firma.de", "avail": 0, "status": "taken"}]}
         with pytest.raises(domain_provisioning.ProvisioningError, match="no longer available"):
             domain_provisioning.provision_paid_domain("firma.de", "prj_1")
         assert "domain.create" not in inwx.calls
