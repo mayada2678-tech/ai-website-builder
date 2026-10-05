@@ -1511,6 +1511,127 @@ OWNED_DOMAIN_COPY = {
 }
 
 
+EXTERNAL_DOMAIN_HELP = {
+    "de": ("So geht's: eigene Domain verbinden", """**1. In der App**
+- Gewünschten Entwurf erstellen oder links unter „Ihre Entwürfe“ auf **Laden** klicken. Genau dieser Entwurf wird veröffentlicht.
+- Unten Ihre Domain eingeben (z. B. `mein-betrieb.de`) und auf **Domain verbinden & Website veröffentlichen** klicken.
+
+**2. Bei Ihrem Domain-Anbieter** (z. B. IONOS, Strato, GoDaddy)
+- Anmelden und die **DNS-Einstellungen** der Domain öffnen („DNS verwalten“, „DNS-Einträge“).
+- Die angezeigten Einträge eintragen bzw. vorhandene ersetzen:
+
+| Typ | Name / Host | Wert / Ziel |
+|---|---|---|
+| A | `@` (bei manchen Anbietern leer lassen) | `76.76.21.21` |
+| CNAME | `www` | `cname.vercel-dns.com` |
+
+- Zeigt die App zusätzlich einen **TXT**-Eintrag an, diesen ebenfalls eintragen. Danach speichern.
+
+**3. Zurück in der App**
+- Unter „Ihre Domains“ auf **Verbindung prüfen** klicken. Meist ist die Domain nach wenigen Minuten aktiv, selten nach bis zu 48 Stunden. Das SSL-Zertifikat (https) wird automatisch eingerichtet.
+- Später einen anderen Entwurf veröffentlichen: Entwurf laden und unter „Ihre Domains“ auf **Gewählten Entwurf … veröffentlichen** klicken. Die DNS-Einträge bleiben unverändert."""),
+    "en": ("How it works: connect your own domain", """**1. In the app**
+- Create the draft you want or click **Load** under "Your drafts" on the left. Exactly this draft is published.
+- Enter your domain below (e.g. `my-business.com`) and click **Connect domain & publish website**.
+
+**2. At your domain provider** (e.g. GoDaddy, Namecheap, IONOS)
+- Sign in and open the domain's **DNS settings** ("Manage DNS", "DNS records").
+- Add the records shown or replace existing ones:
+
+| Type | Name / Host | Value / Target |
+|---|---|---|
+| A | `@` (some providers: leave empty) | `76.76.21.21` |
+| CNAME | `www` | `cname.vercel-dns.com` |
+
+- If the app also shows a **TXT** record, add it as well. Then save.
+
+**3. Back in the app**
+- Click **Check connection** under "Your domains". The domain is usually active within minutes, rarely after up to 48 hours. The SSL certificate (https) is set up automatically.
+- To publish another draft later: load it and click **Publish selected draft to …** under "Your domains". The DNS records stay the same."""),
+    "ar": ("طريقة ربط نطاقك الخاص", """**1. في التطبيق**
+- أنشئ المسودة المطلوبة أو اضغط **تحميل** ضمن «مسوداتك» على اليسار. سيتم نشر هذه المسودة تحديداً.
+- أدخل نطاقك أدناه (مثل `my-business.com`) واضغط **ربط النطاق ونشر الموقع**.
+
+**2. لدى مزود النطاق**
+- سجّل الدخول وافتح **إعدادات DNS** للنطاق.
+- أضف السجلات المعروضة أو استبدل الموجودة:
+
+| النوع | الاسم / المضيف | القيمة / الهدف |
+|---|---|---|
+| A | `@` | `76.76.21.21` |
+| CNAME | `www` | `cname.vercel-dns.com` |
+
+- إذا عرض التطبيق سجلاً من نوع **TXT** فأضفه أيضاً، ثم احفظ.
+
+**3. العودة إلى التطبيق**
+- اضغط **التحقق من الربط** ضمن «نطاقاتك». يصبح النطاق نشطاً عادة خلال دقائق، ونادراً بعد 48 ساعة. يتم إعداد شهادة SSL تلقائياً."""),
+    "ku": ("ڕێنمایی: بەستنەوەی دۆمەینی خۆت", """**1. لە ئەپەکەدا**
+- ڕەشنووسی دڵخواز دروست بکە یان لە «ڕەشنووسەکانت» کلیک لە **بارکردن** بکە.
+- دۆمەینەکەت بنووسە (بۆ نموونە `my-business.com`) و کلیک لە **بەستنەوەی دۆمەین و بڵاوکردنەوەی وێبگە** بکە.
+
+**2. لای دابینکەری دۆمەین**
+- **ڕێکخستنەکانی DNS** بکەرەوە و ئەم تۆمارانە زیاد بکە:
+
+| جۆر | ناو / هۆست | بەها / ئامانج |
+|---|---|---|
+| A | `@` | `76.76.21.21` |
+| CNAME | `www` | `cname.vercel-dns.com` |
+
+- ئەگەر تۆمارێکی **TXT** پیشان درا، ئەویش زیاد بکە.
+
+**3. گەڕانەوە بۆ ئەپ**
+- لە «دۆمەینەکانت» کلیک لە **پشکنینی بەستنەوە** بکە. زۆرجار لە چەند خولەکێکدا چالاک دەبێت."""),
+    "es": ("Cómo conectar su propio dominio", """**1. En la aplicación**
+- Cree el borrador deseado o pulse **Cargar** en «Sus borradores» a la izquierda. Se publica exactamente ese borrador.
+- Introduzca su dominio abajo (p. ej. `mi-empresa.com`) y pulse **Conectar dominio y publicar sitio**.
+
+**2. En su proveedor de dominio**
+- Abra la **configuración DNS** del dominio y añada o sustituya estos registros:
+
+| Tipo | Nombre / Host | Valor / Destino |
+|---|---|---|
+| A | `@` | `76.76.21.21` |
+| CNAME | `www` | `cname.vercel-dns.com` |
+
+- Si la aplicación muestra además un registro **TXT**, añádalo también.
+
+**3. De vuelta en la aplicación**
+- Pulse **Comprobar conexión** en «Sus dominios». Suele estar activo en minutos, raramente hasta 48 horas. El certificado SSL se crea automáticamente."""),
+    "it": ("Come collegare il tuo dominio", """**1. Nell'app**
+- Crea la bozza desiderata o clicca **Carica** in «Le tue bozze» a sinistra. Viene pubblicata esattamente questa bozza.
+- Inserisci il dominio qui sotto (ad es. `mia-azienda.com`) e clicca **Collega dominio e pubblica sito**.
+
+**2. Presso il provider del dominio**
+- Apri le **impostazioni DNS** del dominio e aggiungi o sostituisci questi record:
+
+| Tipo | Nome / Host | Valore / Destinazione |
+|---|---|---|
+| A | `@` | `76.76.21.21` |
+| CNAME | `www` | `cname.vercel-dns.com` |
+
+- Se l'app mostra anche un record **TXT**, aggiungilo.
+
+**3. Di nuovo nell'app**
+- Clicca **Verifica collegamento** in «I tuoi domini». Di solito è attivo in pochi minuti, raramente fino a 48 ore. Il certificato SSL viene creato automaticamente."""),
+    "hi": ("अपना डोमेन कैसे जोड़ें", """**1. ऐप में**
+- इच्छित प्रारूप बनाएं या बाईं ओर «आपके प्रारूप» में **लोड** पर क्लिक करें।
+- नीचे अपना डोमेन दर्ज करें (जैसे `my-business.com`) और **डोमेन जोड़ें और वेबसाइट प्रकाशित करें** पर क्लिक करें।
+
+**2. अपने डोमेन प्रदाता के पास**
+- डोमेन की **DNS सेटिंग** खोलें और ये रिकॉर्ड जोड़ें या बदलें:
+
+| प्रकार | नाम / होस्ट | मान / लक्ष्य |
+|---|---|---|
+| A | `@` | `76.76.21.21` |
+| CNAME | `www` | `cname.vercel-dns.com` |
+
+- यदि ऐप एक **TXT** रिकॉर्ड भी दिखाए, तो उसे भी जोड़ें।
+
+**3. वापस ऐप में**
+- «आपके डोमेन» में **कनेक्शन जांचें** पर क्लिक करें। आमतौर पर कुछ मिनटों में सक्रिय हो जाता है। SSL प्रमाणपत्र अपने आप बनता है।"""),
+}
+
+
 EXTERNAL_DOMAIN_COPY = {
     "de": {"option": "Bereits gekaufte Domain verbinden", "intro": "Sie haben Ihre Domain schon bei einem anderen Anbieter (z. B. IONOS, Strato, GoDaddy) gekauft? Geben Sie sie ein. Wir veröffentlichen Ihren Entwurf und zeigen Ihnen die DNS-Einträge, die Sie bei Ihrem Anbieter eintragen.", "label": "Ihre Domain", "placeholder": "z. B. mein-betrieb.de", "button": "Domain verbinden & Website veröffentlichen", "working": "Website wird veröffentlicht und Domain verbunden ...", "connected": "{domain} ist verbunden. Ihre Website ist online.", "pending": "Website ist veröffentlicht. Tragen Sie jetzt die DNS-Einträge bei Ihrem Domain-Anbieter ein.", "badge": "DNS-Einträge eintragen", "records": "Tragen Sie diese Einträge in der DNS-Verwaltung Ihres Domain-Anbieters ein:", "type": "Typ", "name": "Name / Host", "value": "Wert / Ziel", "check": "Verbindung prüfen", "not_yet": "Noch nicht verbunden. DNS-Änderungen werden meist in wenigen Minuten aktiv, selten erst nach bis zu 48 Stunden.", "need_draft": "Erstellen oder laden Sie zuerst den Entwurf, der unter der Domain erscheinen soll."},
     "en": {"option": "Connect a domain you already own", "intro": "Already bought your domain elsewhere (e.g. GoDaddy, Namecheap, IONOS)? Enter it. We publish your draft and show you the DNS records to add at your provider.", "label": "Your domain", "placeholder": "e.g. my-business.com", "button": "Connect domain & publish website", "working": "Publishing website and connecting domain ...", "connected": "{domain} is connected. Your website is online.", "pending": "Your website is published. Now add the DNS records at your domain provider.", "badge": "Add DNS records", "records": "Add these records in your domain provider's DNS settings:", "type": "Type", "name": "Name / Host", "value": "Value / Target", "check": "Check connection", "not_yet": "Not connected yet. DNS changes usually take a few minutes, rarely up to 48 hours.", "need_draft": "First create or load the draft that should appear on the domain."},
@@ -1770,6 +1891,9 @@ def render_domain_and_deployment_ui() -> None:
             )
     elif domain_type == "Bereits gekaufte Domain verbinden":
         st.info(external_copy["intro"])
+        help_title, help_text = EXTERNAL_DOMAIN_HELP.get(language, EXTERNAL_DOMAIN_HELP["en"])
+        with st.expander(help_title, icon=":material/help:"):
+            st.markdown(help_text)
         external_domain = st.text_input(
             external_copy["label"],
             placeholder=external_copy["placeholder"],

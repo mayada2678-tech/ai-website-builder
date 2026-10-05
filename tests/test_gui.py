@@ -532,3 +532,34 @@ def test_connect_external_domain_in_app(user_id, monkeypatch):
     assert has_widget(app.button, "check_dns_firma.de")
     values = [code.value for code in app.code]
     assert "76.76.21.21" in values and "cname.vercel-dns.com" in values
+
+
+def test_external_domain_help_is_shown(user_id, monkeypatch):
+    import gui
+    from conftest import FakeResponse
+
+    monkeypatch.setattr(logic.requests, "get", lambda *a, **k: FakeResponse(200, {"data": []}))
+    app = create_draft(make_app(user_id))
+    app.radio(key="domain_type").set_value("Bereits gekaufte Domain verbinden").run()
+    assert_no_errors(app)
+    title, _text = gui.EXTERNAL_DOMAIN_HELP["de"]
+    # AppTest führt aufklappbare Bereiche mit Symbol als „Status“-Element.
+    labels = []
+
+    def collect(node):
+        labels.append(str(getattr(node, "label", "") or ""))
+        if isinstance(getattr(node, "children", None), dict):
+            for child in node.children.values():
+                collect(child)
+
+    collect(app._tree)
+    assert title in labels
+
+
+def test_external_domain_help_complete_in_every_language():
+    import gui
+
+    assert set(gui.EXTERNAL_DOMAIN_HELP) == set(LANGUAGES) == set(gui.EXTERNAL_DOMAIN_COPY)
+    for title, text in gui.EXTERNAL_DOMAIN_HELP.values():
+        assert title and "76.76.21.21" in text and "cname.vercel-dns.com" in text and "TXT" in text
+
