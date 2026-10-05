@@ -254,9 +254,16 @@ class TestPublishing:
 
         monkeypatch.setattr(logic.requests, "post", offline)
         app = create_draft(make_app(user_id))
-        app.button(key="publish_from_domain_center").click().run()
+        app.radio(key="domain_type").set_value("Bereits gekaufte Domain verbinden").run()
+        app.text_input(key="external_domain").input("firma.de").run()
+        app.button(key="connect_external_domain").click().run()
         assert not app.exception
         assert any("konnte nicht hochgeladen werden" in error.value for error in app.error)
+
+    def test_free_address_option_is_gone(self, user_id):
+        app = create_draft(make_app(user_id))
+        assert app.radio(key="domain_type").options == ["Neue Domain kaufen", "Bereits gekaufte Domain verbinden"]
+        assert not has_widget(app.button, "publish_from_domain_center")
 
     def test_load_published_website_in_manage_tab(self, user_id, monkeypatch):
         from conftest import SIMPLE_HTML, FakeResponse
@@ -444,7 +451,7 @@ class TestCheckoutReturnInApp:
         assert not app.exception
         assert app.session_state["project_name"] == "zweite-x1"
         assert "Willkommen" in app.session_state["generated_html"]
-        assert app.session_state["live_url"] == "https://zweite.de"
+        assert app.session_state["live_url"] == "https://www.zweite.de"
 
 
 class TestDomainOffer:
@@ -490,7 +497,6 @@ def test_no_second_deployment_after_domain_purchase(user_id, monkeypatch):
     app.run()
     # Ein Veröffentlichungsversuch würde am gesperrten Netzwerk scheitern und einen Fehler zeigen.
     assert not app.exception and not app.error
-    assert app.session_state["publish_after_checkout"] is False
     assert app.session_state["project_name"] == "firma-x1"
 
 
@@ -502,14 +508,14 @@ def test_owned_domain_publish_button(user_id, monkeypatch):
                  "metadata": {"domain": "firma.de", "project_name": "firma-ab12", "vercel_project_id": "prj_1", "provisioning_status": "complete"}}]
     monkeypatch.setattr(logic.requests, "get", lambda *a, **k: FakeResponse(200, {"data": sessions}))
     published = []
-    monkeypatch.setattr(logic, "publish_website", lambda: published.append(logic.st.session_state.project_name))
+    monkeypatch.setattr(logic, "publish_website", lambda public_url="": published.append(logic.st.session_state.project_name) or logic.st.session_state.__setitem__("live_url", public_url))
     app = create_draft(make_app(user_id))
     assert_no_errors(app)
     button = app.button(key="publish_to_domain_firma.de")
     assert "firma.de" in button.label and not button.disabled
     button.click().run()
     assert_no_errors(app)
-    assert published == ["firma-ab12"] and app.session_state["live_url"] == "https://firma.de"
+    assert published == ["firma-ab12"] and app.session_state["live_url"] == "https://www.firma.de"
 
 
 def test_connect_external_domain_in_app(user_id, monkeypatch):
@@ -522,7 +528,7 @@ def test_connect_external_domain_in_app(user_id, monkeypatch):
 
     monkeypatch.setattr(logic.requests, "request", request)
     monkeypatch.setattr(logic.requests, "get", lambda *a, **k: FakeResponse(200, {"data": []}))
-    monkeypatch.setattr(logic, "publish_website", lambda: logic.st.session_state.__setitem__("vercel_project_id", "prj_ext"))
+    monkeypatch.setattr(logic, "publish_website", lambda public_url="": logic.st.session_state.__setitem__("vercel_project_id", "prj_ext"))
     app = create_draft(make_app(user_id))
     app.radio(key="domain_type").set_value("Bereits gekaufte Domain verbinden").run()
     app.text_input(key="external_domain").input("firma.de").run()
@@ -585,10 +591,10 @@ def test_customers_never_see_hosting_provider_name(user_id, language, monkeypatc
             for child in node.children.values():
                 collect(child)
 
-    for option in ("Vercel-Projektadresse", "Eigene Domain verbinden", "Bereits gekaufte Domain verbinden"):
+    for option in ("Eigene Domain verbinden", "Bereits gekaufte Domain verbinden"):
         if has_widget(app.radio, "domain_type"):
             app.radio(key="domain_type").set_value(option).run()
         collect(app._tree)
-    internal_keys = {"Vercel-Projektadresse"}  # interner Optionsschlüssel; angezeigt wird ein übersetzter Text
+    internal_keys: set[str] = set()
     visible = [text for text in texts if "vercel" in text.lower() and text not in internal_keys and "cname.vercel-dns.com" not in text and "OpenAI" not in text]
     assert visible == [], visible[:3]

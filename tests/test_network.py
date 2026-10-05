@@ -400,9 +400,9 @@ class TestOwnedDomains:
         self.stripe_sessions(monkeypatch, [self.session("cs_1", user_id, "firma.de", provisioning="complete", project="caf--morgenrot-a600b35a")])
         logic.sync_domain_orders(user_id)
         published = []
-        monkeypatch.setattr(logic, "publish_website", lambda: published.append(logic.st.session_state.project_name))
+        monkeypatch.setattr(logic, "publish_website", lambda public_url="": published.append((logic.st.session_state.project_name, public_url)))
         logic.publish_to_owned_domain(user_id, "firma.de")
-        assert published == ["caf--morgenrot-a600b35a"] and session.live_url == "https://firma.de"
+        assert published == [("caf--morgenrot-a600b35a", "https://www.firma.de")]
 
     def test_publish_requires_completed_setup(self, monkeypatch, user_id):
         self.stripe_sessions(monkeypatch, [self.session("cs_1", user_id, "firma.de", provisioning="failed")])
@@ -431,6 +431,7 @@ class TestExternalDomain:
             if path.endswith("/config"):
                 return FakeResponse(200, {"misconfigured": state["misconfigured"], "recommendedIPv4": [{"rank": 1, "value": ["76.76.21.21"]}], "recommendedCNAME": [{"rank": 1, "value": "cname.vercel-dns.com."}]})
             if method == "POST" and path.endswith("/domains"):
+                state.setdefault("added", []).append(json)
                 return FakeResponse(400 if state["conflict_elsewhere"] else state["add_status"], {"error": {"message": "Domain is already in use by another project"}} if state["conflict_elsewhere"] else {})
             if method == "GET" and "/domains/" in path:
                 if state["conflict_elsewhere"]:
@@ -444,9 +445,10 @@ class TestExternalDomain:
         monkeypatch.setattr(logic.requests, "request", request)
         published = []
 
-        def publish():
+        def publish(public_url=""):
             published.append(session.project_name)
             session.vercel_project_id = "prj_ext"
+            session.live_url = public_url
 
         monkeypatch.setattr(logic, "publish_website", publish)
         session.generated_html = SIMPLE_HTML
@@ -461,6 +463,9 @@ class TestExternalDomain:
         assert result["records"] == [{"type": "A", "name": "@", "value": "76.76.21.21"}, {"type": "CNAME", "name": "www", "value": "cname.vercel-dns.com"}]
         owned = logic.get_owned_domains(user_id)[0]
         assert owned["domain"] == "firma.de" and owned["status"] == "dns" and owned["vercel_project_id"] == "prj_ext"
+        # www.firma.de ist die Hauptadresse; firma.de leitet dauerhaft dorthin weiter.
+        assert vercel["added"] == [{"name": "www.firma.de"}, {"name": "firma.de", "redirect": "www.firma.de", "redirectStatusCode": 308}]
+        assert session.live_url == "https://www.firma.de"
 
     def test_check_marks_domain_active_once_dns_is_correct(self, vercel, user_id, session):
         logic.connect_external_domain(user_id, "firma.de")
@@ -470,13 +475,13 @@ class TestExternalDomain:
         assert logic.get_owned_domains(user_id)[0]["status"] == "complete"
         # Danach funktioniert der Veröffentlichen-Button für diese Domain.
         logic.publish_to_owned_domain(user_id, "firma.de")
-        assert session.live_url == "https://firma.de"
+        assert session.live_url == "https://www.firma.de"
         assert vercel["published"][-1] == vercel["published"][0]
 
     def test_already_correct_dns_is_immediately_active(self, vercel, user_id, session):
         vercel["misconfigured"] = False
         assert logic.connect_external_domain(user_id, "firma.de")["connected"] is True
-        assert session.live_url == "https://firma.de"
+        assert session.live_url == "https://www.firma.de"
 
     def test_ownership_challenge_is_shown(self, vercel, user_id):
         vercel["verified"] = False

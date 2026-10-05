@@ -158,24 +158,35 @@ def check_domain_with_registrar(domain: str) -> dict[str, Any]:
     return InwxClient().check(domain)
 
 
-def add_domain_to_vercel(domain: str, project_id: str) -> dict[str, Any]:
-    token = os.environ.get("VERCEL_TOKEN", "").strip()
-    if not token or not project_id.strip():
-        raise ProvisioningError("Vercel token or project ID is missing.")
+def _assign_vercel_domain(token: str, project_id: str, name: str, redirect: str = "") -> dict[str, Any]:
+    payload: dict[str, Any] = {"name": name}
+    if redirect:
+        payload.update({"redirect": redirect, "redirectStatusCode": 308})
     try:
         response = requests.post(
-            f"https://api.vercel.com/v10/projects/{project_id.strip()}/domains",
+            f"https://api.vercel.com/v10/projects/{project_id}/domains",
             headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-            json={"name": normalize_domain(domain)},
+            json=payload,
             timeout=45,
         )
     except requests.RequestException as error:
         raise ProvisioningError(f"Vercel domain assignment is unavailable: {error}") from error
     if response.status_code == 409:
-        return {"name": normalize_domain(domain), "already_assigned": True}
+        return {"name": name, "already_assigned": True}
     if response.status_code not in (200, 201):
         raise ProvisioningError(f"Vercel domain assignment failed: HTTP {response.status_code} {response.text}")
     return response.json()
+
+
+def add_domain_to_vercel(domain: str, project_id: str) -> dict[str, Any]:
+    """Verbindet www.domain als Hauptadresse; die Domain ohne www leitet dauerhaft dorthin weiter."""
+    token = os.environ.get("VERCEL_TOKEN", "").strip()
+    if not token or not project_id.strip():
+        raise ProvisioningError("Vercel token or project ID is missing.")
+    normalized = normalize_domain(domain)
+    primary = _assign_vercel_domain(token, project_id.strip(), f"www.{normalized}")
+    _assign_vercel_domain(token, project_id.strip(), normalized, redirect=f"www.{normalized}")
+    return primary
 
 
 def provision_paid_domain(domain: str, project_id: str) -> dict[str, Any]:

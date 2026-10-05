@@ -607,12 +607,7 @@ def render_authentication_gate() -> dict:
 
     user_info = get_user_status(current_user_id)
 
-    return_to_publish = st.query_params.get("publish") == "1"
-
     if confirm_stripe_checkout(current_user_id):
-        st.session_state.publish_after_checkout = return_to_publish and not st.session_state.get(
-            "paid_domain_checkout_session_id"
-        )
         show_after_rerun("Zahlung bestätigt. Die Veröffentlichung ist jetzt freigeschaltet.")
         st.rerun()
 
@@ -865,7 +860,7 @@ def render_live_site_preview(pages: dict[str, str], key: str, height: int = 720)
     active_domains = [
         item["domain"] for item in get_owned_domains(int(st.session_state.user_id)) if item["status"] == "complete"
     ] if st.session_state.get("user_id") is not None else []
-    host = active_domains[0] if active_domains else project
+    host = f"www.{active_domains[0]}" if active_domains else project
     LIVE_SITE_PREVIEW()(
         key=key,
         data={
@@ -1723,7 +1718,7 @@ def render_owned_domains(language: str) -> None:
                         st.rerun()
                     except ValueError as error:
                         st.error(str(error))
-            open_column.link_button(copy[6], f"https://{domain}", icon=":material/open_in_new:", width="stretch")
+            open_column.link_button(copy[6], f"https://www.{domain}", icon=":material/open_in_new:", width="stretch")
     if st.button(copy[7], icon=":material/refresh:", key="refresh_domain_orders_button"):
         st.session_state.refresh_domain_orders = True
         st.rerun()
@@ -1745,8 +1740,8 @@ def render_domain_and_deployment_ui() -> None:
     }
     domain_labels = domain_copy_by_language.get(language, domain_copy_by_language["en"])
     external_copy = EXTERNAL_DOMAIN_COPY.get(language, EXTERNAL_DOMAIN_COPY["en"])
-    domain_options = ["Vercel-Projektadresse", "Eigene Domain verbinden", "Bereits gekaufte Domain verbinden"]
-    domain_option_labels = dict(zip(domain_options, [*domain_labels[4:6], external_copy["option"]]))
+    domain_options = ["Eigene Domain verbinden", "Bereits gekaufte Domain verbinden"]
+    domain_option_labels = dict(zip(domain_options, [domain_labels[5], external_copy["option"]]))
     action_copy_by_language = {
         "de": ["Veröffentlichung mit Chatbot", "Das Paket enthält den aktuellen Website-Entwurf einschließlich des konfigurierten Chatbots.", "Website-Paket (ZIP) mit Chatbot erstellen", "Website-Paket wird erstellt ...", "Das Website-Paket ist bereit zum Download.", "Website mit Chatbot herunterladen (ZIP)", "Website jetzt veröffentlichen", "Die Website wird veröffentlicht ...", "Die Website wurde veröffentlicht.", "Ihre Kundenwebsite ist bereit: {url}", "Kundenwebsite jetzt öffnen", "Veröffentlichung fehlgeschlagen", "Aktuelle Veröffentlichung", "Ihre Website ist live: {url}", "Noch keine Website veröffentlicht. Nach der Veröffentlichung können Sie sie hier laden oder löschen.", "Veröffentlichte Seite laden", "Löschen bestätigen", "Veröffentlichte Website löschen", "Entfernt nur die aktuelle Veröffentlichung. Der gespeicherte Entwurf und das lokale Website-Paket bleiben erhalten.", "Veröffentlichung wird entfernt ...", "Die veröffentlichte Website wurde entfernt.", "Löschen fehlgeschlagen"],
         "en": ["Publish with chatbot", "The package contains the current website draft including the configured chatbot.", "Create website package (ZIP) with chatbot", "Creating website package ...", "The website package is ready to download.", "Download website with chatbot (ZIP)", "Publish website now", "Publishing the website ...", "The website has been published.", "Your customer website is ready: {url}", "Open customer website now", "Publishing failed", "Current publication", "Your website is live: {url}", "No website has been published yet. After publishing, you can open or delete it here.", "Open published page", "Confirm deletion", "Delete published website", "Only the current publication is removed. The saved draft and local website package remain available.", "Removing publication ...", "The published website was removed.", "Deletion failed"],
@@ -1832,7 +1827,7 @@ def render_domain_and_deployment_ui() -> None:
                 status.update(label=str(error), state="error")
             else:
                 if provisioning["status"] == "complete" and provisioning["domain"]:
-                    live_url = f"https://{provisioning['domain']}"
+                    live_url = f"https://www.{provisioning['domain']}"
                     st.session_state.live_url = live_url
                     st.session_state.paid_domain_checkout_session_id = ""
                     status.update(label=provisioning_copy[1], state="complete")
@@ -1878,22 +1873,7 @@ def render_domain_and_deployment_ui() -> None:
         format_func=lambda option: domain_option_labels[option],
         key="domain_type",
     )
-    requested_name = ""
-    if domain_type == "Vercel-Projektadresse":
-        requested_name = st.text_input(
-            domain_labels[6],
-            value=st.session_state.project_name,
-            placeholder=domain_labels[7],
-            key="deployment_project_name",
-            help=domain_labels[8],
-        )
-        if requested_name:
-            st.caption(
-                domain_labels[9].format(
-                    address=safe_project_name(requested_name)
-                )
-            )
-    elif domain_type == "Bereits gekaufte Domain verbinden":
+    if domain_type == "Bereits gekaufte Domain verbinden":
         st.info(external_copy["intro"])
         help_title, help_text = EXTERNAL_DOMAIN_HELP.get(language, EXTERNAL_DOMAIN_HELP["en"])
         with st.expander(help_title, icon=":material/help:"):
@@ -2010,7 +1990,7 @@ def render_domain_and_deployment_ui() -> None:
                     # der Webhook die Domain mit genau diesem Projekt, die Website ist sofort da.
                     st.session_state.project_name = create_deployment_project_name()
                     st.session_state.vercel_project_id = ""
-                    publish_website()
+                    publish_website(public_url=f"https://www.{domain_check['domain']}")
                     project_id = str(st.session_state.vercel_project_id)
                     if not project_id:
                         raise ValueError("Die Veröffentlichung hat keine Projektkennung geliefert.")
@@ -2050,31 +2030,6 @@ def render_domain_and_deployment_ui() -> None:
                 width="stretch",
             )
 
-    if st.session_state.get("publish_after_checkout"):
-        st.session_state.publish_after_checkout = False
-        if domain_type == "Vercel-Projektadresse":
-            st.session_state.project_name = safe_project_name(requested_name or "")
-        with st.status(action_labels[7], expanded=True) as status:
-            try:
-                publish_website()
-                status.update(label=action_labels[8], state="complete")
-                st.success(action_labels[9].format(url=st.session_state.live_url))
-                st.link_button(
-                    action_labels[10],
-                    st.session_state.live_url,
-                    icon=":material/open_in_new:",
-                    type="primary",
-                    key="open_customer_site_after_checkout",
-                    width="stretch",
-                )
-            except ValueError as error:
-                status.update(label=action_labels[11], state="error")
-                st.error(str(error))
-
-    st.info(
-        "Website-Erstellung, Vorschau und Veröffentlichung auf der kostenlosen "
-        "Website-Adresse sind ohne Zahlung möglich."
-    )
     st.divider()
     st.subheader(action_labels[0], anchor=False)
     st.caption(action_labels[1])
@@ -2097,36 +2052,6 @@ def render_domain_and_deployment_ui() -> None:
             key="download_website_zip",
             width="stretch",
         )
-    if domain_type == "Vercel-Projektadresse":
-        if st.button(
-            action_labels[6],
-            icon=":material/rocket_launch:",
-            type="primary",
-            key="publish_from_domain_center",
-            width="stretch",
-        ):
-            st.session_state.project_name = safe_project_name(requested_name or "")
-            with st.status(action_labels[7], expanded=True) as status:
-                try:
-                    publish_website()
-                    status.update(label=action_labels[8], state="complete")
-                    st.success(action_labels[9].format(url=st.session_state.live_url))
-                    st.link_button(
-                        action_labels[10],
-                        st.session_state.live_url,
-                        icon=":material/open_in_new:",
-                        type="primary",
-                        key="open_customer_site_after_publish",
-                        width="stretch",
-                    )
-                except ValueError as error:
-                    status.update(
-                        label=f"{action_labels[11]}: {error}",
-                        state="error",
-                        expanded=True,
-                    )
-                    st.error(str(error))
-
     st.divider()
     st.subheader(action_labels[12], anchor=False)
     if st.session_state.deployment_id:

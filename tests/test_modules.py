@@ -201,11 +201,11 @@ class TestDomainProvisioning:
         for handle in ("REGISTRANT", "ADMIN", "TECH", "BILLING"):
             monkeypatch.setenv(f"INWX_{handle}_HANDLE", " 4711 ")
         monkeypatch.setenv("VERCEL_TOKEN", "t")
-        monkeypatch.setattr(domain_provisioning.requests, "post", lambda *a, **k: FakeResponse(200, {"name": "firma.de"}))
+        monkeypatch.setattr(domain_provisioning.requests, "post", lambda url, headers, json, timeout: FakeResponse(200, {"name": json["name"]}))
 
     def test_full_provisioning(self, inwx, handles):
         result = domain_provisioning.provision_paid_domain("firma.de", "prj_1")
-        assert result["domain"] == "firma.de" and result["vercel"] == {"name": "firma.de"}
+        assert result["domain"] == "firma.de" and result["vercel"] == {"name": "www.firma.de"}
         assert inwx.calls == ["account.login", "domain.check", "domain.create", "nameserver.create", "nameserver.createRecord", "nameserver.createRecord"]
 
     def test_requests_use_documented_formats(self, inwx, handles):
@@ -245,7 +245,11 @@ class TestDomainProvisioning:
             domain_provisioning.add_domain_to_vercel("firma.de", "prj")
         monkeypatch.setenv("VERCEL_TOKEN", "t")
         monkeypatch.setattr(domain_provisioning.requests, "post", lambda *a, **k: FakeResponse(409, {}))
-        assert domain_provisioning.add_domain_to_vercel("firma.de", "prj") == {"name": "firma.de", "already_assigned": True}
+        assert domain_provisioning.add_domain_to_vercel("firma.de", "prj") == {"name": "www.firma.de", "already_assigned": True}
+        sent = []
+        monkeypatch.setattr(domain_provisioning.requests, "post", lambda url, headers, json, timeout: sent.append(json) or FakeResponse(200, {}))
+        domain_provisioning.add_domain_to_vercel("https://Firma.de", "prj")
+        assert sent == [{"name": "www.firma.de"}, {"name": "firma.de", "redirect": "www.firma.de", "redirectStatusCode": 308}]
         monkeypatch.setattr(domain_provisioning.requests, "post", network_error)
         with pytest.raises(domain_provisioning.ProvisioningError, match="unavailable"):
             domain_provisioning.add_domain_to_vercel("firma.de", "prj")

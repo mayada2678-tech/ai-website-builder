@@ -359,7 +359,6 @@ DEFAULT_STATE = {
     "document_context": "",
     "document_source_names": [],
     "stripe_checkout_url": "",
-    "publish_after_checkout": False,
     "client_chatbot_hours": "",
     "client_chatbot_contact": "",
     "client_chatbot_services": "",
@@ -1163,9 +1162,15 @@ def vercel_request(method: str, path: str, payload: dict | None = None) -> reque
         raise ValueError(f"Der Hosting-Dienst ist nicht erreichbar: {error}") from error
 
 
-def add_domain_to_project(project_id: str, domain: str) -> None:
-    """Meldet eine Domain im Vercel-Projekt an; bereits dort vorhandene Domains sind in Ordnung."""
-    response = vercel_request("POST", f"/v10/projects/{project_id}/domains", {"name": domain})
+def add_domain_to_project(project_id: str, domain: str, redirect: str = "") -> None:
+    """Meldet eine Domain im Vercel-Projekt an; bereits dort vorhandene Domains sind in Ordnung.
+
+    Mit redirect leitet die Domain dauerhaft (308) auf die Hauptadresse weiter.
+    """
+    payload: dict[str, object] = {"name": domain}
+    if redirect:
+        payload.update({"redirect": redirect, "redirectStatusCode": 308})
+    response = vercel_request("POST", f"/v10/projects/{project_id}/domains", payload)
     if response.status_code in (200, 201):
         return
     if vercel_request("GET", f"/v9/projects/{project_id}/domains/{domain}").status_code == 200:
@@ -1250,19 +1255,20 @@ def connect_external_domain(user_id: int, domain: str) -> dict[str, object]:
     existing = next((item for item in get_owned_domains(user_id) if item["domain"] == normalized), None)
     st.session_state.project_name = (existing or {}).get("project_name") or create_deployment_project_name()
     st.session_state.vercel_project_id = ""
-    publish_website()
+    publish_website(public_url=f"https://www.{normalized}")
     project_id = str(st.session_state.vercel_project_id)
     if not project_id:
         raise ValueError("Die Veröffentlichung hat keine Projektkennung geliefert.")
-    add_domain_to_project(project_id, normalized)
+    # www.domain ist die Hauptadresse; die Domain ohne www leitet dorthin weiter.
     add_domain_to_project(project_id, f"www.{normalized}")
+    add_domain_to_project(project_id, normalized, redirect=f"www.{normalized}")
     dns_status = get_domain_dns_status(project_id, normalized)
     save_external_domain(
         user_id, normalized, str(st.session_state.project_name), project_id,
         "complete" if dns_status["connected"] else "dns", list(dns_status["records"]),
     )
     if dns_status["connected"]:
-        st.session_state.live_url = f"https://{normalized}"
+        st.session_state.live_url = f"https://www.{normalized}"
     return dns_status
 
 
@@ -1287,8 +1293,7 @@ def publish_to_owned_domain(user_id: int, domain: str) -> None:
     if not order["project_name"]:
         raise ValueError("Für diese Domain ist kein Website-Projekt hinterlegt.")
     st.session_state.project_name = order["project_name"]
-    publish_website()
-    st.session_state.live_url = f"https://{domain}"
+    publish_website(public_url=f"https://www.{domain}")
 
 
 def wait_for_domain_provisioning(session_id: str, timeout_seconds: int = 45) -> dict:
@@ -2850,8 +2855,11 @@ def upload_vercel_file(file_name: str, content: bytes) -> dict[str, str]:
     return {"file": file_name, "sha": digest}
 
 
-def publish_website() -> None:
-    """Veröffentlicht den aktuellen HTML-Entwurf auf Vercel."""
+def publish_website(public_url: str = "") -> None:
+    """Veröffentlicht den aktuellen HTML-Entwurf auf Vercel.
+
+    public_url ist die Adresse, unter der Kunden die Website sehen (z. B. https://www.firma.de).
+    """
     from chat import (
         add_vercel_chat_api,
         configure_vercel_chatbot_environment,
@@ -2993,7 +3001,7 @@ def publish_website() -> None:
             )
 
     # project_name hier NICHT verändern: Es gehört zum Streamlit-Textfeld.
-    st.session_state.live_url = get_public_url(deployment)
+    st.session_state.live_url = public_url or get_public_url(deployment)
     st.session_state.deployment_url = f"https://{deployment_url}"
     st.session_state.deployment_id = deployment_id
     st.session_state.published_html = html
