@@ -351,3 +351,25 @@ class TestExport:
         assert "const RETENTION_DAYS = 30;" in route
         js(route)
         js(logic.build_testing_variant_api_route())
+
+
+class TestPrimaryButtonTarget:
+    def test_prefers_button_over_navigation_link(self):
+        html = '<nav><a href="#leistungen">Leistungen</a></nav><a class="button" href="angebote.html">Angebot</a>'
+        updated, replaced = logic.set_primary_button_target(html, "https://shop.example/?a=1&b=2")
+        assert replaced
+        assert '<a href="#leistungen">' in updated
+        assert '<a class="button" href="https://shop.example/?a=1&amp;b=2">' in updated
+
+    def test_falls_back_to_first_anchor_link(self):
+        updated, replaced = logic.set_primary_button_target('<a href="#kontakt">Los</a>', "#angebote")
+        assert replaced and updated == '<a href="#angebote">Los</a>'
+
+    def test_reports_missing_button(self):
+        assert logic.set_primary_button_target('<a href="https://x.de">x</a>', "#angebote") == ('<a href="https://x.de">x</a>', False)
+
+    def test_works_on_generated_template(self):
+        html = TestTemplates().build(multi_page=False)
+        updated, replaced = logic.set_primary_button_target(html, "#angebote")
+        assert replaced and '<a class="button" href="#angebote">' in updated
+        assert '<a href="#leistungen">' in updated

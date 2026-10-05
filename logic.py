@@ -352,7 +352,6 @@ DEFAULT_STATE = {
     "document_source_names": [],
     "stripe_checkout_url": "",
     "publish_after_checkout": False,
-    "delete_confirmation": False,
     "client_chatbot_hours": "",
     "client_chatbot_contact": "",
     "client_chatbot_services": "",
@@ -1587,6 +1586,21 @@ def replace_visible_text(html: str, old_text: str, new_text: str) -> str:
     return html.replace(old_text, escape(new_text), 1)
 
 
+def set_primary_button_target(html: str, target_url: str) -> tuple[str, bool]:
+    """Setzt das Linkziel des primären Buttons; Navigationslinks bleiben unverändert.
+
+    Bevorzugt wird der erste Link, der per Klasse als Button erkennbar ist
+    (button, btn, cta). Gibt es keinen, wird wie bisher der erste Anker-Link
+    (#...) verwendet.
+    """
+    replacement = rf"\g<1>{escape(target_url)}\g<2>"
+    button_link = r"""(?i)(<a\b(?=[^>]*\bclass=["'][^"']*\b(?:button|btn|cta)\b)[^>]*?\bhref=["'])[^"']*(["'])"""
+    updated_html, count = re.subn(button_link, replacement, html, count=1)
+    if not count:
+        updated_html, count = re.subn(r"""(?i)(<a\b[^>]*\bhref=["'])#[^"']*(["'])""", replacement, html, count=1)
+    return updated_html, bool(count)
+
+
 def build_offer_page_section(offer_name: str, offer_price: str, offer_details: str) -> str:
     """Erstellt eine lokale Angebots-Unterseite mit professioneller Kartenstruktur."""
     language = str(st.session_state.app_language)
@@ -2052,8 +2066,8 @@ Kontaktformular und Chatbot:
     vollstaendig unveraendert, sofern ihre Aenderung nicht ausdruecklich verlangt wird.
 - Behalte die sichtbaren Pflichtfelder `name`, `email` und `message` mit ihren
     required-Attributen bei.
-- Behalte den unternehmensspezifischen Chatbot mit Voice-Funktion und die konfigurierte
-    Kontakt-E-Mail unveraendert bei.
+- Erstelle, ändere oder entferne kein Chatbot-Markup; der Kunden-Chatbot wird zentral
+    eingefügt. Behalte die konfigurierte Kontakt-E-Mail unveraendert bei.
 - Behalte das Design des Kontaktbereichs bei.
 """,
         user_instruction=f"""

@@ -24,9 +24,6 @@ from logic import (
     authenticate_user,
     AUTHENTICATION_COPY,
     BACKGROUND_PRESET_COLORS,
-    build_customized_template_html,
-    build_customized_template_pages,
-    build_customized_template_styles,
     build_offer_page_section,
     build_website_zip,
     confirm_stripe_checkout,
@@ -40,7 +37,6 @@ from logic import (
     delete_previous_vercel_deployment,
     delete_published_website,
     delete_saved_website,
-    EMAIL_PATTERN,
     generate_website,
     get_creation_form_copy,
     get_project_name_from_url,
@@ -70,6 +66,7 @@ from logic import (
     replace_visible_text,
     require_complete_html,
     safe_project_name,
+    set_primary_button_target,
     save_support_request,
     save_uploaded_image,
     save_website,
@@ -94,6 +91,18 @@ from chat import (
     get_chatbot_toggle_radius,
     get_configured_chatbot_knowledge,
 )
+
+
+def show_after_rerun(message: str) -> None:
+    """Merkt eine Erfolgsmeldung vor, damit sie nach st.rerun() sichtbar bleibt."""
+    st.session_state.flash_message = message
+
+
+def render_flash_message() -> None:
+    """Zeigt eine vor dem letzten Neustart vorgemerkte Erfolgsmeldung an."""
+    message = str(st.session_state.pop("flash_message", "") or "")
+    if message:
+        st.toast(message, icon=":material/check_circle:")
 
 
 # Streamlit verlangt die Registrierung in jedem Skriptlauf. Die Definition wird
@@ -542,7 +551,7 @@ def render_authentication_gate() -> dict:
 
     if not user_info["subscribed"] and confirm_stripe_checkout(current_user_id):
         st.session_state.publish_after_checkout = return_to_publish
-        st.success("Zahlung bestätigt. Die Veröffentlichung ist jetzt freigeschaltet.")
+        show_after_rerun("Zahlung bestätigt. Die Veröffentlichung ist jetzt freigeschaltet.")
         st.rerun()
 
     if not user_info["subscribed"] and not user_info["trial_active"]:
@@ -588,7 +597,7 @@ def render_analytics_optimization_ui(user_email: str) -> None:
             try:
                 summary, version = create_analytics_optimized_version()
                 status.update(label="Testversion wurde erstellt.", state="complete")
-                st.success(
+                show_after_rerun(
                     f"{summary.sessions} Sitzungen ausgewertet. Version "
                     f"{version.get('version_id', '')} ist als testing gespeichert und in der Vorschau geladen."
                 )
@@ -1191,8 +1200,8 @@ def render_editor() -> None:
         labels[3],
         [
             "Hero",
-            "Ueber mich",
-            "Faehigkeiten und Services",
+            "Über mich",
+            "Fähigkeiten und Services",
             "Projekte",
             "Kontakt und Footer",
         ],
@@ -1225,6 +1234,7 @@ def render_editor() -> None:
                     f"Hintergrund {background_color}, Akzent {accent_color}."
                 )
                 status.update(label=labels[9], state="complete")
+                show_after_rerun(labels[9])
                 st.rerun()
             except Exception as error:
                 status.update(label=labels[10], state="error")
@@ -1290,6 +1300,7 @@ def render_direct_content_editor() -> None:
                 try:
                     modify_current_website(change_request)
                     status.update(label="Vorschau wurde aktualisiert.", state="complete")
+                    show_after_rerun("Vorschau wurde aktualisiert.")
                     st.rerun()
                 except Exception as error:
                     status.update(label="Aktualisierung fehlgeschlagen", state="error")
@@ -1328,7 +1339,7 @@ def render_direct_content_editor() -> None:
                 st.session_state.generated_html, image_name, "Website-Bild"
             )
             st.session_state.html_editor = st.session_state.generated_html
-            st.success("Das Bild wurde in der Vorschau ersetzt.")
+            show_after_rerun("Das Bild wurde in der Vorschau ersetzt.")
             st.rerun()
 
     with text_column:
@@ -1373,7 +1384,7 @@ def render_direct_content_editor() -> None:
                         st.session_state.generated_html, previous_text, edited_text
                     )
                     st.session_state.html_editor = st.session_state.generated_html
-                    st.success("Die Textstelle wurde aktualisiert.")
+                    show_after_rerun("Die Textstelle wurde aktualisiert.")
                     st.rerun()
                 except ValueError as error:
                     st.error(str(error))
@@ -1399,18 +1410,15 @@ def render_direct_content_editor() -> None:
             if button_target == "Externe Website öffnen" and not re.fullmatch(r"https?://[^\s]+", target_url):
                 st.error("Bitte geben Sie eine gültige externe Adresse mit https:// ein.")
             else:
-                updated_html, replacements = re.subn(
-                    r"(?i)(<a\b[^>]*href=[\"'])#[^\"']*([\"'][^>]*>)",
-                    rf"\1{target_url}\2",
-                    st.session_state.generated_html,
-                    count=1,
+                updated_html, replaced = set_primary_button_target(
+                    st.session_state.generated_html, target_url
                 )
-                if not replacements:
+                if not replaced:
                     st.error("Im Entwurf wurde kein konfigurierbarer Button-Link gefunden.")
                 else:
                     st.session_state.generated_html = updated_html
                     st.session_state.html_editor = updated_html
-                    st.success("Das Button-Ziel wurde aktualisiert.")
+                    show_after_rerun("Das Button-Ziel wurde aktualisiert.")
                     st.rerun()
 
     st.subheader("Angebots-Unterseite", anchor=False)
@@ -1436,7 +1444,7 @@ def render_direct_content_editor() -> None:
                 r"(?i)</body\s*>", f"{offer_section}</body>", st.session_state.generated_html, count=1
             )
             st.session_state.html_editor = st.session_state.generated_html
-            st.success("Die Angebots-Unterseite wurde zur Website ergänzt.")
+            show_after_rerun("Die Angebots-Unterseite wurde zur Website ergänzt.")
             st.rerun()
 
 
@@ -1485,7 +1493,7 @@ def render_mcp_content_tools_ui() -> None:
                     },
                 )
                 queue_html_update(updated_html)
-                st.success(copy[8].format(section=selected_section_label))
+                show_after_rerun(copy[8].format(section=selected_section_label))
                 st.rerun()
             except ValueError as error:
                 st.error(str(error))
@@ -1507,7 +1515,7 @@ def render_mcp_content_tools_ui() -> None:
                     },
                 )
                 queue_html_update(updated_html)
-                st.success(copy[10])
+                show_after_rerun(copy[10])
                 st.rerun()
             except ValueError as error:
                 st.error(str(error))
@@ -1547,20 +1555,18 @@ def render_domain_and_deployment_ui() -> None:
         "es": ["Eliminar una publicación anterior", "URL de Vercel o ID de despliegue del sitio anterior", "p. ej. mi-sitio-abc123.vercel.app", "Quiero eliminar definitivamente esta publicación anterior.", "Eliminar página publicada anterior", "Eliminando publicación anterior...", "El sitio publicado anterior fue eliminado.", "Error al eliminar"],
         "it": ["Elimina una vecchia pubblicazione", "URL Vercel o ID deployment del vecchio sito", "ad es. mio-sito-abc123.vercel.app", "Voglio eliminare definitivamente questa vecchia pubblicazione.", "Elimina la vecchia pagina pubblicata", "Rimozione della vecchia pubblicazione...", "Il vecchio sito pubblicato è stato rimosso.", "Eliminazione non riuscita"],
         "hi": ["पुराना प्रकाशन हटाएं", "पुरानी वेबसाइट का Vercel URL या प्रकाशन ID", "उदा. my-site-abc123.vercel.app", "मैं इस पुराने प्रकाशन को स्थायी रूप से हटाना चाहता हूं।", "पुराना प्रकाशित पृष्ठ हटाएं", "पुराना प्रकाशन हटाया जा रहा है...", "पुरानी प्रकाशित वेबसाइट हटा दी गई।", "हटाना विफल"],
-    }.get(language)
-    if old_publication_copy is None:
-        old_publication_copy = []
-    custom_domain_copy = {
-        "de": ["Domain kaufen und verbinden: Anleitung", "1. Geben Sie unten Ihre gewünschte Domain ohne Pfad ein, zum Beispiel `mein-betrieb.de`.\n2. Prüfen Sie mit MCP, ob für die Domain bereits ein öffentlicher RDAP-Eintrag besteht.\n3. Kaufen Sie eine freie Domain direkt bei einem Domainanbieter Ihrer Wahl.\n4. Fügen Sie die Domain anschließend in Vercel hinzu und übernehmen Sie die dort angezeigten DNS-Einträge beim Domainanbieter.", "Preisorientierung: Eine .de-Domain kostet häufig etwa 5-20 EUR pro Jahr, eine .com-Domain etwa 10-25 EUR pro Jahr. Aktionspreise gelten oft nur im ersten Jahr; prüfen Sie deshalb immer den Verlängerungspreis und die Mehrwertsteuer.", "Die App kauft keine Domain automatisch und bucht dafür nichts ab. Der Domainanbieter berechnet die Domain separat. Ein App-Abonnement und mögliche Vercel-Kosten sind ebenfalls getrennte Verträge.", "Offizielle Vercel-Anleitung zur Domain-Verbindung", "Gewünschte oder bereits gekaufte Domain", "z. B. www.mein-unternehmen.de", "Die MCP-Prüfung ist ein Hinweis anhand öffentlicher Registrierungsdaten und keine Kaufgarantie.", "Geplante Domain: {domain}", "Eigene Domain per MCP prüfen", "MCP prüft die Domain ...", "Nächster Schritt: {step}"],
-        "en": ["Buy and connect a domain: instructions", "1. Enter your preferred domain without a path, for example `my-business.com`.\n2. Use MCP to check whether a public RDAP record already exists.\n3. Buy an available domain from a provider of your choice.\n4. Add the domain to Vercel and copy the displayed DNS records to your domain provider.", "Price guide: a .de domain often costs about EUR 5-20 per year and a .com domain about EUR 10-25 per year. Promotional prices often apply only to the first year, so check renewal prices and taxes.", "The app does not buy or charge for a domain automatically. The domain provider bills it separately. The app subscription and possible Vercel costs are separate agreements.", "Official Vercel domain connection guide", "Preferred or already purchased domain", "e.g. www.my-company.com", "The MCP check uses public registration data as guidance and is not a purchase guarantee.", "Planned domain: {domain}", "Check own domain with MCP", "MCP is checking the domain ...", "Next step: {step}"],
-        "ar": ["شراء نطاق وربطه: التعليمات", "1. أدخل النطاق المطلوب أدناه من دون مسار، مثل `my-business.com`.\n2. استخدم MCP للتحقق من وجود سجل RDAP عام للنطاق.\n3. اشترِ النطاق المتاح مباشرة من مزود تختاره.\n4. أضف النطاق إلى Vercel وانسخ سجلات DNS المعروضة إلى مزود النطاق.", "دليل الأسعار: يكلف نطاق .de عادةً نحو 5-20 يورو سنوياً، ونطاق .com نحو 10-25 يورو سنوياً. غالباً ما تسري الأسعار الترويجية في السنة الأولى فقط، لذا تحقق من سعر التجديد والضرائب.", "لا يشتري التطبيق أي نطاق تلقائياً ولا يخصم رسوماً مقابله. يحاسب مزود النطاق بشكل منفصل. كما أن اشتراك التطبيق وتكاليف Vercel المحتملة عقود منفصلة.", "دليل Vercel الرسمي لربط النطاق", "النطاق المطلوب أو الذي تم شراؤه", "مثال: www.my-company.com", "يعتمد فحص MCP على بيانات التسجيل العامة للإرشاد ولا يضمن إمكانية الشراء.", "النطاق المخطط: {domain}", "فحص النطاق الخاص باستخدام MCP", "يفحص MCP النطاق...", "الخطوة التالية: {step}"],
-        "ku": ["کڕین و بەستنەوەی دۆمەین: ڕێنمایی", "1. دۆمەینی دڵخوازت بەبێ ڕێڕەو بنووسە، بۆ نموونە `my-business.com`.\n2. بە MCP بپشکنە کە تۆمارێکی گشتی RDAP هەیە یان نا.\n3. دۆمەینی بەردەست لە دابینکەرێکی هەڵبژێردراو بکڕە.\n4. دۆمەینەکە لە Vercel زیاد بکە و تۆمارەکانی DNS بگوازەرەوە بۆ دابینکەری دۆمەین.", "ڕێنمایی نرخ: دۆمەینی .de زۆرجار ساڵانە نزیکەی 5-20 یۆرۆ و .com نزیکەی 10-25 یۆرۆیە. نرخی داشکاندن زۆرجار تەنها بۆ ساڵی یەکەمە؛ نرخی نوێکردنەوە و باج بپشکنە.", "ئەپەکە خۆکارانە دۆمەین ناکڕێت و هیچ پارەیەک بۆی وەرناگرێت. دابینکەری دۆمەین جیاواز هەژمار دەکات. بەشداریکردنی ئەپ و خەرجییەکانی Vercel گرێبەستی جیاوازن.", "ڕێنمایی فەرمی Vercel بۆ بەستنەوەی دۆمەین", "دۆمەینی دڵخواز یان پێشتر کڕدراو", "بۆ نموونە: www.my-company.com", "پشکنینی MCP تەنها ڕێنماییە بە پشتبەستن بە زانیاری تۆماری گشتی و دڵنیایی کڕین نییە.", "دۆمەینی پلانکراو: {domain}", "پشکنینی دۆمەینی خۆت بە MCP", "MCP دۆمەینەکە دەپشکنێت...", "هەنگاوی داهاتوو: {step}"],
-        "es": ["Comprar y conectar un dominio: instrucciones", "1. Introduzca el dominio deseado sin ruta, por ejemplo `mi-empresa.com`.\n2. Compruebe con MCP si ya existe un registro RDAP público.\n3. Compre un dominio disponible al proveedor que prefiera.\n4. Añada el dominio a Vercel y copie los registros DNS mostrados al proveedor.", "Guía de precios: un dominio .de suele costar entre 5 y 20 EUR al año y un .com entre 10 y 25 EUR. Las promociones suelen aplicarse solo el primer año; compruebe la renovación y los impuestos.", "La aplicación no compra ni cobra dominios automáticamente. El proveedor factura el dominio por separado. La suscripción de la aplicación y los posibles costes de Vercel son contratos independientes.", "Guía oficial de Vercel para conectar dominios", "Dominio deseado o ya adquirido", "p. ej. www.mi-empresa.com", "La comprobación MCP se basa en datos públicos y no garantiza la compra.", "Dominio previsto: {domain}", "Comprobar dominio propio con MCP", "MCP está comprobando el dominio...", "Siguiente paso: {step}"],
-        "it": ["Acquistare e collegare un dominio: istruzioni", "1. Inserite il dominio desiderato senza percorso, ad esempio `mia-azienda.com`.\n2. Verificate con MCP se esiste già un record RDAP pubblico.\n3. Acquistate un dominio disponibile dal provider preferito.\n4. Aggiungete il dominio a Vercel e copiate i record DNS mostrati nel provider.", "Guida ai prezzi: un dominio .de costa spesso circa 5-20 EUR l'anno e un .com circa 10-25 EUR. Le promozioni valgono spesso solo il primo anno; controllate rinnovo e imposte.", "L'app non acquista né addebita automaticamente un dominio. Il provider lo fattura separatamente. L'abbonamento dell'app e gli eventuali costi Vercel sono contratti distinti.", "Guida ufficiale Vercel al collegamento del dominio", "Dominio desiderato o già acquistato", "ad es. www.mia-azienda.com", "Il controllo MCP usa dati pubblici a scopo indicativo e non garantisce l'acquisto.", "Dominio previsto: {domain}", "Controlla il dominio con MCP", "MCP sta controllando il dominio...", "Passo successivo: {step}"],
-        "hi": ["डोमेन खरीदें और जोड़ें: निर्देश", "1. नीचे बिना पथ के अपना पसंदीदा डोमेन लिखें, जैसे `my-business.com`।\n2. MCP से जांचें कि सार्वजनिक RDAP रिकॉर्ड मौजूद है या नहीं।\n3. अपनी पसंद के प्रदाता से उपलब्ध डोमेन खरीदें।\n4. डोमेन को Vercel में जोड़ें और दिखाए गए DNS रिकॉर्ड प्रदाता में दर्ज करें।", "मूल्य मार्गदर्शिका: .de डोमेन प्रायः 5-20 EUR और .com डोमेन 10-25 EUR प्रति वर्ष होता है। प्रचार मूल्य अक्सर केवल पहले वर्ष के लिए होते हैं; नवीनीकरण मूल्य और कर जांचें।", "ऐप अपने आप डोमेन नहीं खरीदता और शुल्क नहीं लेता। डोमेन प्रदाता अलग बिल देता है। ऐप सदस्यता और संभावित Vercel लागत अलग अनुबंध हैं।", "डोमेन जोड़ने की आधिकारिक Vercel मार्गदर्शिका", "पसंदीदा या पहले से खरीदा हुआ डोमेन", "उदा. www.my-company.com", "MCP जांच सार्वजनिक पंजीकरण डेटा पर आधारित संकेत है और खरीद की गारंटी नहीं है।", "नियोजित डोमेन: {domain}", "MCP से अपना डोमेन जांचें", "MCP डोमेन की जांच कर रहा है...", "अगला कदम: {step}"],
-    }.get(language)
-    if custom_domain_copy is None:
-        custom_domain_copy = []
+    }
+    old_publication_copy = old_publication_copy.get(language, old_publication_copy["en"])
+    next_step_copy = {
+        "de": "Nächster Schritt: {step}",
+        "en": "Next step: {step}",
+        "ar": "الخطوة التالية: {step}",
+        "ku": "هەنگاوی داهاتوو: {step}",
+        "es": "Siguiente paso: {step}",
+        "it": "Passo successivo: {step}",
+        "hi": "अगला कदम: {step}",
+    }
+    next_step_label = next_step_copy.get(language, next_step_copy["en"])
     automated_domain_copy = {
         "de": ["Domain wird geprüft ...", "Jetzt kaufen & veröffentlichen", "Website und sicherer Checkout werden vorbereitet ...", "Sichere Zahlung öffnen", "Der automatische Domainkauf ist momentan nicht verfügbar.", "{domain} ist verfügbar.", "{domain} ist nicht verfügbar.", "Wunschdomain prüfen", "Nach erfolgreicher Zahlung wird Ihre Domain automatisch registriert, verbunden und mit SSL veröffentlicht."],
         "en": ["Checking domain ...", "Buy & publish now", "Preparing your website and secure checkout ...", "Open secure payment", "Automated domain purchasing is currently unavailable.", "{domain} is available.", "{domain} is unavailable.", "Check preferred domain", "After successful payment, your domain is registered, connected, and published with SSL automatically."],
@@ -1569,7 +1575,8 @@ def render_domain_and_deployment_ui() -> None:
         "es": ["Comprobando dominio...", "Comprar y publicar ahora", "Preparando su sitio y el pago seguro...", "Abrir pago seguro", "La compra automática de dominios no está disponible actualmente.", "{domain} está disponible.", "{domain} no está disponible.", "Comprobar dominio deseado", "Tras el pago, su dominio se registra, conecta y publica con SSL automáticamente."],
         "it": ["Verifica del dominio...", "Acquista e pubblica ora", "Preparazione del sito e del pagamento sicuro...", "Apri pagamento sicuro", "L'acquisto automatico del dominio non è al momento disponibile.", "{domain} è disponibile.", "{domain} non è disponibile.", "Verifica dominio desiderato", "Dopo il pagamento, il dominio viene registrato, collegato e pubblicato con SSL automaticamente."],
         "hi": ["डोमेन जांचा जा रहा है...", "अभी खरीदें और प्रकाशित करें", "वेबसाइट और सुरक्षित भुगतान तैयार हो रहा है...", "सुरक्षित भुगतान खोलें", "स्वचालित डोमेन खरीद अभी उपलब्ध नहीं है।", "{domain} उपलब्ध है।", "{domain} उपलब्ध नहीं है।", "पसंदीदा डोमेन जांचें", "सफल भुगतान के बाद आपका डोमेन स्वतः पंजीकृत, कनेक्ट और SSL सहित प्रकाशित होगा।"],
-    }.get(language, [])
+    }
+    automated_domain_copy = automated_domain_copy.get(language, automated_domain_copy["en"])
     provisioning_copy = {
         "de": ["Zahlung bestätigt. Ihre Website wird eingerichtet ...", "Ihre Website ist fertig.", "Live-Website öffnen", "Die Einrichtung dauert noch an. Diese Seite kann gleich erneut geprüft werden.", "Die automatische Einrichtung konnte nicht abgeschlossen werden. Der Support wurde informiert."],
         "en": ["Payment confirmed. Your website is being set up ...", "Your website is ready.", "Open live website", "Setup is still in progress. You can check this page again shortly.", "Automatic setup could not be completed. Support has been notified."],
@@ -1578,7 +1585,8 @@ def render_domain_and_deployment_ui() -> None:
         "es": ["Pago confirmado. Estamos configurando su sitio...", "Su sitio está listo.", "Abrir sitio web", "La configuración continúa. Puede volver a comprobar esta página en breve.", "No se pudo completar la configuración automática. Se ha informado al soporte."],
         "it": ["Pagamento confermato. Configurazione del sito in corso...", "Il sito è pronto.", "Apri il sito", "La configurazione è ancora in corso. Puoi ricontrollare tra poco.", "Non è stato possibile completare la configurazione automatica. L'assistenza è stata informata."],
         "hi": ["भुगतान की पुष्टि हो गई। आपकी वेबसाइट तैयार की जा रही है...", "आपकी वेबसाइट तैयार है।", "लाइव वेबसाइट खोलें", "सेटअप अभी जारी है। थोड़ी देर बाद इस पृष्ठ पर फिर जांचें।", "स्वचालित सेटअप पूरा नहीं हो सका। सहायता टीम को सूचित कर दिया गया है।"],
-    }.get(language, [])
+    }
+    provisioning_copy = provisioning_copy.get(language, provisioning_copy["en"])
     domain_input_copy = {
         "de": ["Ihre Wunschdomain", "z. B. noor.com", "Geben Sie nur Ihren gewünschten Domainnamen ein.", "Gewünschte Domain: {domain}"],
         "en": ["Your preferred domain", "e.g. noor.com", "Enter only your preferred domain name.", "Preferred domain: {domain}"],
@@ -1587,7 +1595,8 @@ def render_domain_and_deployment_ui() -> None:
         "es": ["Su dominio deseado", "p. ej. noor.com", "Introduzca únicamente el nombre de dominio deseado.", "Dominio deseado: {domain}"],
         "it": ["Il dominio desiderato", "ad es. noor.com", "Inserite solo il nome del dominio desiderato.", "Dominio desiderato: {domain}"],
         "hi": ["आपका पसंदीदा डोमेन", "उदा. noor.com", "केवल अपना पसंदीदा डोमेन नाम दर्ज करें।", "पसंदीदा डोमेन: {domain}"],
-    }.get(language, [])
+    }
+    domain_input_copy = domain_input_copy.get(language, domain_input_copy["en"])
     st.header(labels["title"])
 
     if not st.session_state.generated_html:
@@ -1683,12 +1692,11 @@ def render_domain_and_deployment_ui() -> None:
         ):
             with st.spinner(automated_domain_copy[0]):
                 try:
-                    if INWX_USERNAME and INWX_PASSWORD:
-                        domain_check = check_domain_with_registrar(custom_domain)
-                        domain_check["source"] = "authoritative"
-                        domain_check["message"] = automated_domain_copy[
-                            5 if domain_check.get("available") else 6
-                        ].format(domain=domain_check["domain"])
+                    domain_check = check_domain_with_registrar(custom_domain)
+                    domain_check["source"] = "authoritative"
+                    domain_check["message"] = automated_domain_copy[
+                        5 if domain_check.get("available") else 6
+                    ].format(domain=domain_check["domain"])
                     st.session_state.domain_check_result = domain_check
                     if domain_check.get("available"):
                         st.success(str(domain_check["message"]))
@@ -1696,16 +1704,14 @@ def render_domain_and_deployment_ui() -> None:
                         st.warning(str(domain_check["message"]))
                     else:
                         st.error(str(domain_check["message"]))
-                except ValueError as error:
-                    st.error(str(error))
-                except ProvisioningError as error:
+                except (ValueError, ProvisioningError) as error:
                     st.error(str(error))
         domain_check = st.session_state.get("domain_check_result")
         if isinstance(domain_check, dict) and domain_check.get("domain"):
             checked_domain = str(domain_check.get("domain", ""))
             if checked_domain == custom_domain.strip().lower().removeprefix("https://").removeprefix("http://").rstrip("/"):
                 if domain_check.get("next_step"):
-                    st.info(custom_domain_copy[11].format(step=domain_check["next_step"]))
+                    st.info(next_step_label.format(step=domain_check["next_step"]))
                 if domain_check.get("cost_guidance"):
                     st.caption(str(domain_check["cost_guidance"]))
         registrar_ready = bool(INWX_USERNAME and INWX_PASSWORD)
@@ -1758,13 +1764,13 @@ def render_domain_and_deployment_ui() -> None:
         st.session_state.publish_after_checkout = False
         if domain_type == "Vercel-Projektadresse":
             st.session_state.project_name = safe_project_name(requested_name or "")
-        with st.status("Zahlung bestätigt. Vercel veröffentlicht Ihre Website ...", expanded=True) as status:
+        with st.status(action_labels[7], expanded=True) as status:
             try:
                 publish_website()
-                status.update(label="Ihre Website wurde veröffentlicht.", state="complete")
-                st.success(f"Ihre Kundenwebsite ist bereit: {st.session_state.live_url}")
+                status.update(label=action_labels[8], state="complete")
+                st.success(action_labels[9].format(url=st.session_state.live_url))
                 st.link_button(
-                    "Kundenwebsite jetzt öffnen",
+                    action_labels[10],
                     st.session_state.live_url,
                     icon=":material/open_in_new:",
                     type="primary",
@@ -1772,7 +1778,7 @@ def render_domain_and_deployment_ui() -> None:
                     width="stretch",
                 )
             except ValueError as error:
-                status.update(label="Veröffentlichung fehlgeschlagen", state="error")
+                status.update(label=action_labels[11], state="error")
                 st.error(str(error))
 
     st.info(
@@ -1882,10 +1888,8 @@ def render_domain_and_deployment_ui() -> None:
         with st.status(action_labels[19], expanded=True) as status:
             try:
                 delete_published_website()
-                status.update(
-                    label=action_labels[20],
-                    state="complete",
-                )
+                status.update(label=action_labels[20], state="complete")
+                show_after_rerun(action_labels[20])
                 st.rerun()
             except ValueError as error:
                 status.update(label=action_labels[21], state="error")
@@ -1913,10 +1917,8 @@ def render_domain_and_deployment_ui() -> None:
         with st.status(old_publication_copy[5], expanded=True) as status:
             try:
                 delete_previous_vercel_deployment(old_deployment_reference)
-                status.update(
-                    label=old_publication_copy[6],
-                    state="complete",
-                )
+                status.update(label=old_publication_copy[6], state="complete")
+                show_after_rerun(old_publication_copy[6])
                 st.rerun()
             except ValueError as error:
                 status.update(label=old_publication_copy[7], state="error")
@@ -2231,7 +2233,7 @@ def render_sidebar(user_info: dict) -> None:
                 st.session_state.live_url,
                 str(st.session_state.analytics_site_id),
             )
-            st.success(workspace_labels["draft_saved"])
+            show_after_rerun(workspace_labels["draft_saved"])
             st.rerun()
 
         saved_websites = get_websites(st.session_state.user_id)
@@ -2343,7 +2345,7 @@ def render_main_tabs() -> None:
                 ):
                     try:
                         load_uploaded_html_template(uploaded_template)
-                        st.success("Die Vorlage wurde geladen und kann jetzt bearbeitet werden.")
+                        show_after_rerun("Die Vorlage wurde geladen und kann jetzt bearbeitet werden.")
                         st.rerun()
                     except ValueError as error:
                         st.error(str(error))
@@ -2369,10 +2371,8 @@ def render_main_tabs() -> None:
                             try:
                                 load_published_website(template_url)
                                 st.session_state.project_name = get_project_name_from_url(template_url)
-                                status.update(
-                                    label="Website wurde geladen und kann bearbeitet werden.",
-                                    state="complete",
-                                )
+                                status.update(label="Website wurde geladen und kann bearbeitet werden.", state="complete")
+                                show_after_rerun("Website wurde geladen und kann bearbeitet werden.")
                                 st.rerun()
                             except ValueError as error:
                                 status.update(label="Vorlage konnte nicht geladen werden.", state="error")
@@ -2454,45 +2454,8 @@ def render_main_tabs() -> None:
             ):
                 if creation_mode == "Professionelle Vorlage":
                     try:
-                        company_name = str(st.session_state.client_company_name).strip()
-                        business_email = str(st.session_state.client_business_email).strip()
-                        if not company_name or not EMAIL_PATTERN.fullmatch(business_email):
-                            raise ValueError("Bitte geben Sie Unternehmensname und eine gültige geschäftliche E-Mail-Adresse ein.")
-                        background_color = BACKGROUND_PRESET_COLORS[
-                            st.session_state.template_background_preset
-                        ]
-                        html = build_customized_template_html(
-                            str(st.session_state.template_name),
-                            background_color,
-                            str(st.session_state.template_accent_color),
-                            str(st.session_state.template_border_style),
-                            company_name,
-                            business_email,
-                            str(st.session_state.get("template_hero_heading", "")).strip()
-                            or str(st.session_state.client_company_slogan),
-                            str(st.session_state.client_business_phone),
-                            description,
-                            initial_image,
-                            str(st.session_state.get("template_button_text", "")),
-                            str(st.session_state.get("template_footer_text", "")),
-                            page_structure == "Mehrseitige Website",
-                            template_sections=str(st.session_state.get("template_sections_text", "")),
-                        )
-                        queue_html_update(html, reset_site_pages=True)
-                        st.session_state.site_pages["styles.css"] = (
-                            build_customized_template_styles()
-                        )
-                        if page_structure == "Mehrseitige Website":
-                            st.session_state.site_pages.update(
-                                build_customized_template_pages(
-                                    company_name,
-                                    business_email,
-                                    background_color,
-                                    str(st.session_state.template_accent_color),
-                                    description,
-                                )
-                            )
-                        st.success("Die Vorlage wurde mit Ihren Kundendaten übernommen und kann jetzt direkt bearbeitet werden.")
+                        create_professional_standard_draft()
+                        show_after_rerun("Die Vorlage wurde mit Ihren Kundendaten übernommen und kann jetzt direkt bearbeitet werden.")
                         st.rerun()
                     except ValueError as error:
                         st.error(str(error))
@@ -2517,6 +2480,7 @@ def render_main_tabs() -> None:
                                 multi_page=page_structure == "Mehrseitige Website",
                             )
                             status.update(label="Website wurde erstellt.", state="complete")
+                            show_after_rerun("Website wurde erstellt.")
                             st.rerun()
                         except Exception as error:
                             error_message = str(error) or "Unbekannter Fehler bei der Erstellung."
@@ -2549,10 +2513,8 @@ def render_main_tabs() -> None:
                 with st.status(import_labels["loading"], expanded=True) as status:
                     try:
                         load_published_website(live_url_input)
-                        status.update(
-                            label=import_labels["loaded"],
-                            state="complete",
-                        )
+                        status.update(label=import_labels["loaded"], state="complete")
+                        show_after_rerun(import_labels["loaded"])
                         st.rerun()
                     except Exception as error:
                         status.update(
@@ -2606,10 +2568,8 @@ def render_generated_website_editor() -> None:
                     ) as status:
                         try:
                             create_professional_standard_draft()
-                            status.update(
-                                label="Professioneller Standard-Entwurf wurde erstellt.",
-                                state="complete",
-                            )
+                            status.update(label="Professioneller Standard-Entwurf wurde erstellt.", state="complete")
+                            show_after_rerun("Professioneller Standard-Entwurf wurde erstellt.")
                             st.rerun()
                         except ValueError as error:
                             status.update(label="Entwurf konnte nicht erstellt werden.", state="error")
@@ -2670,10 +2630,8 @@ def render_generated_website_editor() -> None:
                                 f"Ändere ausschließlich den Bereich „{section}“: "
                             f"{change_request}"
                             )
-                            status.update(
-                                label=editor_copy["done"],
-                                state="complete",
-                            )
+                            status.update(label=editor_copy["done"], state="complete")
+                            show_after_rerun(editor_copy["done"])
                             st.rerun()
                         except Exception as error:
                             status.update(
@@ -2688,7 +2646,6 @@ def render_generated_website_editor() -> None:
             company_slogan = str(st.session_state.get("client_company_slogan", "")).strip()
             contact_email = str(st.session_state.get("client_business_email", "")).strip()
             contact_phone = str(st.session_state.get("client_business_phone", "")).strip()
-            chatbot_knowledge = get_configured_chatbot_knowledge()
             st.caption(
                 "Firmenname, Slogan, Kontaktdaten und Chatbot-Wissen bearbeiten Sie oben "
             "im Bereich Kundendaten."
@@ -2744,12 +2701,12 @@ Akzentfarbe „{accent_color}". Aktualisiere den Über-uns-Bereich mit dieser
 Kurzbeschreibung: „{company_description.strip()}“.
 Nutze im Footer nur diese Social-Media-Links: Instagram „{instagram_link.strip()}"
 und LinkedIn „{linkedin_link.strip()}". Entferne einen Social-Link, wenn dafür
-keine gültige URL angegeben wurde. Aktualisiere den Website-Chatbot mit diesem Wissen:
-„{chatbot_knowledge.strip()}“. Erfinde keine zusätzlichen Öffnungszeiten, Preise oder
+keine gültige URL angegeben wurde. Erfinde keine zusätzlichen Öffnungszeiten, Preise oder
 Angebote. Alle sonstigen Inhalte und Bilder bleiben erhalten.
 """
                             )
                             status.update(label="Markenauftritt wurde übernommen.", state="complete")
+                            show_after_rerun("Markenauftritt wurde übernommen.")
                             st.rerun()
                         except Exception as error:
                             status.update(label="Aktualisierung fehlgeschlagen", state="error")
@@ -2781,10 +2738,8 @@ Angebote. Alle sonstigen Inhalte und Bilder bleiben erhalten.
                             "Styling. Texte, Bilder und Struktur bleiben erhalten. "
                             f"Wunsch: {design_request}"
                             )
-                            status.update(
-                                label="✅ Design wurde aktualisiert.",
-                                state="complete",
-                            )
+                            status.update(label="✅ Design wurde aktualisiert.", state="complete")
+                            show_after_rerun("✅ Design wurde aktualisiert.")
                             st.rerun()
                         except Exception as error:
                             status.update(
@@ -2829,10 +2784,8 @@ Alle anderen Inhalte müssen unverändert bleiben.
 """
                             )
 
-                            status.update(
-                                label="✅ Bild wurde aktualisiert.",
-                                state="complete",
-                            )
+                            status.update(label="✅ Bild wurde aktualisiert.", state="complete")
+                            show_after_rerun("✅ Bild wurde aktualisiert.")
                             st.rerun()
                         except Exception as error:
                             status.update(
@@ -2868,23 +2821,3 @@ Alle anderen Inhalte müssen unverändert bleiben.
                 mime="text/html",
                 width="stretch",
             )
-
-        if st.session_state.deployment_id:
-            with st.expander("Letzte Veröffentlichung verwalten"):
-                st.checkbox(
-                    "Ich möchte das letzte Deployment löschen.",
-                    key="delete_confirmation",
-                )
-                if st.button(
-                    "Letztes Deployment löschen",
-                    icon=":material/delete:",
-                    disabled=not st.session_state.delete_confirmation,
-                    key="delete_latest_deployment",
-                    width="stretch",
-                ):
-                    try:
-                        delete_published_website()
-                        st.success("Deployment wurde gelöscht.")
-                        st.rerun()
-                    except Exception as error:
-                        st.error(f"Löschen fehlgeschlagen: {error}")

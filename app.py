@@ -19,6 +19,7 @@ st.set_page_config(
 from gui import (  # noqa: E402  (set_page_config muss zuerst laufen)
     apply_global_styles,
     render_authentication_gate,
+    render_flash_message,
     render_domain_and_deployment_ui,
     render_generated_website_editor,
     render_language_switcher,
@@ -48,6 +49,7 @@ render_language_switcher()
 apply_pending_html_update()
 
 user_info = render_authentication_gate()
+render_flash_message()
 render_sidebar(user_info)
 render_main_tabs()
 render_generated_website_editor()

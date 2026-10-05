@@ -158,3 +158,234 @@ class TestWorkspace:
         draft.button[1].click().run()
         assert_no_errors(app)
         assert logic.get_websites(user_id) == []
+
+
+def create_draft(app):
+    select = next(box for box in app.selectbox if box.key and box.key.startswith("industry_content_preset_"))
+    select.set_value("Restaurant").run()
+    app.button(key="apply_industry_content_preset").click().run()
+    app.text_input(key="client_business_email").input("info@genuss.de").run()
+    find_button(app, "Kundendaten").click().run()
+    assert_no_errors(app)
+    return app
+
+
+class TestEditing:
+    def test_success_message_survives_rerun(self, user_id):
+        app = create_draft(make_app(user_id))
+        assert any("Kundendaten übernommen" in toast.value for toast in app.toast)
+
+    def test_direct_text_replacement(self, user_id):
+        app = create_draft(make_app(user_id))
+        app.text_input(key="direct_previous_text").input("Restaurant Genusszeit")
+        app.text_area(key="direct_edited_text").input("Trattoria Sole")
+        app.button(key="apply_direct_text").click().run()
+        assert_no_errors(app)
+        assert "Trattoria Sole" in app.session_state["generated_html"]
+        assert any("Textstelle" in toast.value for toast in app.toast)
+
+    def test_unknown_text_shows_error(self, user_id):
+        app = create_draft(make_app(user_id))
+        app.text_input(key="direct_previous_text").input("Gibt es nicht")
+        app.button(key="apply_direct_text").click().run()
+        assert not app.exception and "nicht gefunden" in app.error[0].value
+
+    def test_offer_page_and_button_target(self, user_id):
+        app = create_draft(make_app(user_id))
+        app.text_input(key="offer_page_name").input("Mittagsmenü")
+        app.button(key="create_offer_page").click().run()
+        assert 'id="angebote"' in app.session_state["generated_html"]
+        app.button(key="create_offer_page").click().run()
+        assert any("bereits vorhanden" in warning.value for warning in app.warning)
+
+        app.radio(key="direct_button_target_type").set_value("Angebots-Unterseite öffnen")
+        app.button(key="apply_direct_button_target").click().run()
+        assert_no_errors(app)
+        assert '<a class="button" href="#angebote">' in app.session_state["generated_html"]
+
+    def test_mcp_tools(self, user_id):
+        app = create_draft(make_app(user_id))
+        app.button(key="mcp_insert_section").click().run()
+        assert_no_errors(app)
+        assert 'id="kundenbewertungen"' in app.session_state["generated_html"]
+        app.button(key="mcp_optimize_seo").click().run()
+        assert_no_errors(app)
+        assert 'name="description"' in app.session_state["generated_html"]
+        assert app.session_state["generated_html"].count('id="customer-chatbot"') == 1
+
+    def test_html_editor(self, user_id):
+        app = create_draft(make_app(user_id))
+        app.text_area(key="html_editor").input("kein html")
+        app.button(key="apply_html_editor_preview").click().run()
+        assert not app.exception and app.warning
+        app.text_area(key="html_editor").input("<!doctype html><html><body>Neu</body></html>")
+        app.button(key="apply_html_editor_preview").click().run()
+        assert app.session_state["generated_html"] == "<!doctype html><html><body>Neu</body></html>"
+
+    def test_ai_edit_with_fake_model(self, user_id, fake_openai):
+        app = create_draft(make_app(user_id))
+        fake_openai.replies["chat"] = "<!doctype html><html><body><h1>KI-Version</h1></body></html>"
+        app.text_area(key="content_editor_request").input("Kürzer formulieren")
+        app.button(key="apply_content_editor_request").click().run()
+        assert_no_errors(app)
+        assert "KI-Version" in app.session_state["generated_html"]
+        assert app.session_state["generated_html"].count('id="customer-chatbot"') == 1
+
+    def test_ai_failure_is_reported(self, user_id, fake_openai):
+        app = create_draft(make_app(user_id))
+        fake_openai.replies["error"] = RuntimeError("Timeout")
+        app.text_area(key="design_editor_request").input("Dunkler")
+        app.button(key="apply_design_editor_request").click().run()
+        assert not app.exception and any("nicht erreichbar" in error.value for error in app.error)
+
+
+class TestPublishing:
+    def test_zip_download_is_prepared(self, user_id):
+        app = create_draft(make_app(user_id))
+        app.button(key="generate_chatbot_website_zip").click().run()
+        assert_no_errors(app)
+        assert app.session_state["finished_website_zip"][:2] == b"PK"
+
+    def test_publish_failure_shows_message(self, user_id, monkeypatch):
+        import requests
+
+        def offline(*_a, **_k):
+            raise requests.ConnectionError("offline")
+
+        monkeypatch.setattr(logic.requests, "post", offline)
+        app = create_draft(make_app(user_id))
+        app.button(key="publish_from_domain_center").click().run()
+        assert not app.exception
+        assert any("nicht zu Vercel hochgeladen" in error.value for error in app.error)
+
+    def test_load_published_website_in_manage_tab(self, user_id, monkeypatch):
+        from conftest import SIMPLE_HTML, FakeResponse
+
+        monkeypatch.setattr(logic.requests, "get", lambda *a, **k: FakeResponse(200, text=SIMPLE_HTML, url="https://firma.de/"))
+        app = make_app(user_id)
+        app.text_input(key="manage_live_url").input("firma.de")
+        find_button(app, logic.PUBLISH_COPY["de"]["load_button"]).click().run()
+        assert_no_errors(app)
+        assert app.session_state["live_url"] == "https://firma.de/"
+        assert "Willkommen" in app.session_state["generated_html"]
+
+    def test_transformer_without_key_shows_error(self, user_id, monkeypatch):
+        monkeypatch.setattr(logic, "HF_API_KEY", "")
+        app = make_app(user_id)
+        app.button(key="transformer_test_submit").click().run()
+        assert not app.exception and any("HF_API_KEY" in error.value for error in app.error)
+
+
+def configure(monkeypatch, **values):
+    """Setzt Konfigurationswerte in logic und gui (gui importiert sie direkt)."""
+    import gui
+
+    for name, value in values.items():
+        monkeypatch.setattr(logic, name, value)
+        if hasattr(gui, name):
+            monkeypatch.setattr(gui, name, value)
+
+
+class TestMoreFlows:
+    def test_free_draft_with_ai(self, user_id, fake_openai):
+        fake_openai.replies["chat"] = "<!doctype html><html><head></head><body><h1>Freier Entwurf</h1></body></html>"
+        app = make_app(user_id)
+        app.segmented_control(key="creation_mode").set_value("Freier Entwurf").run()
+        app.text_input(key="client_company_name").input("Studio Nord").run()
+        app.text_input(key="client_business_email").input("hallo@studio-nord.de").run()
+        app.text_area(key="creation_description").input("Fotostudio in Hamburg").run()
+        app.button(key="create_website").click().run()
+        assert_no_errors(app)
+        html = app.session_state["generated_html"]
+        assert "Freier Entwurf" in html and "mailto:hallo@studio-nord.de" in html
+        assert "Fotostudio in Hamburg" in fake_openai.calls[0]["messages"][1]["content"]
+
+    def test_existing_template_from_url(self, user_id, monkeypatch):
+        from conftest import SIMPLE_HTML, FakeResponse
+
+        monkeypatch.setattr(logic.requests, "get", lambda *a, **k: FakeResponse(200, text=SIMPLE_HTML, url="https://vorlage.de/"))
+        app = make_app(user_id)
+        app.segmented_control(key="creation_mode").set_value("Bestehenden Entwurf anpassen").run()
+        app.button(key="load_existing_template_url").click().run()
+        assert any("öffentliche Website-Adresse" in warning.value for warning in app.warning)
+        app.text_input(key="existing_template_url").input("vorlage.de")
+        app.button(key="load_existing_template_url").click().run()
+        assert_no_errors(app)
+        assert app.session_state["project_name"] == "vorlage"
+        assert "Willkommen" in app.session_state["generated_html"]
+
+    def test_live_editor_requires_instructions(self, user_id, fake_openai):
+        app = create_draft(make_app(user_id))
+        app.button(key="update_live_editor_section").click().run()
+        assert any("beschreiben" in warning.value for warning in app.warning)
+        assert fake_openai.calls == []
+        app.text_area(key="editor_instructions").input("Hintergrund heller")
+        app.button(key="update_live_editor_section").click().run()
+        assert_no_errors(app)
+        assert "Hintergrund heller" in fake_openai.calls[0]["messages"][1]["content"]
+
+    def test_expired_trial_payment_flow(self, user_id, database, monkeypatch):
+        import sqlite3
+
+        from conftest import FakeResponse
+
+        with sqlite3.connect(database) as connection:
+            connection.execute("UPDATE users SET created_at = '2000-01-01T00:00:00+00:00'")
+        configure(monkeypatch, STRIPE_SECRET_KEY="sk", STRIPE_PRICE_ID="price", STRIPE_SUCCESS_URL="https://app.example/")
+        monkeypatch.setattr(logic.requests, "post", lambda *a, **k: FakeResponse(200, {"url": "https://checkout.stripe.com/x"}))
+        app = make_app(user_id)
+        app.button(key="open_stripe_checkout").click().run()
+        assert not app.exception
+        assert app.session_state["stripe_checkout_url"] == "https://checkout.stripe.com/x"
+
+    def test_admin_analytics_section(self, user_id, monkeypatch):
+        configure(monkeypatch, SUPPORT_ADMIN_EMAIL="kunde@example.com", SUPABASE_URL="", SUPABASE_SERVICE_ROLE_KEY="")
+        app = make_app(user_id)
+        assert_no_errors(app)
+        assert any("Supabase ist noch nicht konfiguriert" in warning.value for warning in app.warning)
+
+    def test_admin_sees_support_inbox(self, user_id, monkeypatch):
+        configure(monkeypatch, SUPPORT_ADMIN_EMAIL="kunde@example.com")
+        logic.save_support_request(user_id, "Fehler", "Vorschau", "Betreff Admin", "Beschreibung lang genug", "")
+        app = make_app(user_id)
+        assert_no_errors(app)
+
+    def test_custom_domain_check_and_checkout(self, user_id, monkeypatch):
+        import gui
+        from conftest import FakeResponse
+
+        configure(monkeypatch, INWX_USERNAME="user", INWX_PASSWORD="pass", STRIPE_SECRET_KEY="sk", STRIPE_PRICE_ID="price", STRIPE_SUCCESS_URL="https://app.example/")
+        monkeypatch.setattr(gui, "check_domain_with_registrar", lambda domain: {"domain": "firma.de", "available": True, "status": "free"})
+
+        def post(url, **_kwargs):
+            if "vercel.com/v10/projects" in url:
+                return FakeResponse(201, {"id": "prj_1"})
+            return FakeResponse(200, {"url": "https://checkout.stripe.com/domain"})
+
+        monkeypatch.setattr(logic.requests, "post", post)
+        app = create_draft(make_app(user_id))
+        app.radio(key="domain_type").set_value("Eigene Domain verbinden").run()
+        app.text_input(key="custom_domain").input("www.firma.de").run()
+        app.button(key="check_custom_domain_with_mcp").click().run()
+        assert_no_errors(app)
+        app.button(key="buy_and_publish_custom_domain").click().run()
+        assert_no_errors(app)
+        assert app.session_state["vercel_project_id"] == "prj_1"
+        assert app.session_state["stripe_checkout_url"] == "https://checkout.stripe.com/domain"
+
+    def test_unavailable_registrar_shows_error(self, user_id, monkeypatch):
+        import gui
+
+        import domain_provisioning
+
+        configure(monkeypatch, INWX_USERNAME="user", INWX_PASSWORD="pass")
+
+        def unavailable(domain):
+            raise domain_provisioning.ProvisioningError("INWX domain.check is unavailable")
+
+        monkeypatch.setattr(gui, "check_domain_with_registrar", unavailable)
+        app = create_draft(make_app(user_id))
+        app.radio(key="domain_type").set_value("Eigene Domain verbinden").run()
+        app.text_input(key="custom_domain").input("firma.de").run()
+        app.button(key="check_custom_domain_with_mcp").click().run()
+        assert not app.exception and any("unavailable" in error.value for error in app.error)
