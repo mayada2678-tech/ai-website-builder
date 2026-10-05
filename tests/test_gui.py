@@ -510,3 +510,25 @@ def test_owned_domain_publish_button(user_id, monkeypatch):
     button.click().run()
     assert_no_errors(app)
     assert published == ["firma-ab12"] and app.session_state["live_url"] == "https://firma.de"
+
+
+def test_connect_external_domain_in_app(user_id, monkeypatch):
+    from conftest import FakeResponse
+
+    def request(method, url, **_kwargs):
+        if url.endswith("/config"):
+            return FakeResponse(200, {"misconfigured": True, "recommendedIPv4": [{"value": ["76.76.21.21"]}], "recommendedCNAME": [{"value": "cname.vercel-dns.com."}]})
+        return FakeResponse(200, {"verified": True})
+
+    monkeypatch.setattr(logic.requests, "request", request)
+    monkeypatch.setattr(logic.requests, "get", lambda *a, **k: FakeResponse(200, {"data": []}))
+    monkeypatch.setattr(logic, "publish_website", lambda: logic.st.session_state.__setitem__("vercel_project_id", "prj_ext"))
+    app = create_draft(make_app(user_id))
+    app.radio(key="domain_type").set_value("Bereits gekaufte Domain verbinden").run()
+    app.text_input(key="external_domain").input("firma.de").run()
+    app.button(key="connect_external_domain").click().run()
+    assert_no_errors(app)
+    app.run()
+    assert has_widget(app.button, "check_dns_firma.de")
+    values = [code.value for code in app.code]
+    assert "76.76.21.21" in values and "cname.vercel-dns.com" in values

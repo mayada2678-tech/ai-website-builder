@@ -30,6 +30,7 @@ from openai import OpenAI
 from pypdf import PdfReader
 
 from analytics_automation import SupabaseAnalyticsClient, summarize_analytics
+from domain_provisioning import ProvisioningError, normalize_domain
 from mcp_server import (
     CHATBOT_INDUSTRY_PROFILES,
     GENERIC_CHATBOT_PROFILES,
@@ -1133,7 +1134,7 @@ def get_owned_domains(user_id: int) -> list[dict[str, str]]:
             """,
             (user_id,),
         ).fetchall()
-    priority = {"complete": 0, "paid": 1, "failed": 2}
+    priority = {"complete": 0, "paid": 1, "dns": 1, "failed": 2}
     owned: dict[str, dict[str, str]] = {}
     for domain, project_name, project_id, status, detail, _created in rows:
         current = owned.get(domain)
@@ -1146,6 +1147,136 @@ def get_owned_domains(user_id: int) -> list[dict[str, str]]:
                 "detail": detail,
             }
     return list(owned.values())
+
+
+def vercel_request(method: str, path: str, payload: dict | None = None) -> requests.Response:
+    """Ruft die Vercel-API auf und meldet Netzwerkfehler verständlich."""
+    try:
+        return requests.request(
+            method,
+            f"https://api.vercel.com{path}",
+            headers={"Authorization": f"Bearer {VERCEL_TOKEN}", "Content-Type": "application/json"},
+            json=payload,
+            timeout=30,
+        )
+    except requests.RequestException as error:
+        raise ValueError(f"Vercel konnte nicht erreicht werden: {error}") from error
+
+
+def add_domain_to_project(project_id: str, domain: str) -> None:
+    """Meldet eine Domain im Vercel-Projekt an; bereits dort vorhandene Domains sind in Ordnung."""
+    response = vercel_request("POST", f"/v10/projects/{project_id}/domains", {"name": domain})
+    if response.status_code in (200, 201):
+        return
+    if vercel_request("GET", f"/v9/projects/{project_id}/domains/{domain}").status_code == 200:
+        return
+    try:
+        message = str(response.json().get("error", {}).get("message", "")).strip()
+    except ValueError:
+        message = ""
+    raise ValueError(
+        f"Die Domain {domain} konnte nicht mit der Website verbunden werden"
+        + (f": {message}" if message else f" (Vercel HTTP {response.status_code}).")
+    )
+
+
+def get_domain_dns_status(project_id: str, domain: str) -> dict[str, object]:
+    """Liefert die nötigen DNS-Einträge und ob die Domain bereits korrekt auf Vercel zeigt."""
+    records: list[dict[str, str]] = []
+    configured = True
+    for host, record_name in ((domain, "@"), (f"www.{domain}", "www")):
+        response = vercel_request("GET", f"/v6/domains/{host}/config")
+        config = response.json() if response.status_code == 200 else {}
+        if record_name == "@":
+            ip_values = (config.get("recommendedIPv4") or [{}])[0].get("value") or ["76.76.21.21"]
+            records.append({"type": "A", "name": "@", "value": str(ip_values[0])})
+        else:
+            cname = str((config.get("recommendedCNAME") or [{}])[0].get("value") or "cname.vercel-dns.com.")
+            records.append({"type": "CNAME", "name": "www", "value": cname.rstrip(".")})
+        if record_name == "@" and config.get("misconfigured", True):
+            configured = False
+    verified = True
+    response = vercel_request("GET", f"/v9/projects/{project_id}/domains/{domain}")
+    if response.status_code == 200:
+        project_domain = response.json()
+        verified = bool(project_domain.get("verified", True))
+        for challenge in project_domain.get("verification") or []:
+            # Domain steckt noch in einem anderen Vercel-Konto: TXT-Eintrag als Eigentumsnachweis.
+            records.append({
+                "type": str(challenge.get("type", "TXT")),
+                "name": str(challenge.get("domain", "_vercel")),
+                "value": str(challenge.get("value", "")),
+            })
+    if not verified:
+        vercel_request("POST", f"/v9/projects/{project_id}/domains/{domain}/verify")
+    return {"connected": configured and verified, "records": records}
+
+
+def save_external_domain(user_id: int, domain: str, project_name: str, project_id: str, status: str, records: list) -> None:
+    """Speichert eine selbst gekaufte Domain mit Status und DNS-Anleitung beim Nutzer."""
+    with sqlite3.connect(DATABASE_PATH) as connection:
+        connection.execute(
+            """
+            INSERT INTO domain_orders (
+                checkout_session_id, user_id, domain, project_name,
+                vercel_project_id, status, detail, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(checkout_session_id) DO UPDATE SET
+                project_name = excluded.project_name,
+                vercel_project_id = excluded.vercel_project_id,
+                status = excluded.status, detail = excluded.detail
+            """,
+            (
+                f"external:{user_id}:{domain}",
+                user_id,
+                domain,
+                project_name,
+                project_id,
+                status,
+                json.dumps(records, ensure_ascii=False),
+                int(time.time()),
+            ),
+        )
+
+
+def connect_external_domain(user_id: int, domain: str) -> dict[str, object]:
+    """Veröffentlicht den Entwurf und verbindet eine selbst gekaufte Domain damit."""
+    try:
+        normalized = normalize_domain(domain)
+    except ProvisioningError as error:
+        raise ValueError("Bitte geben Sie eine gültige Domain ein, z. B. mein-betrieb.de.") from error
+    if not str(st.session_state.generated_html).strip():
+        raise ValueError("Erstellen oder laden Sie zuerst den Entwurf, der unter der Domain erscheinen soll.")
+    existing = next((item for item in get_owned_domains(user_id) if item["domain"] == normalized), None)
+    st.session_state.project_name = (existing or {}).get("project_name") or create_deployment_project_name()
+    st.session_state.vercel_project_id = ""
+    publish_website()
+    project_id = str(st.session_state.vercel_project_id)
+    if not project_id:
+        raise ValueError("Vercel hat keine Projekt-ID für die Website geliefert.")
+    add_domain_to_project(project_id, normalized)
+    add_domain_to_project(project_id, f"www.{normalized}")
+    dns_status = get_domain_dns_status(project_id, normalized)
+    save_external_domain(
+        user_id, normalized, str(st.session_state.project_name), project_id,
+        "complete" if dns_status["connected"] else "dns", list(dns_status["records"]),
+    )
+    if dns_status["connected"]:
+        st.session_state.live_url = f"https://{normalized}"
+    return dns_status
+
+
+def check_external_domain(user_id: int, domain: str) -> bool:
+    """Prüft die DNS-Einträge einer selbst gekauften Domain und aktualisiert ihren Status."""
+    order = next((item for item in get_owned_domains(user_id) if item["domain"] == domain), None)
+    if order is None or not order["vercel_project_id"]:
+        raise ValueError("Diese Domain ist noch nicht mit einer Website verbunden.")
+    dns_status = get_domain_dns_status(order["vercel_project_id"], domain)
+    save_external_domain(
+        user_id, domain, order["project_name"], order["vercel_project_id"],
+        "complete" if dns_status["connected"] else "dns", list(dns_status["records"]),
+    )
+    return bool(dns_status["connected"])
 
 
 def publish_to_owned_domain(user_id: int, domain: str) -> None:

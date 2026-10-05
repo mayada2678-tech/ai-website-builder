@@ -416,3 +416,90 @@ class TestOwnedDomains:
 def test_existing_vercel_project_names_stay_unchanged():
     assert logic.safe_project_name("caf--morgenrot-a600b35a") == "caf--morgenrot-a600b35a"
     assert logic.safe_project_name("Café Morgenrot") == "cafe-morgenrot"
+
+
+class TestExternalDomain:
+    """Kunde hat die Domain selbst gekauft und verbindet sie mit seinem Entwurf."""
+
+    @pytest.fixture
+    def vercel(self, monkeypatch, session):
+        state = {"misconfigured": True, "verified": True, "calls": [], "add_status": 200, "conflict_elsewhere": False}
+
+        def request(method, url, headers=None, json=None, timeout=None):
+            path = url.replace("https://api.vercel.com", "")
+            state["calls"].append((method, path))
+            if path.endswith("/config"):
+                return FakeResponse(200, {"misconfigured": state["misconfigured"], "recommendedIPv4": [{"rank": 1, "value": ["76.76.21.21"]}], "recommendedCNAME": [{"rank": 1, "value": "cname.vercel-dns.com."}]})
+            if method == "POST" and path.endswith("/domains"):
+                return FakeResponse(400 if state["conflict_elsewhere"] else state["add_status"], {"error": {"message": "Domain is already in use by another project"}} if state["conflict_elsewhere"] else {})
+            if method == "GET" and "/domains/" in path:
+                if state["conflict_elsewhere"]:
+                    return FakeResponse(404, {})
+                verification = [] if state["verified"] else [{"type": "TXT", "domain": "_vercel.firma.de", "value": "vc-domain-verify=abc"}]
+                return FakeResponse(200, {"verified": state["verified"], "verification": verification})
+            if method == "POST" and path.endswith("/verify"):
+                return FakeResponse(200, {})
+            raise AssertionError(path)
+
+        monkeypatch.setattr(logic.requests, "request", request)
+        published = []
+
+        def publish():
+            published.append(session.project_name)
+            session.vercel_project_id = "prj_ext"
+
+        monkeypatch.setattr(logic, "publish_website", publish)
+        session.generated_html = SIMPLE_HTML
+        state["published"] = published
+        return state
+
+    def test_connect_publishes_draft_and_shows_dns_records(self, vercel, user_id, session):
+        result = logic.connect_external_domain(user_id, "https://www.Firma.de/")
+        assert len(vercel["published"]) == 1
+        assert ("POST", "/v10/projects/prj_ext/domains") in vercel["calls"]
+        assert result["connected"] is False
+        assert result["records"] == [{"type": "A", "name": "@", "value": "76.76.21.21"}, {"type": "CNAME", "name": "www", "value": "cname.vercel-dns.com"}]
+        owned = logic.get_owned_domains(user_id)[0]
+        assert owned["domain"] == "firma.de" and owned["status"] == "dns" and owned["vercel_project_id"] == "prj_ext"
+
+    def test_check_marks_domain_active_once_dns_is_correct(self, vercel, user_id, session):
+        logic.connect_external_domain(user_id, "firma.de")
+        assert logic.check_external_domain(user_id, "firma.de") is False
+        vercel["misconfigured"] = False
+        assert logic.check_external_domain(user_id, "firma.de") is True
+        assert logic.get_owned_domains(user_id)[0]["status"] == "complete"
+        # Danach funktioniert der Veröffentlichen-Button für diese Domain.
+        logic.publish_to_owned_domain(user_id, "firma.de")
+        assert session.live_url == "https://firma.de"
+        assert vercel["published"][-1] == vercel["published"][0]
+
+    def test_already_correct_dns_is_immediately_active(self, vercel, user_id, session):
+        vercel["misconfigured"] = False
+        assert logic.connect_external_domain(user_id, "firma.de")["connected"] is True
+        assert session.live_url == "https://firma.de"
+
+    def test_ownership_challenge_is_shown(self, vercel, user_id):
+        vercel["verified"] = False
+        records = logic.connect_external_domain(user_id, "firma.de")["records"]
+        assert {"type": "TXT", "name": "_vercel.firma.de", "value": "vc-domain-verify=abc"} in records
+
+    def test_reconnecting_reuses_the_same_project(self, vercel, user_id):
+        logic.connect_external_domain(user_id, "firma.de")
+        logic.connect_external_domain(user_id, "firma.de")
+        assert vercel["published"][0] == vercel["published"][1]
+
+    @pytest.mark.parametrize(("domain", "message"), [("kein domain", "gültige Domain"), ("", "gültige Domain")])
+    def test_invalid_domain(self, vercel, user_id, domain, message):
+        with pytest.raises(ValueError, match=message):
+            logic.connect_external_domain(user_id, domain)
+        assert vercel["published"] == []
+
+    def test_requires_draft(self, vercel, user_id, session):
+        session.generated_html = ""
+        with pytest.raises(ValueError, match="Entwurf"):
+            logic.connect_external_domain(user_id, "firma.de")
+
+    def test_domain_used_by_another_project(self, vercel, user_id):
+        vercel["conflict_elsewhere"] = True
+        with pytest.raises(ValueError, match="already in use"):
+            logic.connect_external_domain(user_id, "firma.de")

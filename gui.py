@@ -2,6 +2,7 @@
 Vorschau, Kundenservice, Datenschutz und Veröffentlichung.
 """
 
+import json
 import re
 import uuid
 from functools import partial
@@ -42,6 +43,8 @@ from logic import (
     get_project_name_from_url,
     get_support_requests,
     get_template_preview_copy,
+    check_external_domain,
+    connect_external_domain,
     get_owned_domains,
     get_user_status,
     get_websites,
@@ -1508,6 +1511,35 @@ OWNED_DOMAIN_COPY = {
 }
 
 
+EXTERNAL_DOMAIN_COPY = {
+    "de": {"option": "Bereits gekaufte Domain verbinden", "intro": "Sie haben Ihre Domain schon bei einem anderen Anbieter (z. B. IONOS, Strato, GoDaddy) gekauft? Geben Sie sie ein. Wir veröffentlichen Ihren Entwurf und zeigen Ihnen die DNS-Einträge, die Sie bei Ihrem Anbieter eintragen.", "label": "Ihre Domain", "placeholder": "z. B. mein-betrieb.de", "button": "Domain verbinden & Website veröffentlichen", "working": "Website wird veröffentlicht und Domain verbunden ...", "connected": "{domain} ist verbunden. Ihre Website ist online.", "pending": "Website ist veröffentlicht. Tragen Sie jetzt die DNS-Einträge bei Ihrem Domain-Anbieter ein.", "badge": "DNS-Einträge eintragen", "records": "Tragen Sie diese Einträge in der DNS-Verwaltung Ihres Domain-Anbieters ein:", "type": "Typ", "name": "Name / Host", "value": "Wert / Ziel", "check": "Verbindung prüfen", "not_yet": "Noch nicht verbunden. DNS-Änderungen werden meist in wenigen Minuten aktiv, selten erst nach bis zu 48 Stunden.", "need_draft": "Erstellen oder laden Sie zuerst den Entwurf, der unter der Domain erscheinen soll."},
+    "en": {"option": "Connect a domain you already own", "intro": "Already bought your domain elsewhere (e.g. GoDaddy, Namecheap, IONOS)? Enter it. We publish your draft and show you the DNS records to add at your provider.", "label": "Your domain", "placeholder": "e.g. my-business.com", "button": "Connect domain & publish website", "working": "Publishing website and connecting domain ...", "connected": "{domain} is connected. Your website is online.", "pending": "Your website is published. Now add the DNS records at your domain provider.", "badge": "Add DNS records", "records": "Add these records in your domain provider's DNS settings:", "type": "Type", "name": "Name / Host", "value": "Value / Target", "check": "Check connection", "not_yet": "Not connected yet. DNS changes usually take a few minutes, rarely up to 48 hours.", "need_draft": "First create or load the draft that should appear on the domain."},
+    "ar": {"option": "ربط نطاق مملوك لك بالفعل", "intro": "هل اشتريت نطاقك من مزود آخر؟ أدخله هنا. سننشر مسودتك ونعرض لك سجلات DNS التي تضيفها لدى مزودك.", "label": "نطاقك", "placeholder": "مثال: my-business.com", "button": "ربط النطاق ونشر الموقع", "working": "جارٍ نشر الموقع وربط النطاق...", "connected": "تم ربط {domain}. موقعك متاح الآن.", "pending": "تم نشر موقعك. أضف الآن سجلات DNS لدى مزود النطاق.", "badge": "أضف سجلات DNS", "records": "أضف هذه السجلات في إعدادات DNS لدى مزود النطاق:", "type": "النوع", "name": "الاسم / المضيف", "value": "القيمة / الهدف", "check": "التحقق من الربط", "not_yet": "لم يتم الربط بعد. تصبح تغييرات DNS فعالة عادة خلال دقائق، ونادراً بعد 48 ساعة.", "need_draft": "أنشئ أو حمّل أولاً المسودة التي يجب أن تظهر على النطاق."},
+    "ku": {"option": "بەستنەوەی دۆمەینێک کە پێشتر کڕیوتە", "intro": "دۆمەینەکەت لە دابینکەرێکی تر کڕیوە؟ لێرە بینووسە. ڕەشنووسەکەت بڵاو دەکەینەوە و تۆمارەکانی DNS پیشان دەدەین.", "label": "دۆمەینەکەت", "placeholder": "بۆ نموونە: my-business.com", "button": "بەستنەوەی دۆمەین و بڵاوکردنەوەی وێبگە", "working": "وێبگە بڵاو دەکرێتەوە و دۆمەین دەبەسترێتەوە...", "connected": "{domain} بەسترایەوە. وێبگەکەت لەسەر هێڵە.", "pending": "وێبگەکەت بڵاوکرایەوە. ئێستا تۆمارەکانی DNS لای دابینکەری دۆمەین زیاد بکە.", "badge": "تۆمارەکانی DNS زیاد بکە", "records": "ئەم تۆمارانە لە ڕێکخستنەکانی DNS ی دابینکەرەکەت زیاد بکە:", "type": "جۆر", "name": "ناو / هۆست", "value": "بەها / ئامانج", "check": "پشکنینی بەستنەوە", "not_yet": "هێشتا نەبەستراوەتەوە. گۆڕانکارییەکانی DNS زۆرجار لە چەند خولەکێکدا کار دەکەن.", "need_draft": "سەرەتا ئەو ڕەشنووسە دروست بکە یان بار بکە کە دەبێت لەسەر دۆمەینەکە دەربکەوێت."},
+    "es": {"option": "Conectar un dominio que ya tiene", "intro": "¿Ya compró su dominio en otro proveedor? Introdúzcalo. Publicamos su borrador y le mostramos los registros DNS que debe añadir.", "label": "Su dominio", "placeholder": "p. ej. mi-empresa.com", "button": "Conectar dominio y publicar sitio", "working": "Publicando el sitio y conectando el dominio...", "connected": "{domain} está conectado. Su sitio está en línea.", "pending": "Su sitio está publicado. Añada ahora los registros DNS en su proveedor.", "badge": "Añadir registros DNS", "records": "Añada estos registros en la configuración DNS de su proveedor:", "type": "Tipo", "name": "Nombre / Host", "value": "Valor / Destino", "check": "Comprobar conexión", "not_yet": "Aún no conectado. Los cambios DNS suelen tardar minutos, raramente hasta 48 horas.", "need_draft": "Cree o cargue primero el borrador que debe aparecer en el dominio."},
+    "it": {"option": "Collega un dominio che possiedi già", "intro": "Hai già acquistato il dominio presso un altro provider? Inseriscilo. Pubblichiamo la bozza e ti mostriamo i record DNS da aggiungere.", "label": "Il tuo dominio", "placeholder": "ad es. mia-azienda.com", "button": "Collega dominio e pubblica sito", "working": "Pubblicazione del sito e collegamento del dominio...", "connected": "{domain} è collegato. Il sito è online.", "pending": "Il sito è pubblicato. Ora aggiungi i record DNS presso il tuo provider.", "badge": "Aggiungi record DNS", "records": "Aggiungi questi record nelle impostazioni DNS del provider:", "type": "Tipo", "name": "Nome / Host", "value": "Valore / Destinazione", "check": "Verifica collegamento", "not_yet": "Non ancora collegato. Le modifiche DNS richiedono di solito pochi minuti, raramente fino a 48 ore.", "need_draft": "Crea o carica prima la bozza da mostrare sul dominio."},
+    "hi": {"option": "पहले से खरीदा डोमेन जोड़ें", "intro": "क्या आपने डोमेन किसी अन्य प्रदाता से खरीदा है? उसे दर्ज करें। हम आपका प्रारूप प्रकाशित करेंगे और DNS रिकॉर्ड दिखाएंगे।", "label": "आपका डोमेन", "placeholder": "उदा. my-business.com", "button": "डोमेन जोड़ें और वेबसाइट प्रकाशित करें", "working": "वेबसाइट प्रकाशित हो रही है और डोमेन जुड़ रहा है...", "connected": "{domain} जुड़ गया है। आपकी वेबसाइट ऑनलाइन है।", "pending": "वेबसाइट प्रकाशित हो गई है। अब अपने प्रदाता के पास DNS रिकॉर्ड जोड़ें।", "badge": "DNS रिकॉर्ड जोड़ें", "records": "अपने डोमेन प्रदाता की DNS सेटिंग में ये रिकॉर्ड जोड़ें:", "type": "प्रकार", "name": "नाम / होस्ट", "value": "मान / लक्ष्य", "check": "कनेक्शन जांचें", "not_yet": "अभी जुड़ा नहीं है। DNS बदलाव आमतौर पर कुछ मिनटों में, कभी-कभी 48 घंटे तक में सक्रिय होते हैं।", "need_draft": "पहले वह प्रारूप बनाएं या लोड करें जो डोमेन पर दिखना चाहिए।"},
+}
+
+
+def render_dns_records(records_json: str, copy: dict[str, str]) -> None:
+    """Zeigt die DNS-Einträge, die der Kunde bei seinem Domain-Anbieter eintragen muss."""
+    try:
+        records = json.loads(records_json or "[]")
+    except ValueError:
+        records = []
+    if not records:
+        return
+    st.caption(copy["records"])
+    for record in records:
+        type_column, name_column, value_column = st.columns((1, 2, 4))
+        type_column.markdown(f"**{copy['type']}**  \n`{record.get('type', '')}`")
+        name_column.markdown(f"**{copy['name']}**")
+        name_column.code(str(record.get("name", "")), language=None)
+        value_column.markdown(f"**{copy['value']}**")
+        value_column.code(str(record.get("value", "")), language=None)
+
+
 def render_owned_domains(language: str) -> None:
     """Zeigt gekaufte Domains und veröffentlicht den gewählten Entwurf per Klick darauf."""
     copy = OWNED_DOMAIN_COPY.get(language, OWNED_DOMAIN_COPY["en"])
@@ -1529,6 +1561,19 @@ def render_owned_domains(language: str) -> None:
                 status_column.markdown(f":green-badge[:material/check_circle: {copy[1]}]")
             elif order["status"] == "paid":
                 status_column.markdown(f":orange-badge[:material/progress_activity: {copy[2]}]")
+            elif order["status"] == "dns":
+                external_copy = EXTERNAL_DOMAIN_COPY.get(language, EXTERNAL_DOMAIN_COPY["en"])
+                status_column.markdown(f":orange-badge[:material/dns: {external_copy['badge']}]")
+                render_dns_records(order["detail"], external_copy)
+                if st.button(external_copy["check"], icon=":material/sync:", key=f"check_dns_{domain}"):
+                    try:
+                        if check_external_domain(user_id, domain):
+                            show_after_rerun(external_copy["connected"].format(domain=domain))
+                            st.rerun()
+                        st.info(external_copy["not_yet"])
+                    except ValueError as error:
+                        st.error(str(error))
+                continue
             else:
                 status_column.markdown(f":red-badge[:material/error: {copy[3]}]")
                 st.caption(f"{copy[9]} {order['detail']}".strip())
@@ -1574,8 +1619,9 @@ def render_domain_and_deployment_ui() -> None:
         "hi": ["प्रारूप का लाइव पूर्वावलोकन खोलें", "पसंदीदा पता निर्धारित करें", "सदस्यता पूरी करने से पहले अपनी वेबसाइट का पता चुनें।", "पता चुनें", "Vercel परियोजना पता", "अपना डोमेन जोड़ें", "Vercel परियोजना पते का नाम", "उदा. example-company", "प्रकाशन के समय Vercel अंतिम .vercel.app पता निर्धारित करता है।", "नियोजित पता: {address}", "अब आप अपनी वेबसाइट प्रकाशित कर सकते हैं।"],
     }
     domain_labels = domain_copy_by_language.get(language, domain_copy_by_language["en"])
-    domain_options = ["Vercel-Projektadresse", "Eigene Domain verbinden"]
-    domain_option_labels = dict(zip(domain_options, domain_labels[4:6]))
+    external_copy = EXTERNAL_DOMAIN_COPY.get(language, EXTERNAL_DOMAIN_COPY["en"])
+    domain_options = ["Vercel-Projektadresse", "Eigene Domain verbinden", "Bereits gekaufte Domain verbinden"]
+    domain_option_labels = dict(zip(domain_options, [*domain_labels[4:6], external_copy["option"]]))
     action_copy_by_language = {
         "de": ["Veröffentlichung mit Chatbot", "Das Paket enthält den aktuellen Website-Entwurf einschließlich des konfigurierten Chatbots.", "Vercel-ZIP-Paket mit Chatbot generieren", "Website-Paket wird erstellt ...", "Das Website-Paket ist bereit zum Download.", "Website mit Chatbot herunterladen (ZIP)", "Jetzt auf Vercel veröffentlichen", "Vercel veröffentlicht die Website ...", "Die Website wurde veröffentlicht.", "Ihre Kundenwebsite ist bereit: {url}", "Kundenwebsite jetzt öffnen", "Veröffentlichung fehlgeschlagen", "Aktuelle Veröffentlichung", "Ihre Website ist live: {url}", "Noch keine Website veröffentlicht. Nach der Veröffentlichung können Sie sie hier laden oder löschen.", "Veröffentlichte Seite laden", "Löschen bestätigen", "Veröffentlichte Website löschen", "Entfernt nur das aktuelle Vercel-Deployment. Der gespeicherte Entwurf und das lokale Website-Paket bleiben erhalten.", "Veröffentlichung wird entfernt ...", "Die veröffentlichte Website wurde entfernt.", "Löschen fehlgeschlagen"],
         "en": ["Publish with chatbot", "The package contains the current website draft including the configured chatbot.", "Generate Vercel ZIP package with chatbot", "Creating website package ...", "The website package is ready to download.", "Download website with chatbot (ZIP)", "Publish to Vercel now", "Vercel is publishing the website ...", "The website has been published.", "Your customer website is ready: {url}", "Open customer website now", "Publishing failed", "Current publication", "Your website is live: {url}", "No website has been published yet. After publishing, you can open or delete it here.", "Open published page", "Confirm deletion", "Delete published website", "Only the current Vercel deployment is removed. The saved draft and local website package remain available.", "Removing publication ...", "The published website was removed.", "Deletion failed"],
@@ -1722,6 +1768,36 @@ def render_domain_and_deployment_ui() -> None:
                     address=f"{safe_project_name(requested_name)}.vercel.app"
                 )
             )
+    elif domain_type == "Bereits gekaufte Domain verbinden":
+        st.info(external_copy["intro"])
+        external_domain = st.text_input(
+            external_copy["label"],
+            placeholder=external_copy["placeholder"],
+            key="external_domain",
+        )
+        if st.button(
+            external_copy["button"],
+            icon=":material/link:",
+            type="primary",
+            disabled=not external_domain.strip(),
+            key="connect_external_domain",
+            width="stretch",
+        ):
+            with st.status(external_copy["working"], expanded=True) as status:
+                try:
+                    dns_status = connect_external_domain(int(st.session_state.user_id), external_domain)
+                    message = (
+                        external_copy["connected"].format(domain=normalize_domain(external_domain))
+                        if dns_status["connected"]
+                        else external_copy["pending"]
+                    )
+                    status.update(label=message, state="complete")
+                    show_after_rerun(message)
+                    st.session_state.refresh_domain_orders = True
+                    st.rerun()
+                except ValueError as error:
+                    status.update(label=action_labels[11], state="error")
+                    st.error(str(error))
     else:
         st.info(automated_domain_copy[8])
         custom_domain = st.text_input(
@@ -1922,14 +1998,6 @@ def render_domain_and_deployment_ui() -> None:
                         expanded=True,
                     )
                     st.error(str(error))
-    else:
-        custom_domain = str(st.session_state.get("custom_domain", "")).strip()
-        if custom_domain:
-            st.info(
-                "Die Domain muss vor der Verknüpfung gekauft sein. Für die automatische "
-                "Anbindung benötigen Sie eine verifizierte Domain, passende DNS-Einträge und eine "
-                "serverseitige Vercel-Domain-API-Integration."
-            )
 
     st.divider()
     st.subheader(action_labels[12], anchor=False)
