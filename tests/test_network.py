@@ -288,3 +288,9 @@ class TestTransformerOptimization:
         monkeypatch.setattr(logic.requests, "post", post)
         with pytest.raises(ValueError, match=message):
             logic.optimize_text_with_transformer("Text")
+
+
+def test_stripe_error_reason_is_shown(monkeypatch, stripe_configured):
+    monkeypatch.setattr(logic.requests, "post", lambda *a, **k: FakeResponse(400, {"error": {"message": "No such price: 'price_x'"}}))
+    with pytest.raises(ValueError, match="No such price"):
+        logic.create_stripe_checkout_session(1, "kunde@example.com")

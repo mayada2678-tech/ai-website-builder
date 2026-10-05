@@ -895,7 +895,13 @@ def create_stripe_checkout_session(
     except requests.RequestException as error:
         raise ValueError("Stripe ist derzeit nicht erreichbar. Bitte versuchen Sie es erneut.") from error
     if response.status_code != 200:
-        raise ValueError("Stripe konnte die Zahlung nicht vorbereiten.")
+        try:
+            detail = str(response.json().get("error", {}).get("message", "")).strip()
+        except (ValueError, AttributeError):
+            detail = ""
+        raise ValueError(
+            "Stripe konnte die Zahlung nicht vorbereiten" + (f": {detail}" if detail else ".")
+        )
     checkout_url = response.json().get("url")
     if not checkout_url:
         raise ValueError("Stripe hat keine Zahlungsadresse geliefert.")
