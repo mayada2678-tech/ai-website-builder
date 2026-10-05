@@ -36,6 +36,7 @@ from logic import (
     delete_previous_vercel_deployment,
     delete_published_website,
     delete_saved_website,
+    DOMAIN_PRICE_EUR,
     generate_website,
     get_creation_form_copy,
     get_project_name_from_url,
@@ -1547,6 +1548,18 @@ def render_domain_and_deployment_ui() -> None:
         "hi": ["डोमेन जांचा जा रहा है...", "अभी खरीदें और प्रकाशित करें", "वेबसाइट और सुरक्षित भुगतान तैयार हो रहा है...", "सुरक्षित भुगतान खोलें", "स्वचालित डोमेन खरीद अभी उपलब्ध नहीं है।", "{domain} उपलब्ध है।", "{domain} उपलब्ध नहीं है।", "पसंदीदा डोमेन जांचें", "सफल भुगतान के बाद आपका डोमेन स्वतः पंजीकृत, कनेक्ट और SSL सहित प्रकाशित होगा।"],
     }
     automated_domain_copy = automated_domain_copy.get(language, automated_domain_copy["en"])
+    domain_offer_copy = {
+        "de": ("{domain} kaufen & veröffentlichen ({price})", "Sie haben Premium: Sie zahlen nur die Domain, einmalig {price} für 1 Jahr. Kein weiteres Abo.", "Mit dem Premium-Abo (Domain inklusive) veröffentlichen"),
+        "en": ("Buy {domain} & publish ({price})", "You have Premium: you only pay for the domain, once, {price} for 1 year. No additional subscription.", "Publish with the Premium subscription (domain included)"),
+        "ar": ("شراء {domain} والنشر ({price})", "لديك Premium: تدفع ثمن النطاق فقط، مرة واحدة {price} لمدة سنة. بدون اشتراك إضافي.", "النشر مع اشتراك Premium (النطاق مشمول)"),
+        "ku": ("کڕینی {domain} و بڵاوکردنەوە ({price})", "تۆ Premiumت هەیە: تەنها پارەی دۆمەین دەدەیت، یەکجار {price} بۆ ساڵێک. بێ بەشداریکردنی زیادە.", "بڵاوکردنەوە لەگەڵ بەشداریکردنی Premium (دۆمەین لەخۆدەگرێت)"),
+        "es": ("Comprar {domain} y publicar ({price})", "Tiene Premium: solo paga el dominio, una vez {price} por 1 año. Sin suscripción adicional.", "Publicar con la suscripción Premium (dominio incluido)"),
+        "it": ("Acquista {domain} e pubblica ({price})", "Hai Premium: paghi solo il dominio, una volta {price} per 1 anno. Nessun abbonamento aggiuntivo.", "Pubblica con l'abbonamento Premium (dominio incluso)"),
+        "hi": ("{domain} खरीदें और प्रकाशित करें ({price})", "आपके पास Premium है: केवल डोमेन का भुगतान, एक बार {price}, 1 वर्ष के लिए। कोई अतिरिक्त सदस्यता नहीं।", "Premium सदस्यता के साथ प्रकाशित करें (डोमेन शामिल)"),
+    }
+    domain_offer_copy = domain_offer_copy.get(language, domain_offer_copy["en"])
+    is_premium = bool(get_user_status(int(st.session_state.user_id))["subscribed"])
+    domain_price_label = f"{DOMAIN_PRICE_EUR:.2f} €".replace(".", ",") if language == "de" else f"€{DOMAIN_PRICE_EUR:.2f}"
     provisioning_copy = {
         "de": ["Zahlung bestätigt. Ihre Website wird eingerichtet ...", "Ihre Website ist fertig.", "Live-Website öffnen", "Die Einrichtung dauert noch an. Diese Seite kann gleich erneut geprüft werden.", "Die automatische Einrichtung konnte nicht abgeschlossen werden. Der Support wurde informiert."],
         "en": ["Payment confirmed. Your website is being set up ...", "Your website is ready.", "Open live website", "Setup is still in progress. You can check this page again shortly.", "Automatic setup could not be completed. Support has been notified."],
@@ -1697,8 +1710,14 @@ def render_domain_and_deployment_ui() -> None:
         )
         if not registrar_ready:
             st.warning(automated_domain_copy[4])
+        checked_domain_name = normalized_custom_domain or custom_domain.strip()
+        if is_premium:
+            st.caption(domain_offer_copy[1].format(price=domain_price_label))
+            buy_label = domain_offer_copy[0].format(domain=checked_domain_name or "Domain", price=domain_price_label)
+        else:
+            buy_label = domain_offer_copy[2]
         if st.button(
-            automated_domain_copy[1],
+            buy_label,
             icon=":material/shopping_cart_checkout:",
             type="primary",
             disabled=not domain_available,
@@ -1725,6 +1744,7 @@ def render_domain_and_deployment_ui() -> None:
                         project_id,
                         project_name=st.session_state.project_name,
                         website_id=website_id,
+                        one_time_domain=is_premium,
                     )
                     status.update(label=automated_domain_copy[3], state="complete")
                 except (ValueError, ProvisioningError) as error:

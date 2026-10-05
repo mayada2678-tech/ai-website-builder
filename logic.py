@@ -269,6 +269,13 @@ if OPENAI_API_KEY:
 STRIPE_SECRET_KEY = str(st.secrets.get("stripe_secret_key", "")).strip()
 STRIPE_PRICE_ID = str(st.secrets.get("stripe_price_id", "")).strip()
 STRIPE_SUCCESS_URL = str(st.secrets.get("stripe_success_url", "")).strip().rstrip("?")
+try:
+    # Einmaliger Domainpreis (1 Jahr) für Kunden, die bereits Premium haben.
+    DOMAIN_PRICE_EUR = round(float(st.secrets.get("domain_price_eur", 15)), 2)
+except (TypeError, ValueError):
+    DOMAIN_PRICE_EUR = 15.0
+if not 0.5 <= DOMAIN_PRICE_EUR <= 10000:
+    DOMAIN_PRICE_EUR = 15.0
 INWX_USERNAME = str(st.secrets.get("inwx_username", "")).strip()
 INWX_PASSWORD = str(st.secrets.get("inwx_password", "")).strip()
 INWX_ENVIRONMENT = str(st.secrets.get("inwx_environment", "ote")).strip().lower()
@@ -859,13 +866,18 @@ def create_stripe_checkout_session(
     vercel_project_id: str = "",
     project_name: str = "",
     website_id: int | None = None,
+    one_time_domain: bool = False,
 ) -> str:
     """Erstellt eine Stripe-Checkout-Sitzung für die Veröffentlichungsfreigabe.
 
+    Ohne Premium wird das Abo abgeschlossen (Domain inklusive). Mit one_time_domain
+    zahlen bestehende Premium-Kunden nur die Domain einmalig (DOMAIN_PRICE_EUR).
     Projektname und gespeicherter Entwurf werden vermerkt, damit die App nach der
     Rückkehr von Stripe (neue Sitzung) genau dieses Projekt veröffentlichen kann.
     """
-    if not STRIPE_SECRET_KEY or not STRIPE_PRICE_ID or not STRIPE_SUCCESS_URL:
+    if one_time_domain and not (domain and vercel_project_id):
+        raise ValueError("Für den Domainkauf fehlen Domain oder Vercel-Projekt.")
+    if not STRIPE_SECRET_KEY or not STRIPE_SUCCESS_URL or not (one_time_domain or STRIPE_PRICE_ID):
         raise ValueError("Stripe ist noch nicht eingerichtet.")
 
     separator = "&" if "?" in STRIPE_SUCCESS_URL else "?"
@@ -874,24 +886,39 @@ def create_stripe_checkout_session(
         "&publish=1"
     )
     checkout_data = {
-        "mode": "subscription",
         "customer_email": user_email,
         "client_reference_id": str(user_id),
-        "line_items[0][price]": STRIPE_PRICE_ID,
         "line_items[0][quantity]": "1",
         "success_url": success_url,
         "cancel_url": STRIPE_SUCCESS_URL,
     }
+    if one_time_domain:
+        checkout_data.update(
+            {
+                "mode": "payment",
+                "line_items[0][price_data][currency]": "eur",
+                "line_items[0][price_data][unit_amount]": str(round(DOMAIN_PRICE_EUR * 100)),
+                "line_items[0][price_data][product_data][name]": f"Domain {domain} (1 Jahr)",
+                "metadata[purchase]": "domain",
+            }
+        )
+    else:
+        checkout_data.update({"mode": "subscription", "line_items[0][price]": STRIPE_PRICE_ID})
     if domain and vercel_project_id:
         checkout_data.update(
             {
                 "metadata[domain]": domain,
                 "metadata[vercel_project_id]": vercel_project_id,
                 "metadata[provisioning_status]": "pending",
-                "subscription_data[metadata][domain]": domain,
-                "subscription_data[metadata][vercel_project_id]": vercel_project_id,
             }
         )
+        if not one_time_domain:
+            checkout_data.update(
+                {
+                    "subscription_data[metadata][domain]": domain,
+                    "subscription_data[metadata][vercel_project_id]": vercel_project_id,
+                }
+            )
     if project_name:
         checkout_data["metadata[project_name]"] = project_name
     if website_id is not None:

@@ -411,3 +411,27 @@ class TestCheckoutReturnInApp:
         assert app.session_state["project_name"] == "zweite-x1"
         assert "Willkommen" in app.session_state["generated_html"]
         assert app.session_state["live_url"] == "https://zweite.de"
+
+
+class TestDomainOffer:
+    def open_domain_section(self, user_id, monkeypatch):
+        import gui
+
+        configure(monkeypatch, INWX_USERNAME="user", INWX_PASSWORD="pass")
+        monkeypatch.setattr(gui, "check_domain_with_registrar", lambda domain: {"domain": "firma.de", "available": True, "status": "free"})
+        app = create_draft(make_app(user_id))
+        app.radio(key="domain_type").set_value("Eigene Domain verbinden").run()
+        app.text_input(key="custom_domain").input("firma.de").run()
+        app.button(key="check_custom_domain_with_mcp").click().run()
+        return app
+
+    def test_premium_customer_sees_one_time_domain_price(self, user_id, monkeypatch):
+        logic.activate_premium(user_id)
+        app = self.open_domain_section(user_id, monkeypatch)
+        label = app.button(key="buy_and_publish_custom_domain").label
+        assert "firma.de" in label and "15,00 €" in label and "Premium-Abo" not in label
+        assert any("Kein weiteres Abo" in caption.value for caption in app.caption)
+
+    def test_new_customer_sees_subscription_offer(self, user_id, monkeypatch):
+        app = self.open_domain_section(user_id, monkeypatch)
+        assert "Premium-Abo (Domain inklusive)" in app.button(key="buy_and_publish_custom_domain").label

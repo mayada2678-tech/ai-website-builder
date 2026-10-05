@@ -327,3 +327,30 @@ class TestCheckoutReturn:
         assert session.generated_html == ""
         logic.restore_checkout_draft(user_id, {"website_id": "kein-wert"})
         assert session.generated_html == ""
+
+
+class TestDomainPurchaseForPremium:
+    def capture(self, monkeypatch):
+        sent = {}
+        monkeypatch.setattr(logic.requests, "post", lambda url, auth, data, timeout: sent.update(data) or FakeResponse(200, {"url": "https://checkout"}))
+        return sent
+
+    def test_premium_pays_domain_once_without_subscription(self, monkeypatch, stripe_configured):
+        monkeypatch.setattr(logic, "DOMAIN_PRICE_EUR", 12.5)
+        sent = self.capture(monkeypatch)
+        logic.create_stripe_checkout_session(1, "a@b.de", "firma.de", "prj_1", one_time_domain=True)
+        assert sent["mode"] == "payment"
+        assert sent["line_items[0][price_data][unit_amount]"] == "1250"
+        assert sent["line_items[0][price_data][product_data][name]"] == "Domain firma.de (1 Jahr)"
+        assert "line_items[0][price]" not in sent and not any(key.startswith("subscription_data") for key in sent)
+        assert sent["metadata[domain]"] == "firma.de" and sent["metadata[purchase]"] == "domain"
+
+    def test_new_customer_gets_subscription_with_domain(self, monkeypatch, stripe_configured):
+        sent = self.capture(monkeypatch)
+        logic.create_stripe_checkout_session(1, "a@b.de", "firma.de", "prj_1")
+        assert sent["mode"] == "subscription" and sent["line_items[0][price]"] == "price_1"
+        assert sent["subscription_data[metadata][domain]"] == "firma.de"
+
+    def test_one_time_purchase_needs_domain_and_project(self, stripe_configured):
+        with pytest.raises(ValueError, match="Domain oder Vercel-Projekt"):
+            logic.create_stripe_checkout_session(1, "a@b.de", one_time_domain=True)
