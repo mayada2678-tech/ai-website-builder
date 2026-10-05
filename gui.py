@@ -602,7 +602,7 @@ def render_authentication_gate() -> dict:
 
     return_to_publish = st.query_params.get("publish") == "1"
 
-    if not user_info["subscribed"] and confirm_stripe_checkout(current_user_id):
+    if confirm_stripe_checkout(current_user_id):
         st.session_state.publish_after_checkout = return_to_publish
         show_after_rerun("Zahlung bestätigt. Die Veröffentlichung ist jetzt freigeschaltet.")
         st.rerun()
@@ -1569,10 +1569,6 @@ def render_domain_and_deployment_ui() -> None:
     domain_input_copy = domain_input_copy.get(language, domain_input_copy["en"])
     st.header(labels["title"])
 
-    if not st.session_state.generated_html:
-        st.info(labels["need_site"])
-        return
-
     paid_domain_session_id = str(
         st.session_state.get("paid_domain_checkout_session_id", "")
     ).strip()
@@ -1600,6 +1596,10 @@ def render_domain_and_deployment_ui() -> None:
                     status.update(label=provisioning_copy[4], state="error")
                 else:
                     status.update(label=provisioning_copy[3], state="running")
+
+    if not st.session_state.generated_html:
+        st.info(labels["need_site"])
+        return
 
     chatbot_environment_warning = str(
         st.session_state.get("chatbot_environment_warning", "")
@@ -1710,11 +1710,21 @@ def render_domain_and_deployment_ui() -> None:
                     st.session_state.project_name = create_deployment_project_name()
                     project_id = create_empty_vercel_project(st.session_state.project_name)
                     st.session_state.vercel_project_id = project_id
+                    # Stripe öffnet die App danach in einer neuen Sitzung: Entwurf sichern.
+                    website_id = save_website(
+                        int(st.session_state.user_id),
+                        str(domain_check["domain"]),
+                        create_preview_html(st.session_state.generated_html),
+                        str(domain_check["domain"]),
+                        str(st.session_state.analytics_site_id),
+                    )
                     st.session_state.stripe_checkout_url = create_stripe_checkout_session(
                         int(st.session_state.user_id),
                         st.session_state.user_email,
                         str(domain_check["domain"]),
                         project_id,
+                        project_name=st.session_state.project_name,
+                        website_id=website_id,
                     )
                     status.update(label=automated_domain_copy[3], state="complete")
                 except (ValueError, ProvisioningError) as error:

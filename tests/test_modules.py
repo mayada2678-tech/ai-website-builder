@@ -140,15 +140,20 @@ class TestDomainProvisioning:
         monkeypatch.setenv("INWX_PASSWORD", "pass")
         monkeypatch.setenv("INWX_ENVIRONMENT", "ote")
         calls = []
+        params = {}
+        errors = {}
         # Format laut INWX-Doku: Liste unter "domain", avail = 1 bedeutet frei.
         replies = {"domain.check": {"domain": [{"domain": "firma.de", "avail": 1, "status": "free", "price": 9.9}]}}
 
         def post(self, url, json, timeout):
             calls.append(json["method"])
+            params.setdefault(json["method"], []).append(json["params"])
+            if json["method"] in errors:
+                return FakeResponse(200, {"code": errors[json["method"]], "msg": "Fehler"})
             return FakeResponse(200, {"code": 1000, "resData": replies.get(json["method"], {})})
 
         monkeypatch.setattr(requests.Session, "post", post)
-        return SimpleNamespace(calls=calls, replies=replies)
+        return SimpleNamespace(calls=calls, replies=replies, params=params, errors=errors)
 
     def test_configuration_errors(self, monkeypatch):
         monkeypatch.setenv("INWX_ENVIRONMENT", "test")
@@ -191,14 +196,40 @@ class TestDomainProvisioning:
         with pytest.raises(domain_provisioning.ProvisioningError, match="disabled"):
             domain_provisioning.InwxClient().register("firma.de")
 
-    def test_full_provisioning(self, inwx, monkeypatch):
+    @pytest.fixture
+    def handles(self, monkeypatch):
         for handle in ("REGISTRANT", "ADMIN", "TECH", "BILLING"):
-            monkeypatch.setenv(f"INWX_{handle}_HANDLE", "h1")
+            monkeypatch.setenv(f"INWX_{handle}_HANDLE", " 4711 ")
         monkeypatch.setenv("VERCEL_TOKEN", "t")
         monkeypatch.setattr(domain_provisioning.requests, "post", lambda *a, **k: FakeResponse(200, {"name": "firma.de"}))
+
+    def test_full_provisioning(self, inwx, handles):
         result = domain_provisioning.provision_paid_domain("firma.de", "prj_1")
         assert result["domain"] == "firma.de" and result["vercel"] == {"name": "firma.de"}
-        assert inwx.calls == ["account.login", "domain.check", "domain.create", "nameserver.createRecord", "nameserver.createRecord"]
+        assert inwx.calls == ["account.login", "domain.check", "domain.create", "nameserver.create", "nameserver.createRecord", "nameserver.createRecord"]
+
+    def test_requests_use_documented_formats(self, inwx, handles):
+        domain_provisioning.provision_paid_domain("firma.de", "prj_1")
+        create = inwx.params["domain.create"][0]
+        # Laut INWX-Doku: period vom Typ "period" (z. B. "1Y"), Kontakt-Handles vom Typ int.
+        assert create["period"] == "1Y"
+        assert {create[key] for key in ("registrant", "admin", "tech", "billing")} == {4711}
+        assert create["ns"] == domain_provisioning.INWX_NAMESERVERS
+        records = inwx.params["nameserver.createRecord"]
+        assert [(r["name"], r["type"], r["content"]) for r in records] == [("", "A", "76.76.21.21"), ("www", "CNAME", "cname.vercel-dns.com")]
+
+    def test_existing_zone_is_not_an_error(self, inwx, handles):
+        inwx.errors["nameserver.create"] = domain_provisioning.INWX_OBJECT_EXISTS
+        assert domain_provisioning.provision_paid_domain("firma.de", "prj_1")["domain"] == "firma.de"
+        inwx.errors["nameserver.create"] = 2005
+        with pytest.raises(domain_provisioning.ProvisioningError, match="2005"):
+            domain_provisioning.provision_paid_domain("firma.de", "prj_1")
+
+    def test_non_numeric_handle_is_rejected_before_purchase(self, inwx, handles, monkeypatch):
+        monkeypatch.setenv("INWX_ADMIN_HANDLE", "h1")
+        with pytest.raises(domain_provisioning.ProvisioningError, match="numeric"):
+            domain_provisioning.provision_paid_domain("firma.de", "prj_1")
+        assert "domain.create" not in inwx.calls
 
     def test_unavailable_domain_is_not_bought(self, inwx):
         inwx.replies["domain.check"] = {"domain": [{"domain": "firma.de", "avail": 0, "status": "taken"}]}

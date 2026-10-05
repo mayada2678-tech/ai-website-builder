@@ -17,10 +17,17 @@ INWX_ENDPOINTS = {
     "ote": "https://api.ote.domrobot.com/jsonrpc/",
     "live": "https://api.domrobot.com/jsonrpc/",
 }
+# Standard-Nameserver von INWX; nur dort lassen sich die DNS-Einträge per API anlegen.
+INWX_NAMESERVERS = ["ns.inwx.de", "ns2.inwx.de", "ns3.inwx.eu"]
+INWX_OBJECT_EXISTS = 2302
 
 
 class ProvisioningError(RuntimeError):
     """Raised when a paid domain cannot be provisioned safely."""
+
+    def __init__(self, message: str, code: int | None = None) -> None:
+        super().__init__(message)
+        self.code = code
 
 
 def normalize_domain(domain: str) -> str:
@@ -67,7 +74,7 @@ class InwxClient:
         code = int(payload.get("code", 0))
         if code != 1000:
             message = str(payload.get("msg", "Unknown INWX error"))
-            raise ProvisioningError(f"INWX {method} failed ({code}): {message}")
+            raise ProvisioningError(f"INWX {method} failed ({code}): {message}", code)
         result = payload.get("resData")
         return result if isinstance(result, dict) else {}
 
@@ -102,7 +109,7 @@ class InwxClient:
         normalized = normalize_domain(domain)
         if self.environment == "live" and os.environ.get("INWX_LIVE_PURCHASE", "").lower() != "true":
             raise ProvisioningError("Live domain purchases are disabled by INWX_LIVE_PURCHASE.")
-        handles = {
+        raw_handles = {
             key: os.environ.get(environment_key, "").strip()
             for key, environment_key in {
                 "registrant": "INWX_REGISTRANT_HANDLE",
@@ -111,12 +118,28 @@ class InwxClient:
                 "billing": "INWX_BILLING_HANDLE",
             }.items()
         }
-        if not all(handles.values()):
+        if not all(raw_handles.values()):
             raise ProvisioningError("All INWX contact handles must be configured before registration.")
+        # INWX erwartet Kontakt-IDs als Ganzzahl und die Laufzeit im Format "1Y".
+        try:
+            handles = {key: int(value) for key, value in raw_handles.items()}
+        except ValueError as error:
+            raise ProvisioningError("INWX contact handles must be numeric contact IDs.") from error
         return self._request(
             "domain.create",
-            {"domain": normalized, "period": 1, **handles},
+            {"domain": normalized, "period": "1Y", "ns": INWX_NAMESERVERS, **handles},
         )
+
+    def ensure_zone(self, domain: str) -> None:
+        """Legt die DNS-Zone bei INWX an; eine bereits vorhandene Zone ist kein Fehler."""
+        try:
+            self._request(
+                "nameserver.create",
+                {"domain": normalize_domain(domain), "type": "MASTER", "ns": INWX_NAMESERVERS},
+            )
+        except ProvisioningError as error:
+            if error.code != INWX_OBJECT_EXISTS:
+                raise
 
     def create_record(self, domain: str, name: str, record_type: str, content: str) -> None:
         self._request(
@@ -167,7 +190,9 @@ def provision_paid_domain(domain: str, project_id: str) -> dict[str, Any]:
     vercel_result = add_domain_to_vercel(normalized, project_id)
     apex_ip = os.environ.get("VERCEL_APEX_IP", "76.76.21.21").strip()
     cname_target = os.environ.get("VERCEL_CNAME_TARGET", "cname.vercel-dns.com").strip()
-    registrar.create_record(normalized, "@", "A", apex_ip)
+    registrar.ensure_zone(normalized)
+    # Leerer Name steht bei INWX für die Hauptdomain selbst.
+    registrar.create_record(normalized, "", "A", apex_ip)
     registrar.create_record(normalized, "www", "CNAME", cname_target)
     return {
         "domain": normalized,

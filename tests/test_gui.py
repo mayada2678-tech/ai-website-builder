@@ -389,3 +389,25 @@ class TestMoreFlows:
         app.text_input(key="custom_domain").input("firma.de").run()
         app.button(key="check_custom_domain_with_mcp").click().run()
         assert not app.exception and any("unavailable" in error.value for error in app.error)
+
+
+class TestCheckoutReturnInApp:
+    def test_premium_customer_gets_second_domain_order_confirmed(self, user_id, monkeypatch):
+        from conftest import SIMPLE_HTML, FakeResponse
+
+        logic.activate_premium(user_id)
+        website_id = logic.save_website(user_id, "zweite.de", SIMPLE_HTML, "zweite.de", "site")
+        configure(monkeypatch, STRIPE_SECRET_KEY="sk_test")
+        metadata = {"domain": "zweite.de", "vercel_project_id": "prj_2", "project_name": "zweite-x1", "website_id": str(website_id), "provisioning_status": "complete", "provisioned_domain": "zweite.de"}
+        monkeypatch.setattr(logic.requests, "get", lambda *a, **k: FakeResponse(200, {"payment_status": "paid", "client_reference_id": str(user_id), "metadata": metadata}))
+        app = AppTest.from_file(str(PROJECT_ROOT / "app.py"), default_timeout=120)
+        app.secrets["openai_api_key"] = "x"
+        app.secrets["vercel_token"] = "y"
+        app.query_params["checkout_session_id"] = "cs_2"
+        app.session_state["user_id"] = user_id
+        app.session_state["user_email"] = "kunde@example.com"
+        app.run()
+        assert not app.exception
+        assert app.session_state["project_name"] == "zweite-x1"
+        assert "Willkommen" in app.session_state["generated_html"]
+        assert app.session_state["live_url"] == "https://zweite.de"

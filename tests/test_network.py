@@ -294,3 +294,36 @@ def test_stripe_error_reason_is_shown(monkeypatch, stripe_configured):
     monkeypatch.setattr(logic.requests, "post", lambda *a, **k: FakeResponse(400, {"error": {"message": "No such price: 'price_x'"}}))
     with pytest.raises(ValueError, match="No such price"):
         logic.create_stripe_checkout_session(1, "kunde@example.com")
+
+
+class TestCheckoutReturn:
+    """Nach der Zahlung öffnet Stripe die App in einer neuen Sitzung."""
+
+    def test_checkout_records_project_and_draft(self, monkeypatch, stripe_configured):
+        sent = {}
+        monkeypatch.setattr(logic.requests, "post", lambda url, auth, data, timeout: sent.update(data) or FakeResponse(200, {"url": "https://checkout"}))
+        logic.create_stripe_checkout_session(1, "a@b.de", "firma.de", "prj_1", project_name="firma-ab12", website_id=7)
+        assert sent["metadata[project_name]"] == "firma-ab12" and sent["metadata[website_id]"] == "7"
+        assert sent["metadata[vercel_project_id]"] == "prj_1"
+
+    def test_draft_and_project_are_restored(self, monkeypatch, stripe_configured, user_id, session):
+        website_id = logic.save_website(user_id, "firma.de", SIMPLE_HTML, "firma.de", "22222222-2222-4222-8222-222222222222")
+        assert isinstance(website_id, int)
+        session.update(generated_html="", project_name="ai-website-builder", vercel_project_id="")
+        st.query_params.update(checkout_session_id="cs_1")
+        metadata = {"domain": "firma.de", "vercel_project_id": "prj_1", "project_name": "firma-ab12", "website_id": str(website_id)}
+        monkeypatch.setattr(logic.requests, "get", lambda *a, **k: FakeResponse(200, {"payment_status": "paid", "client_reference_id": str(user_id), "metadata": metadata}))
+        assert logic.confirm_stripe_checkout(user_id)
+        assert session.generated_html == SIMPLE_HTML and session.pending_html == SIMPLE_HTML
+        assert session.project_name == "firma-ab12" and session.vercel_project_id == "prj_1"
+        assert session.analytics_site_id == "22222222-2222-4222-8222-222222222222"
+        assert session.paid_domain_checkout_session_id == "cs_1"
+
+    def test_foreign_draft_is_never_loaded(self, monkeypatch, stripe_configured, user_id, session):
+        logic.register_user("fremd@example.com", "sicheres-passwort")
+        stranger = logic.authenticate_user("fremd@example.com", "sicheres-passwort")[0]
+        foreign_id = logic.save_website(stranger, "x", "<html>fremd</html>", "", "site")
+        logic.restore_checkout_draft(user_id, {"website_id": str(foreign_id)})
+        assert session.generated_html == ""
+        logic.restore_checkout_draft(user_id, {"website_id": "kein-wert"})
+        assert session.generated_html == ""

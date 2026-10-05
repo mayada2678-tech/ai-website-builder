@@ -688,10 +688,10 @@ def authenticate_user(email: str, password: str) -> tuple[int, str] | None:
 
 def save_website(
     user_id: int, site_name: str, html: str, domain: str, analytics_site_id: str
-) -> None:
-    """Speichert einen Entwurf in der Historie des angemeldeten Nutzers."""
+) -> int:
+    """Speichert einen Entwurf in der Historie des angemeldeten Nutzers und liefert seine ID."""
     with sqlite3.connect(DATABASE_PATH) as connection:
-        connection.execute(
+        cursor = connection.execute(
             """
             INSERT INTO websites (
                 user_id, site_name, html_content, domain, analytics_site_id
@@ -705,6 +705,7 @@ def save_website(
                 analytics_site_id,
             ),
         )
+        return int(cursor.lastrowid)
 
 
 def get_websites(user_id: int) -> list[tuple[int, str, str]]:
@@ -856,8 +857,14 @@ def create_stripe_checkout_session(
     user_email: str,
     domain: str = "",
     vercel_project_id: str = "",
+    project_name: str = "",
+    website_id: int | None = None,
 ) -> str:
-    """Erstellt eine Stripe-Checkout-Sitzung für die Veröffentlichungsfreigabe."""
+    """Erstellt eine Stripe-Checkout-Sitzung für die Veröffentlichungsfreigabe.
+
+    Projektname und gespeicherter Entwurf werden vermerkt, damit die App nach der
+    Rückkehr von Stripe (neue Sitzung) genau dieses Projekt veröffentlichen kann.
+    """
     if not STRIPE_SECRET_KEY or not STRIPE_PRICE_ID or not STRIPE_SUCCESS_URL:
         raise ValueError("Stripe ist noch nicht eingerichtet.")
 
@@ -885,6 +892,10 @@ def create_stripe_checkout_session(
                 "subscription_data[metadata][vercel_project_id]": vercel_project_id,
             }
         )
+    if project_name:
+        checkout_data["metadata[project_name]"] = project_name
+    if website_id is not None:
+        checkout_data["metadata[website_id]"] = str(website_id)
     try:
         response = requests.post(
             "https://api.stripe.com/v1/checkout/sessions",
@@ -933,9 +944,31 @@ def confirm_stripe_checkout(user_id: int) -> bool:
     metadata = checkout.get("metadata") or {}
     if metadata.get("domain"):
         st.session_state.paid_domain_checkout_session_id = str(session_id)
+    restore_checkout_draft(user_id, metadata)
     activate_premium(user_id)
     st.query_params.clear()
     return True
+
+
+def restore_checkout_draft(user_id: int, metadata: dict) -> None:
+    """Lädt nach der Rückkehr von Stripe den vorher gespeicherten Entwurf samt Projekt."""
+    if metadata.get("project_name"):
+        st.session_state.project_name = safe_project_name(str(metadata["project_name"]))
+    if metadata.get("vercel_project_id"):
+        st.session_state.vercel_project_id = str(metadata["vercel_project_id"])
+    try:
+        website_id = int(str(metadata.get("website_id", "")))
+    except ValueError:
+        return
+    saved = load_website(user_id, website_id)
+    if saved is None:
+        return
+    _site_name, html, _domain, analytics_site_id = saved
+    st.session_state.pending_html = html
+    st.session_state.generated_html = html
+    st.session_state.site_pages = {"index.html": html}
+    if analytics_site_id:
+        st.session_state.analytics_site_id = analytics_site_id
 
 
 def wait_for_domain_provisioning(session_id: str, timeout_seconds: int = 45) -> dict:
