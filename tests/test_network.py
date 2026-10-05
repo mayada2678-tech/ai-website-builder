@@ -349,3 +349,70 @@ class TestDomainPurchaseForPremium:
     def test_one_time_purchase_needs_domain_and_project(self, stripe_configured):
         with pytest.raises(ValueError, match="Domain oder Vercel-Projekt"):
             logic.create_stripe_checkout_session(1, "a@b.de", one_time_domain=True)
+
+
+class TestOwnedDomains:
+    def stripe_sessions(self, monkeypatch, sessions):
+        monkeypatch.setattr(logic, "STRIPE_SECRET_KEY", "sk_test")
+        monkeypatch.setattr(logic.requests, "get", lambda *a, **k: FakeResponse(200, {"data": sessions}))
+
+    def session(self, session_id, user, domain, paid=True, provisioning="", error="", created=1, project="firma-ab12"):
+        return {"id": session_id, "client_reference_id": str(user), "payment_status": "paid" if paid else "unpaid", "created": created,
+                "metadata": {"domain": domain, "project_name": project, "vercel_project_id": "prj_1", "provisioning_status": provisioning, "provisioning_error": error}}
+
+    def test_sync_keeps_only_own_paid_domain_orders(self, monkeypatch, user_id):
+        self.stripe_sessions(monkeypatch, [
+            self.session("cs_1", user_id, "Firma.de", provisioning="complete"),
+            self.session("cs_2", user_id, "offen.de", paid=False),
+            self.session("cs_3", 999, "fremd.de", provisioning="complete"),
+            {"id": "cs_4", "client_reference_id": str(user_id), "payment_status": "paid", "metadata": {}},
+        ])
+        logic.sync_domain_orders(user_id)
+        assert [item["domain"] for item in logic.get_owned_domains(user_id)] == ["firma.de"]
+
+    def test_best_order_per_domain_and_status_updates(self, monkeypatch, user_id):
+        self.stripe_sessions(monkeypatch, [
+            self.session("cs_new", user_id, "firma.de", provisioning="failed", error="Billing failure", created=3),
+            self.session("cs_old", user_id, "firma.de", provisioning="complete", created=2, project="caf--alt-1"),
+            self.session("cs_wait", user_id, "zweite.de", created=1),
+        ])
+        logic.sync_domain_orders(user_id)
+        owned = {item["domain"]: item for item in logic.get_owned_domains(user_id)}
+        assert owned["firma.de"]["status"] == "complete" and owned["firma.de"]["project_name"] == "caf--alt-1"
+        assert owned["zweite.de"]["status"] == "paid"
+        self.stripe_sessions(monkeypatch, [self.session("cs_wait", user_id, "zweite.de", provisioning="complete", created=1)])
+        logic.sync_domain_orders(user_id)
+        assert {item["domain"]: item["status"] for item in logic.get_owned_domains(user_id)}["zweite.de"] == "complete"
+
+    def test_failed_order_shows_reason(self, monkeypatch, user_id):
+        self.stripe_sessions(monkeypatch, [self.session("cs_1", user_id, "firma.de", provisioning="failed", error="INWX domain.create failed (2104): Billing failure")])
+        logic.sync_domain_orders(user_id)
+        assert logic.get_owned_domains(user_id)[0]["detail"].endswith("Billing failure")
+
+    def test_stripe_outage_keeps_known_domains(self, monkeypatch, user_id):
+        self.stripe_sessions(monkeypatch, [self.session("cs_1", user_id, "firma.de", provisioning="complete")])
+        logic.sync_domain_orders(user_id)
+        monkeypatch.setattr(logic.requests, "get", network_error)
+        logic.sync_domain_orders(user_id)
+        assert logic.get_owned_domains(user_id)[0]["domain"] == "firma.de"
+
+    def test_publish_to_owned_domain_uses_its_project(self, monkeypatch, user_id, session):
+        self.stripe_sessions(monkeypatch, [self.session("cs_1", user_id, "firma.de", provisioning="complete", project="caf--morgenrot-a600b35a")])
+        logic.sync_domain_orders(user_id)
+        published = []
+        monkeypatch.setattr(logic, "publish_website", lambda: published.append(logic.st.session_state.project_name))
+        logic.publish_to_owned_domain(user_id, "firma.de")
+        assert published == ["caf--morgenrot-a600b35a"] and session.live_url == "https://firma.de"
+
+    def test_publish_requires_completed_setup(self, monkeypatch, user_id):
+        self.stripe_sessions(monkeypatch, [self.session("cs_1", user_id, "firma.de", provisioning="failed")])
+        logic.sync_domain_orders(user_id)
+        with pytest.raises(ValueError, match="noch nicht eingerichtet"):
+            logic.publish_to_owned_domain(user_id, "firma.de")
+        with pytest.raises(ValueError, match="noch nicht eingerichtet"):
+            logic.publish_to_owned_domain(user_id, "unbekannt.de")
+
+
+def test_existing_vercel_project_names_stay_unchanged():
+    assert logic.safe_project_name("caf--morgenrot-a600b35a") == "caf--morgenrot-a600b35a"
+    assert logic.safe_project_name("Café Morgenrot") == "cafe-morgenrot"

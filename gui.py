@@ -42,6 +42,7 @@ from logic import (
     get_project_name_from_url,
     get_support_requests,
     get_template_preview_copy,
+    get_owned_domains,
     get_user_status,
     get_websites,
     INDUSTRY_CONTENT_PRESETS,
@@ -58,6 +59,7 @@ from logic import (
     PRIVACY_CONTROLLER_ADDRESS,
     PRIVACY_CONTROLLER_NAME,
     publish_copy,
+    publish_to_owned_domain,
     publish_website,
     queue_html_update,
     register_user,
@@ -66,6 +68,7 @@ from logic import (
     require_complete_html,
     safe_project_name,
     set_primary_button_target,
+    sync_domain_orders,
     save_support_request,
     save_uploaded_image,
     save_website,
@@ -1494,6 +1497,69 @@ def render_mcp_content_tools_ui() -> None:
                 st.error(str(error))
 
 
+OWNED_DOMAIN_COPY = {
+    "de": ["Ihre Domains", "Aktiv", "Wird eingerichtet ...", "Einrichtung fehlgeschlagen", "Gewählten Entwurf auf {domain} veröffentlichen", "Der gewählte Entwurf ist jetzt online unter {domain}.", "Domain öffnen", "Status aktualisieren", "Laden oder erstellen Sie zuerst den Entwurf, der unter dieser Domain erscheinen soll.", "Bitte wenden Sie sich an den Support. Ihre Zahlung bleibt erhalten."],
+    "en": ["Your domains", "Active", "Being set up ...", "Setup failed", "Publish selected draft to {domain}", "The selected draft is now live at {domain}.", "Open domain", "Refresh status", "Load or create the draft that should appear on this domain first.", "Please contact support. Your payment is safe."],
+    "ar": ["نطاقاتك", "نشط", "جارٍ الإعداد...", "فشل الإعداد", "نشر المسودة المختارة على {domain}", "المسودة المختارة متاحة الآن على {domain}.", "فتح النطاق", "تحديث الحالة", "حمّل أو أنشئ أولاً المسودة التي يجب أن تظهر على هذا النطاق.", "يرجى التواصل مع الدعم. دفعتك محفوظة."],
+    "ku": ["دۆمەینەکانت", "چالاک", "ئامادە دەکرێت...", "ئامادەکردن سەرکەوتوو نەبوو", "بڵاوکردنەوەی ڕەشنووسی هەڵبژێردراو لەسەر {domain}", "ڕەشنووسی هەڵبژێردراو ئێستا لەسەر {domain} بەردەستە.", "کردنەوەی دۆمەین", "نوێکردنەوەی دۆخ", "سەرەتا ئەو ڕەشنووسە بار بکە یان دروست بکە کە دەبێت لەسەر ئەم دۆمەینە دەربکەوێت.", "تکایە پەیوەندی بە پشتگیرییەوە بکە. پارەدانەکەت پارێزراوە."],
+    "es": ["Sus dominios", "Activo", "Configurándose...", "La configuración falló", "Publicar el borrador seleccionado en {domain}", "El borrador seleccionado ya está en línea en {domain}.", "Abrir dominio", "Actualizar estado", "Cargue o cree primero el borrador que debe aparecer en este dominio.", "Contacte con soporte. Su pago está seguro."],
+    "it": ["I tuoi domini", "Attivo", "Configurazione in corso...", "Configurazione non riuscita", "Pubblica la bozza selezionata su {domain}", "La bozza selezionata è ora online su {domain}.", "Apri dominio", "Aggiorna stato", "Carica o crea prima la bozza da mostrare su questo dominio.", "Contatta l'assistenza. Il pagamento è al sicuro."],
+    "hi": ["आपके डोमेन", "सक्रिय", "सेटअप हो रहा है...", "सेटअप विफल", "चुना गया प्रारूप {domain} पर प्रकाशित करें", "चुना गया प्रारूप अब {domain} पर लाइव है।", "डोमेन खोलें", "स्थिति अपडेट करें", "पहले वह प्रारूप लोड करें या बनाएं जो इस डोमेन पर दिखना चाहिए।", "कृपया सहायता से संपर्क करें। आपका भुगतान सुरक्षित है।"],
+}
+
+
+def render_owned_domains(language: str) -> None:
+    """Zeigt gekaufte Domains und veröffentlicht den gewählten Entwurf per Klick darauf."""
+    copy = OWNED_DOMAIN_COPY.get(language, OWNED_DOMAIN_COPY["en"])
+    user_id = int(st.session_state.user_id)
+    refresh = st.session_state.pop("refresh_domain_orders", False)
+    if refresh or not st.session_state.get("domain_orders_synced"):
+        sync_domain_orders(user_id)
+        st.session_state.domain_orders_synced = True
+    owned_domains = get_owned_domains(user_id)
+    if not owned_domains:
+        return
+    st.subheader(copy[0], anchor=False)
+    for order in owned_domains:
+        domain = order["domain"]
+        with st.container(border=True):
+            name_column, status_column = st.columns((3, 2), vertical_alignment="center")
+            name_column.markdown(f"**{domain}**")
+            if order["status"] == "complete":
+                status_column.markdown(f":green-badge[:material/check_circle: {copy[1]}]")
+            elif order["status"] == "paid":
+                status_column.markdown(f":orange-badge[:material/progress_activity: {copy[2]}]")
+            else:
+                status_column.markdown(f":red-badge[:material/error: {copy[3]}]")
+                st.caption(f"{copy[9]} {order['detail']}".strip())
+                continue
+            if order["status"] != "complete":
+                continue
+            if not st.session_state.generated_html:
+                st.caption(copy[8])
+            publish_column, open_column = st.columns(2)
+            if publish_column.button(
+                copy[4].format(domain=domain),
+                icon=":material/rocket_launch:",
+                type="primary",
+                disabled=not st.session_state.generated_html,
+                key=f"publish_to_domain_{domain}",
+                width="stretch",
+            ):
+                with st.spinner(copy[4].format(domain=domain)):
+                    try:
+                        publish_to_owned_domain(user_id, domain)
+                        show_after_rerun(copy[5].format(domain=domain))
+                        st.rerun()
+                    except ValueError as error:
+                        st.error(str(error))
+            open_column.link_button(copy[6], f"https://{domain}", icon=":material/open_in_new:", width="stretch")
+    if st.button(copy[7], icon=":material/refresh:", key="refresh_domain_orders_button"):
+        st.session_state.refresh_domain_orders = True
+        st.rerun()
+    st.divider()
+
+
 def render_domain_and_deployment_ui() -> None:
     """Rendert die Premium-geschützte Konfiguration für die Vercel-Veröffentlichung."""
     labels = publish_copy()
@@ -1611,6 +1677,8 @@ def render_domain_and_deployment_ui() -> None:
                     status.update(label=provisioning_copy[4], state="error")
                 else:
                     status.update(label=provisioning_copy[3], state="running")
+
+    render_owned_domains(language)
 
     if not st.session_state.generated_html:
         st.info(labels["need_site"])

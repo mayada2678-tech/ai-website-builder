@@ -333,6 +333,7 @@ class TestMoreFlows:
             connection.execute("UPDATE users SET created_at = '2000-01-01T00:00:00+00:00'")
         configure(monkeypatch, STRIPE_SECRET_KEY="sk", STRIPE_PRICE_ID="price", STRIPE_SUCCESS_URL="https://app.example/")
         monkeypatch.setattr(logic.requests, "post", lambda *a, **k: FakeResponse(200, {"url": "https://checkout.stripe.com/x"}))
+        monkeypatch.setattr(logic.requests, "get", lambda *a, **k: FakeResponse(200, {"data": []}))
         app = make_app(user_id)
         app.button(key="open_stripe_checkout").click().run()
         assert not app.exception
@@ -491,3 +492,21 @@ def test_no_second_deployment_after_domain_purchase(user_id, monkeypatch):
     assert not app.exception and not app.error
     assert app.session_state["publish_after_checkout"] is False
     assert app.session_state["project_name"] == "firma-x1"
+
+
+def test_owned_domain_publish_button(user_id, monkeypatch):
+    from conftest import FakeResponse
+
+    configure(monkeypatch, STRIPE_SECRET_KEY="sk_test")
+    sessions = [{"id": "cs_1", "client_reference_id": str(user_id), "payment_status": "paid", "created": 1,
+                 "metadata": {"domain": "firma.de", "project_name": "firma-ab12", "vercel_project_id": "prj_1", "provisioning_status": "complete"}}]
+    monkeypatch.setattr(logic.requests, "get", lambda *a, **k: FakeResponse(200, {"data": sessions}))
+    published = []
+    monkeypatch.setattr(logic, "publish_website", lambda: published.append(logic.st.session_state.project_name))
+    app = create_draft(make_app(user_id))
+    assert_no_errors(app)
+    button = app.button(key="publish_to_domain_firma.de")
+    assert "firma.de" in button.label and not button.disabled
+    button.click().run()
+    assert_no_errors(app)
+    assert published == ["firma-ab12"] and app.session_state["live_url"] == "https://firma.de"

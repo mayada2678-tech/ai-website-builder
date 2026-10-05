@@ -623,6 +623,21 @@ def initialize_database() -> None:
             connection.execute("ALTER TABLE websites ADD COLUMN site_files TEXT")
         connection.execute(
             """
+            CREATE TABLE IF NOT EXISTS domain_orders (
+                checkout_session_id TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                domain TEXT NOT NULL,
+                project_name TEXT NOT NULL DEFAULT '',
+                vercel_project_id TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL,
+                detail TEXT NOT NULL DEFAULT '',
+                created_at INTEGER NOT NULL,
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            )
+            """
+        )
+        connection.execute(
+            """
             CREATE TABLE IF NOT EXISTS support_requests (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
@@ -1038,7 +1053,8 @@ def confirm_stripe_checkout(user_id: int) -> bool:
 def restore_checkout_draft(user_id: int, metadata: dict) -> None:
     """Lädt nach der Rückkehr von Stripe den vorher gespeicherten Entwurf samt Projekt."""
     if metadata.get("project_name"):
-        st.session_state.project_name = safe_project_name(str(metadata["project_name"]))
+        # Exakt der Name des bereits angelegten Vercel-Projekts; nicht erneut umschreiben.
+        st.session_state.project_name = str(metadata["project_name"]).strip()
     if metadata.get("vercel_project_id"):
         st.session_state.vercel_project_id = str(metadata["vercel_project_id"])
     try:
@@ -1046,6 +1062,102 @@ def restore_checkout_draft(user_id: int, metadata: dict) -> None:
     except ValueError:
         return
     apply_saved_website(user_id, website_id)
+
+
+def domain_order_status(checkout: dict) -> tuple[str, str]:
+    """Leitet aus einer bezahlten Stripe-Bestellung den Einrichtungsstatus der Domain ab."""
+    metadata = checkout.get("metadata") or {}
+    provisioning = str(metadata.get("provisioning_status", ""))
+    if provisioning == "complete":
+        return "complete", ""
+    if provisioning == "failed":
+        return "failed", str(metadata.get("provisioning_error", ""))[:300]
+    return "paid", ""
+
+
+def sync_domain_orders(user_id: int) -> None:
+    """Übernimmt bezahlte Domain-Bestellungen des Nutzers aus Stripe in die Datenbank."""
+    if not STRIPE_SECRET_KEY:
+        return
+    try:
+        response = requests.get(
+            "https://api.stripe.com/v1/checkout/sessions",
+            auth=(STRIPE_SECRET_KEY, ""),
+            params={"limit": 100},
+            timeout=30,
+        )
+    except requests.RequestException:
+        return
+    if response.status_code != 200:
+        return
+    with sqlite3.connect(DATABASE_PATH) as connection:
+        for checkout in response.json().get("data", []):
+            metadata = checkout.get("metadata") or {}
+            if (
+                checkout.get("client_reference_id") != str(user_id)
+                or checkout.get("payment_status") != "paid"
+                or not metadata.get("domain")
+            ):
+                continue
+            status, detail = domain_order_status(checkout)
+            connection.execute(
+                """
+                INSERT INTO domain_orders (
+                    checkout_session_id, user_id, domain, project_name,
+                    vercel_project_id, status, detail, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(checkout_session_id) DO UPDATE SET
+                    status = excluded.status, detail = excluded.detail
+                """,
+                (
+                    str(checkout.get("id", "")),
+                    user_id,
+                    str(metadata["domain"]).lower(),
+                    # Exakt der Name des Vercel-Projekts; nicht erneut umschreiben.
+                    str(metadata.get("project_name", "")).strip(),
+                    str(metadata.get("vercel_project_id", "")),
+                    status,
+                    detail,
+                    int(checkout.get("created", 0)),
+                ),
+            )
+
+
+def get_owned_domains(user_id: int) -> list[dict[str, str]]:
+    """Liefert je Domain die maßgebliche Bestellung: eingerichtet vor laufend vor fehlgeschlagen."""
+    with sqlite3.connect(DATABASE_PATH) as connection:
+        rows = connection.execute(
+            """
+            SELECT domain, project_name, vercel_project_id, status, detail, created_at
+            FROM domain_orders WHERE user_id = ? ORDER BY created_at DESC
+            """,
+            (user_id,),
+        ).fetchall()
+    priority = {"complete": 0, "paid": 1, "failed": 2}
+    owned: dict[str, dict[str, str]] = {}
+    for domain, project_name, project_id, status, detail, _created in rows:
+        current = owned.get(domain)
+        if current is None or priority.get(status, 3) < priority.get(current["status"], 3):
+            owned[domain] = {
+                "domain": domain,
+                "project_name": project_name,
+                "vercel_project_id": project_id,
+                "status": status,
+                "detail": detail,
+            }
+    return list(owned.values())
+
+
+def publish_to_owned_domain(user_id: int, domain: str) -> None:
+    """Veröffentlicht den aktuellen Entwurf im Vercel-Projekt, mit dem die Domain verbunden ist."""
+    order = next((item for item in get_owned_domains(user_id) if item["domain"] == domain), None)
+    if order is None or order["status"] != "complete":
+        raise ValueError("Diese Domain ist noch nicht eingerichtet.")
+    if not order["project_name"]:
+        raise ValueError("Für diese Domain ist kein Vercel-Projekt hinterlegt.")
+    st.session_state.project_name = order["project_name"]
+    publish_website()
+    st.session_state.live_url = f"https://{domain}"
 
 
 def wait_for_domain_provisioning(session_id: str, timeout_seconds: int = 45) -> dict:
@@ -1705,7 +1817,13 @@ def build_website_zip() -> bytes:
 
 
 def safe_project_name(name: str) -> str:
-    """Erstellt einen gültigen Vercel-Projektnamen (Umlaute und Akzente lesbar umgeschrieben)."""
+    """Erstellt einen gültigen Vercel-Projektnamen (Umlaute und Akzente lesbar umgeschrieben).
+
+    Bereits gültige Namen bleiben unverändert, damit bestehende Projekte (und die mit
+    ihnen verbundenen Domains) beim erneuten Veröffentlichen getroffen werden.
+    """
+    if re.fullmatch(r"[a-z0-9][a-z0-9-]{0,99}", name) and "---" not in name and not name.endswith("-"):
+        return name
     name = name.lower()
     for umlaut, replacement in {"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"}.items():
         name = name.replace(umlaut, replacement)
